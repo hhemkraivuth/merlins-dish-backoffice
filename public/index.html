@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merlin's Dish — Back of House</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <span class="logo-mark">MD</span>
+        <div>
+          <div class="title">Back of House</div>
+          <div class="subtitle">Merlin's Dish — ops &amp; costing</div>
+        </div>
+      </div>
+    </header>
+
+    <nav class="tab-bar" id="tabBar">
+      <button class="tab-button active" data-tab="orders">Daily Orders</button>
+      <button class="tab-button" data-tab="receipts">Weekly Receipts</button>
+      <button class="tab-button" data-tab="batchcook">Batch Cook</button>
+      <button class="tab-button" data-tab="stock">Stock Counts</button>
+    </nav>
+
+    <main class="main" id="main">
+      <!-- panels injected by app.js -->
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
