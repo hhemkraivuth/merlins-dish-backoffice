@@ -1,11 +1,23 @@
 const { google } = require('googleapis');
 
-// Same service account pattern as merlins-dish-bot: sheet-logger@merlins-dish-bot.iam.gserviceaccount.com
-// Credentials passed via env var (Railway shared env, same project as the LINE bot)
+// Same service account as merlins-dish-bot — but that bot stores credentials as TWO
+// separate variables (GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY), not one
+// combined JSON blob. Matching that shape here so both apps can share the same
+// underlying Railway variables via Shared Variable, rather than needing a
+// differently-formatted duplicate.
 function getAuth() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  // Private keys stored as env vars usually have their real newlines escaped as
+  // the two characters "\n" — this converts them back to actual line breaks,
+  // which the key parser requires. (Matches how the LINE bot must handle this too.)
+  const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+
+  if (!email || !privateKey) {
+    throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_PRIVATE_KEY environment variables');
+  }
+
   return new google.auth.GoogleAuth({
-    credentials,
+    credentials: { client_email: email, private_key: privateKey },
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
 }
