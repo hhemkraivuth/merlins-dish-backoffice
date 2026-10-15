@@ -182,3 +182,183 @@ test('webhook: not configured -> 503', async () => {
     assert.strictEqual(r.status, 503);
   });
 });
+
+test('webhook: a failure while processing a note is reported in the group, not swallowed', async () => {
+  const replies = [];
+  const note = makeNoteDeps();
+  note.loadPriceBook = async () => { throw new Error('The caller does not have permission'); };
+  const deps = { secret: SECRET, token: 'tok', groupId: GROUP, reply: async (rt, t) => replies.push(t), push: async () => {}, note, receipt: {} };
+  await withServer(deps, async (url) => {
+    const p = signed(msg('g1', GROUP, NOTE));
+    await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-line-signature': p.sig }, body: p.body });
+    await wait(100);
+    assert.strictEqual(replies.length, 1);
+    assert.match(replies[0], /Nothing was changed/);
+    assert.match(replies[0], /does not have permission/);
+    assert.match(replies[0], /service account/);
+  });
+});
+
+// ---- stock from LINE ----
+const { processStock } = require('../lib/stockService');
+function stockDeps() {
+  const items = [
+    { itemName: 'coke zero zero', unit: 'can', currentCount: 5, lastUpdated: '2026-10-15T15:26:02.325Z', lastUpdatedBy: 'Manual' },
+    { itemName: 'Packaging Cup (12oz)', unit: 'Set', currentCount: 40, lastUpdated: '2026-10-10T03:00:00.000Z', lastUpdatedBy: 'Auto' },
+    { itemName: 'Packaging Cup (16oz)', unit: 'Set', currentCount: 12, lastUpdated: '2026-10-10T03:00:00.000Z', lastUpdatedBy: 'Auto' },
+  ];
+  const calls = [];
+  return { calls, getAll: async () => items, setCount: async (...a) => calls.push(a) };
+}
+
+test('stock: list shows counts with Bangkok date and who updated', async () => {
+  const [out] = await processStock('stock', stockDeps());
+  assert.match(out, /coke zero zero: 5 can \(updated 15\/10\/2026 22:26, Manual\)/);
+  assert.match(out, /Packaging Cup \(12oz\): 40 Set/);
+});
+
+test('stock: full name sets the count; a short name is NOT applied, it is offered', async () => {
+  const d = stockDeps();
+  const [out] = await processStock('stock coke zero zero 3', d);
+  assert.deepStrictEqual(d.calls[0], ['coke zero zero', 3, 'can', 'LINE']);
+  assert.match(out, /coke zero zero: 5 → 3 can/);
+  const [short] = await processStock('stock coke 3', d);
+  assert.strictEqual(d.calls.length, 1);
+  assert.match(short, /Nothing changed/);
+  assert.match(short, /Did you mean/);
+  assert.match(short, /coke zero zero/);
+});
+
+test('stock: unknown names change nothing and say so', async () => {
+  const d = stockDeps();
+  const [unk] = await processStock('stock sprite 4', d);
+  assert.match(unk, /Nothing changed/);
+  assert.match(unk, /isn't a tracked item/);
+  const [bad] = await processStock('stock sprite', d);
+  assert.match(bad, /couldn't read that/);
+  assert.strictEqual(d.calls.length, 0);
+});
+
+test('stock: add a new item; ordinary words starting with "stock" are not commands', async () => {
+  const d = stockDeps();
+  const [out] = await processStock('stock add Bag small, pack, 30', d);
+  assert.deepStrictEqual(d.calls[0], ['Bag small', 30, 'pack', 'LINE']);
+  assert.match(out, /Added Bag small: 30 pack/);
+  assert.strictEqual(await processStock('stocks are low today', d), null);
+  assert.strictEqual(await processStock('7/10\nBolo', d), null);
+});
+
+// ---- web receipts page stores grams, not kilograms ----
+test('web receipts route: a 2kg line is stored per gram', async () => {
+  const path = require.resolve('../routes/receipts');
+  const visionPath = require.resolve('../lib/vision');
+  const sheetsPath = require.resolve('../lib/sheets');
+  const saved = {};
+  const rows = [];
+  for (const p of [path, visionPath, sheetsPath]) saved[p] = require.cache[p];
+  delete require.cache[path];
+  require.cache[visionPath] = { id: visionPath, filename: visionPath, loaded: true, exports: { extractReceipt: async () => ({ shopping_date: '2026-10-13', shopped_at: 'Makro', line_items: [{ item_name: 'Pork - minced', purchase_price: 260, purchase_qty: 2, purchase_unit: 'kg' }, { item_name: 'Milk', purchase_price: 80, purchase_qty: 2, purchase_unit: 'l' }] }) } };
+  require.cache[sheetsPath] = { id: sheetsPath, filename: sheetsPath, loaded: true, exports: { appendRows: async (tab, r) => rows.push(...r) } };
+  try {
+    const { handleBatch } = require('../routes/receipts');
+    const res = { json: () => {}, status() { return this; } };
+    await handleBatch({ files: [{ buffer: Buffer.from('x'), mimetype: 'image/jpeg', originalname: 'r.jpg' }] }, res);
+    assert.strictEqual(rows[0][4], 0.13);   // 260 / 2000g
+    assert.strictEqual(rows[1][4], 0.04);   // 80 / 2000ml
+  } finally {
+    delete require.cache[path];
+    for (const p of [visionPath, sheetsPath]) { if (saved[p]) require.cache[p] = saved[p]; else delete require.cache[p]; }
+  }
+});
+
+// ---- stew pack-out, packaging stock, editable web batch cook, never go quiet ----
+const { parseNote } = require('../lib/noteParser');
+const { costBatch } = require('../lib/costBatch');
+const { runBatch } = require('../lib/cookService');
+const { createCook } = require('../routes/cook');
+
+test('note parser reads stew pack-out lines', () => {
+  const { batches } = parseNote('7/10\nrws\nregular 12 @ 380g\nlarge 8 x 525\ncooked 9000', defaultShorthand(), TODAY);
+  assert.deepStrictEqual(batches[0].sizes, [{ name: 'Regular', count: 12, weight: 380 }, { name: 'Large', count: 8, weight: 525 }]);
+  assert.strictEqual(batches[0].cookedWeight, 9000);
+});
+
+const stewRecipe = {
+  dish: 'Red Wine Beef Stew', sellingPrice: null, usualYield: 20,
+  ingredients: [{ name: 'Beef', qty: 2000, unit: 'g', sheetCost: 0.3 }],
+  packaging: [{ name: 'Cup', qty: 20, unit: 'pc', sheetCost: 2 }],
+  utility: [],
+};
+const emptyBook = { lookup: () => null };
+
+test('costBatch: stew cost per gram and per size; packaging override wins', () => {
+  const batch = { date: TODAY, yield: null, lines: [], sizes: [{ name: 'Regular', count: 10, weight: 400 }, { name: 'Large', count: 5, weight: 600 }], cookedWeight: null, packagingQty: { cup: 15 } };
+  const r = costBatch({ batch, recipe: stewRecipe, shorthand: defaultShorthand(), priceBook: emptyBook });
+  assert.strictEqual(r.yield, 15);
+  assert.strictEqual(r.total, 630); // 2000x0.3 + 15x2
+  assert.strictEqual(r.cookedWeight, 7000);
+  assert.strictEqual(r.costPerGram, 0.09);
+  assert.deepStrictEqual(r.sizes.map((z) => z.costPerPortion), [36, 54]);
+});
+
+test('runBatch: logs once, deducts packaging stock and reports untracked items', async () => {
+  const deps = makeNoteDeps();
+  const used = [];
+  deps.deductStock = async (n, q) => { used.push([n, q]); return n === 'Packaging Cup (12oz)' ? { deducted: true, newCount: 10, wentNegative: false } : { deducted: false }; };
+  const out = await processNote(NOTE, deps);
+  assert.ok(used.length > 0);
+  assert.match(out[0], /Logged to the Cook Log/);
+  assert.match(out[0], /Not taken off Stock Counts|Stock used/);
+});
+
+function cookDeps() {
+  const base = makeNoteDeps();
+  const logged = [];
+  return { logged, ...base, loadCatalogue: async () => [], deductStock: async () => ({ deducted: false }), writeBatch: async (r, k, src) => { logged.push({ r, k, src }); } };
+}
+function fakeRes() { return { code: 200, body: null, status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; } }; }
+
+test('web cook: prefill from recipe, edit only what changed, logged as Web', async () => {
+  const h = createCook(() => cookDeps());
+  const res = fakeRes();
+  await h.recipe({ query: { dish: 'Polished Pork Bolognese', date: '07/10/2026' } }, res);
+  assert.strictEqual(res.code, 200);
+  assert.ok(res.body.ingredients.length > 3);
+
+  const d = cookDeps();
+  const h2 = createCook(() => d);
+  const sub = fakeRes();
+  await h2.submit({ body: { dish: 'Polished Pork Bolognese', date: '07/10/2026', yield: 21, lines: [{ name: res.body.ingredients[0].name, qty: 1000 }, { name: 'Onion', qty: 446 }], packaging: [] } }, sub);
+  assert.strictEqual(sub.code, 200);
+  assert.strictEqual(sub.body.status, 'logged');
+  assert.strictEqual(d.logged[0].src, 'Web');
+  assert.match(sub.body.text, /Logged to the Cook Log/);
+});
+
+test('web cook: bad input is refused with a reason, nothing logged', async () => {
+  const d = cookDeps();
+  const h = createCook(() => d);
+  let r = fakeRes();
+  await h.submit({ body: { dish: 'Nope' } }, r);
+  assert.strictEqual(r.code, 400);
+  r = fakeRes();
+  await h.submit({ body: { dish: 'Polished Pork Bolognese', date: '07/10/2026', yield: 21, lines: [{ name: 'Onion', qty: 'abc' }] } }, r);
+  assert.strictEqual(r.code, 400);
+  assert.match(r.body.error, /Nothing was logged/);
+  r = fakeRes();
+  await h.submit({ body: { dish: 'Polished Pork Bolognese', date: '07/10/2026', lines: [] } }, r);
+  assert.strictEqual(r.body.status, 'nolog');
+  assert.strictEqual(d.logged.length, 0);
+});
+
+test('webhook: unrecognised group text gets a reply instead of silence', async () => {
+  const replies = [];
+  const deps = { secret: SECRET, token: 'tok', groupId: GROUP, reply: async (rt, t) => replies.push(t), push: async () => {}, note: makeNoteDeps(), stock: stockDeps(), receipt: {} };
+  await withServer(deps, async (url) => {
+    const p = signed(msg('q1', GROUP, 'lunch at 12?'));
+    await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-line-signature': p.sig }, body: p.body });
+    await wait(100);
+    assert.strictEqual(replies.length, 1);
+    assert.match(replies[0], /didn't recognise/);
+  });
+});

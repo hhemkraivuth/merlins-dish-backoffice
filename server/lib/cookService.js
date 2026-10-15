@@ -18,9 +18,11 @@ const HELP = [
   '',
   'Ingredients you leave out stay at the recipe quantity. Send a receipt photo and I will log it to the Expense Log.',
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
+  '',
+  'Stock: send "stock" to list counts, or "stock coke zero zero 5" to set one (full item name).',
 ].join('\n');
 
-function formatBatchReply(r, status) {
+function formatBatchReply(r, status, extraLines = []) {
   const out = [];
   out.push(`${r.dish}, ${formatDMY(r.date)}${r.yield ? `, ${r.yield} serves` : ''}`);
   if (r.perPortion !== null) {
@@ -29,8 +31,10 @@ function formatBatchReply(r, status) {
     out.push(`Batch ${baht(r.total)}, per portion not calculated`);
   }
   out.push(`Ingredients ${baht(r.ingredientCost)}, packaging ${baht(r.packagingCost)}, utilities ${baht(r.utilityCost)}`);
+  if (r.sizes) for (const z of r.sizes) out.push(`${z.name} ${z.weight}g x ${z.count}: ${baht(z.costPerPortion)} per portion`);
   for (const n of r.notes) out.push(n);
   out.push(status);
+  for (const l of extraLines) out.push(l);
   if (r.flags.length) {
     out.push('');
     out.push('Check:');
@@ -38,6 +42,66 @@ function formatBatchReply(r, status) {
     if (r.flags.length > 8) out.push(`• plus ${r.flags.length - 8} more in the Cook Log`);
   }
   return out.join('\n');
+}
+
+const sizeKeyLines = (b) => (b.sizes || []).map((z) => ({ token: `size:${z.name}@${z.weight}`, qty: z.count }));
+
+// Packaging used by a batch comes off the Stock Counts. Nothing is silent: every outcome is reported.
+async function deductPackaging(result, deps) {
+  if (!deps.deductStock) return [];
+  const done = [];
+  const negative = [];
+  const untracked = [];
+  for (const l of result.lines.filter((x) => x.type === 'Packaging')) {
+    try {
+      const r = await deps.deductStock(l.name, l.qty);
+      if (!r.deducted) untracked.push(l.name);
+      else {
+        done.push(`${l.name} ${r.newCount + l.qty} to ${r.newCount}`);
+        if (r.wentNegative) negative.push(l.name);
+      }
+    } catch (err) {
+      untracked.push(`${l.name} (${err.message})`);
+    }
+  }
+  const out = [];
+  if (done.length) out.push(`Stock used: ${done.join(', ')}`);
+  if (negative.length) out.push(`Stock went negative, please recount: ${negative.join(', ')}`);
+  if (untracked.length) out.push(`Not taken off Stock Counts (not tracked there): ${untracked.join(', ')}`);
+  return out;
+}
+
+// Costs one parsed batch and logs it. Shared by the LINE note and the web form.
+// Returns { status: 'logged' | 'duplicate' | 'nolog' | 'error', text, result?, key? }
+async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LINE' } = {}) {
+  const extraFlags = [];
+  if (!batch.date) { batch.date = today || bangkokToday(); extraFlags.push('No date in the note, so I used today.'); }
+
+  let recipe;
+  try {
+    recipe = await deps.loadRecipe(batch.dishTab);
+  } catch (err) {
+    return { status: 'error', text: `Couldn't read the "${batch.dishTab}" tab from Merlin's numbers (${err.message}). Nothing was logged for it.` };
+  }
+  if (!recipe.ingredients.length) {
+    return { status: 'error', text: `The "${batch.dishTab}" tab has no ingredient lines I can read. Nothing was logged for it.` };
+  }
+
+  const result = costBatch({ batch, recipe, shorthand, priceBook });
+  result.flags.unshift(...extraFlags);
+
+  if (!result.yield) {
+    return { status: 'nolog', result, text: formatBatchReply(result, 'NOT logged. Add the number of servings yielded and send it again.') };
+  }
+
+  const key = deps.batchKey(batch.dishTab, batch.date, result.yield, [...batch.lines, ...sizeKeyLines(batch)]);
+  if (await deps.isLogged(key)) {
+    return { status: 'duplicate', result, key, text: `${result.dish}, ${formatDMY(result.date)}: this exact batch is already in the Cook Log. Nothing added.\nBatch ${baht(result.total)}, ${baht(result.perPortion)} per portion.` };
+  }
+
+  await deps.writeBatch(result, key, source);
+  const stockLines = await deductPackaging(result, deps);
+  return { status: 'logged', result, key, text: formatBatchReply(result, 'Logged to the Cook Log.', stockLines) };
 }
 
 // deps: { loadShorthand(), loadRecipe(tab), loadPriceBook(), isLogged(key), writeBatch(result, key), batchKey(...), today? }
@@ -57,37 +121,8 @@ async function processNote(text, deps) {
   const priceBook = await deps.loadPriceBook();
 
   for (const batch of batches) {
-    const extraFlags = [];
-    if (!batch.date) { batch.date = today; extraFlags.push('No date in the note, so I used today.'); }
-
-    let recipe;
-    try {
-      recipe = await deps.loadRecipe(batch.dishTab);
-    } catch (err) {
-      replies.push(`Couldn't read the "${batch.dishTab}" tab from Merlin's numbers (${err.message}). Nothing was logged for it.`);
-      continue;
-    }
-    if (!recipe.ingredients.length) {
-      replies.push(`The "${batch.dishTab}" tab has no ingredient lines I can read. Nothing was logged for it.`);
-      continue;
-    }
-
-    const result = costBatch({ batch, recipe, shorthand, priceBook });
-    result.flags.unshift(...extraFlags);
-
-    if (!result.yield) {
-      replies.push(formatBatchReply(result, 'NOT logged. Send the note again with a yield line.'));
-      continue;
-    }
-
-    const key = deps.batchKey(batch.dishTab, batch.date, result.yield, batch.lines);
-    if (await deps.isLogged(key)) {
-      replies.push(`${result.dish}, ${formatDMY(result.date)}: this exact note is already in the Cook Log. Nothing added.\nBatch ${baht(result.total)}, ${baht(result.perPortion)} per portion.`);
-      continue;
-    }
-
-    await deps.writeBatch(result, key);
-    replies.push(formatBatchReply(result, 'Logged to the Cook Log.'));
+    const out = await runBatch(batch, deps, shorthand, priceBook, { today, source: 'LINE' });
+    replies.push(out.text);
   }
 
   if (problems.length) replies.push(`Couldn't use these lines:\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
@@ -146,4 +181,4 @@ async function processReceipt({ buffer, mime }, messageDate, deps) {
   return out.join('\n');
 }
 
-module.exports = { processNote, processReceipt, formatBatchReply, HELP };
+module.exports = { processNote, processReceipt, runBatch, formatBatchReply, HELP };

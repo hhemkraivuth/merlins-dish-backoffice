@@ -8,6 +8,7 @@ const receiptsRoute = require('./routes/receipts');
 const batchCookRoute = require('./routes/batchCook');
 const stockCountsRoute = require('./routes/stockCounts');
 const lineRoute = require('./routes/line');
+const cookRoute = require('./routes/cook');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -29,6 +30,11 @@ app.get('/api/batch-cook/dishes', batchCookRoute.listDishes);
 app.get('/api/batch-cook/template/:dish', batchCookRoute.getTemplate);
 app.get('/api/batch-cook/latest-prices', batchCookRoute.getLatestPrices);
 app.post('/api/batch-cook/submit', batchCookRoute.submitBatch);
+
+// Editable Batch Cook (prefilled from the recipe, same costing as the LINE group)
+app.get('/api/cook/dishes', cookRoute.dishes);
+app.get('/api/cook/recipe', cookRoute.recipe);
+app.post('/api/cook/submit', cookRoute.submit);
 
 // Mode 4: Stock Counts
 app.get('/api/stock', stockCountsRoute.listStock);

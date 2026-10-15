@@ -52,4 +52,13 @@ function daysBetween(later, earlier) {
   return Math.round((later.getTime() - earlier.getTime()) / 86400000);
 }
 
-module.exports = { parseDate, formatDMY, bangkokToday, daysBetween, utc };
+// "2026-10-15T15:26:02.325Z" -> "15/10/2026 22:26" (Bangkok time). Anything unreadable is returned as given.
+function formatBangkokStamp(value) {
+  const d = new Date(value);
+  if (!value || Number.isNaN(d.getTime())) return String(value || '');
+  const b = new Date(d.getTime() + 7 * 3600 * 1000);
+  const p2 = (n) => String(n).padStart(2, '0');
+  return `${p2(b.getUTCDate())}/${p2(b.getUTCMonth() + 1)}/${b.getUTCFullYear()} ${p2(b.getUTCHours())}:${p2(b.getUTCMinutes())}`;
+}
+
+module.exports = { parseDate, formatDMY, bangkokToday, daysBetween, utc, formatBangkokStamp };

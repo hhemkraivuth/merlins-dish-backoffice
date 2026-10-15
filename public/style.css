@@ -134,3 +134,9 @@ body {
 
 .loading { font-size: 14px; color: var(--muted); padding: 12px 0; }
 .empty-state { font-size: 14px; color: var(--muted); padding: 16px; text-align: center; }
+
+/* Editable Batch Cook */
+.recipe-row.changed { background: #fff6e0; border-radius: 6px; }
+.recipe-row .qty { width: 80px; }
+.recipe-row { flex-wrap: wrap; gap: 6px; }
+.recipe-row .line-cost { margin-left: auto; font-weight: 600; }

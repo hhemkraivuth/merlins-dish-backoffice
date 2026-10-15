@@ -1,5 +1,6 @@
 const { extractReceipt } = require('../lib/vision');
 const { appendRows } = require('../lib/sheets');
+const { parsePurchaseUnit } = require('../lib/priceBook');
 
 // NEW, SEPARATE tab — never the live Price Log tab in the Merlin's numbers file.
 // Lily reviews this and manually copies into Price Log when ready.
@@ -25,7 +26,10 @@ async function handleBatch(req, res) {
 
         // Matches Price Log column shape: Shopping Date | Ingredient | Purchase Price | Purchase Unit | Cost per Recipe Unit | Shopped at | Remarks
         const sheetRows = extracted.line_items.map((item) => {
-          const costPerRecipeUnit = item.purchase_qty > 0 ? (item.purchase_price / item.purchase_qty).toFixed(4) : '';
+          // Cost per recipe unit is per gram (or ml, or piece). A "2kg" receipt line is converted to 2000g first.
+          const pu = parsePurchaseUnit(`${item.purchase_qty}${item.purchase_unit || ''}`);
+          const base = pu && pu.qty > 0 ? pu.qty : item.purchase_qty;
+          const costPerRecipeUnit = base > 0 ? Number((item.purchase_price / base).toFixed(5)) : '';
           return [
             extracted.shopping_date || '',
             item.item_name,

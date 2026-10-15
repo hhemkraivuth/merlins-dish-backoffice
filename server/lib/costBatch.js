@@ -34,7 +34,10 @@ function costBatch({ batch, recipe, shorthand, priceBook, usualYieldRatio = 0.75
   const flags = [];
   const notes = [];
   const date = batch.date;
-  const yieldN = batch.yield;
+  // Stews are packed in sizes (Regular / Large). Then the yield is the number of portions packed.
+  const sizedIn = Array.isArray(batch.sizes) ? batch.sizes.filter((x) => x.count > 0 && x.weight > 0) : [];
+  const sized = sizedIn.length > 0;
+  const yieldN = batch.yield || (sized ? sizedIn.reduce((a, x) => a + x.count, 0) : null);
 
   if (!yieldN || yieldN <= 0) flags.push('No yield given, so cost per portion is not calculated. Add a line like "yield 21".');
 
@@ -99,10 +102,20 @@ function costBatch({ batch, recipe, shorthand, priceBook, usualYieldRatio = 0.75
     if (qty <= 0) continue;
     priceLine('Utility', u.name, qty, u.unit, u.sheetCost, isReheat ? 'yield' : 'recipe');
   }
+  const pkgOverride = batch.packagingQty || {};
+  let keptTabCups = false;
   for (const p of recipe.packaging) {
-    if (p.qty <= 0) continue;
-    priceLine('Packaging', p.name, portions ?? p.qty, p.unit, p.sheetCost, 'yield');
+    const o = pkgOverride[normName(p.name)];
+    if (o === undefined && p.qty <= 0) continue;
+    let qty;
+    let src;
+    if (o !== undefined) { qty = o; src = 'edited'; }
+    else if (sized) { qty = p.qty; src = 'recipe'; keptTabCups = true; } // sized dishes keep the tab's cup counts
+    else { qty = portions ?? p.qty; src = 'yield'; }
+    if (qty <= 0) continue;
+    priceLine('Packaging', p.name, qty, p.unit, p.sheetCost, src);
   }
+  if (keptTabCups) flags.push(`Packaging for ${recipe.dish} is kept at the recipe tab's cup counts. Tell me which cups Regular and Large use, or edit them on the web page.`);
 
   const sum = (type) => lines.filter((l) => l.type === type).reduce((s, l) => s + l.lineCost, 0);
   const ingredientCost = sum('Ingredient');
@@ -119,11 +132,27 @@ function costBatch({ batch, recipe, shorthand, priceBook, usualYieldRatio = 0.75
     }
   }
 
-  if (portions && recipe.usualYield && portions < recipe.usualYield * usualYieldRatio) {
+  if (!sized && portions && recipe.usualYield && portions < recipe.usualYield * usualYieldRatio) {
     flags.push(`Low yield: ${portions} servings against the usual ${recipe.usualYield}. Margin risk.`);
   }
 
+  // Pack-out: cost per gram = batch cost / cooked weight, each size = its portion weight x cost per gram
+  let sizes = null;
+  let costPerGram = null;
+  let cookedWeight = null;
+  if (sized) {
+    const packed = sizedIn.reduce((a, x) => a + x.count * x.weight, 0);
+    cookedWeight = batch.cookedWeight > 0 ? batch.cookedWeight : packed;
+    if (!(batch.cookedWeight > 0)) notes.push(`Cooked weight taken as the packed total, ${packed}g`);
+    else if (batch.cookedWeight < packed) flags.push(`Cooked weight ${batch.cookedWeight}g is less than the ${packed}g packed. Check the weights.`);
+    costPerGram = total / cookedWeight;
+    sizes = sizedIn.map((x) => ({ name: x.name, weight: x.weight, count: x.count, costPerPortion: round2(x.weight * costPerGram) }));
+  }
+
   return {
+    sizes,
+    costPerGram: costPerGram === null ? null : Math.round(costPerGram * 100000) / 100000,
+    cookedWeight,
     dish: recipe.dish,
     date,
     yield: portions,

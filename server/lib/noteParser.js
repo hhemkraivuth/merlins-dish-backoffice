@@ -17,6 +17,9 @@ const { parseDate, bangkokToday } = require('./dates');
 const DATE_LINE = /^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/;
 const YIELD_A = /^(?:yield|yields|y|portions?|servings?|serves)\s*[:=]?\s*(\d+)\s*(?:portions?|servings?|serves)?$/i;
 const YIELD_B = /^(\d+)\s*(?:portions?|servings?|serves)$/i;
+// Stew pack-out: "regular 12 @ 380g", "large 8 @ 525g". Optional measured total: "cooked 7000g".
+const SIZE_LINE = /^(regular|reg|large|lg)\s+(\d+)\s*(?:@|x|at)\s*(\d+(?:[.,]\d+)?)\s*g?$/i;
+const COOKED_LINE = /^(?:cooked|cooked weight|weight)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(kg|g)?$/i;
 const ING_LINE = /^(.+?)\s*[:=]?\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?|p)?$/i;
 
 function dishKey(s) {
@@ -51,7 +54,7 @@ function parseNote(text, shorthand, today = bangkokToday()) {
       const rest = line.slice(firstSpace).trim();
       if (DATE_LINE.test(head) && shorthand.dishes.has(dishKey(rest))) {
         currentDate = parseDate(head, today);
-        current = { dishTab: shorthand.dishes.get(dishKey(rest)), dishWord: rest, date: currentDate, yield: null, lines: [] };
+        current = { dishTab: shorthand.dishes.get(dishKey(rest)), dishWord: rest, date: currentDate, yield: null, lines: [], sizes: [], cookedWeight: null };
         batches.push(current);
         continue;
       }
@@ -66,8 +69,23 @@ function parseNote(text, shorthand, today = bangkokToday()) {
     }
 
     if (shorthand.dishes.has(dishKey(line))) {
-      current = { dishTab: shorthand.dishes.get(dishKey(line)), dishWord: line, date: currentDate, yield: null, lines: [] };
+      current = { dishTab: shorthand.dishes.get(dishKey(line)), dishWord: line, date: currentDate, yield: null, lines: [], sizes: [], cookedWeight: null };
       batches.push(current);
+      continue;
+    }
+
+    const sz = line.match(SIZE_LINE);
+    if (sz) {
+      if (!current) { problems.push(`"${line}" has no dish above it`); continue; }
+      const name = /^l/i.test(sz[1]) ? 'Large' : 'Regular';
+      current.sizes.push({ name, count: Number(sz[2]), weight: Number(sz[3].replace(',', '.')) });
+      continue;
+    }
+
+    const cw = line.match(COOKED_LINE);
+    if (cw) {
+      if (!current) { problems.push(`"${line}" has no dish above it`); continue; }
+      current.cookedWeight = Number(cw[1].replace(',', '.')) * (String(cw[2] || '').toLowerCase() === 'kg' ? 1000 : 1);
       continue;
     }
 

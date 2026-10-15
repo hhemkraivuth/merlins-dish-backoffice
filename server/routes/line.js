@@ -3,9 +3,8 @@
 
 const { verifySignature, reply, push, getContent } = require('../lib/lineApi');
 const { processNote, processReceipt, HELP } = require('../lib/cookService');
+const { processStock } = require('../lib/stockService');
 const { defaultShorthand, applyShorthandRows } = require('../lib/aliases');
-const { buildPriceBook } = require('../lib/priceBook');
-const { parseDishTab } = require('../lib/sheetRecipe');
 const { bangkokToday } = require('../lib/dates');
 
 const seenEvents = new Map(); // webhookEventId -> timestamp, so LINE redeliveries are not processed twice
@@ -18,26 +17,11 @@ function alreadySeen(id) {
 }
 
 function defaultDeps() {
-  const { readLiveRange } = require('../lib/liveSheet');
-  const { readTab, appendRows } = require('../lib/sheets');
+  const live = require('../lib/liveData');
+  const { appendRows } = require('../lib/sheets');
+  const { getAllStock, setStockCount, deductStock } = require('../lib/stockCounts');
   const cookLog = require('../lib/cookLog');
   const { extractReceiptWithCatalogue } = require('../lib/receiptVision');
-
-  let cache = { at: 0, priceBook: null, catalogue: null };
-  async function fresh() {
-    if (Date.now() - cache.at < 30000 && cache.priceBook) return cache;
-    const [priceLogRows, expenseRows, tracker] = await Promise.all([
-      readLiveRange('Price Log', 'A:H'),
-      readTab('Expense Log').catch(() => []),
-      readLiveRange('Price Tracker', 'B:B').catch(() => []),
-    ]);
-    cache = {
-      at: Date.now(),
-      priceBook: buildPriceBook({ priceLogRows, expenseRows, today: bangkokToday() }),
-      catalogue: tracker.map((r) => String(r[0] || '').trim()).filter((n) => n && n.toLowerCase() !== 'ingredient'),
-    };
-    return cache;
-  }
 
   return {
     token: process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -49,14 +33,16 @@ function defaultDeps() {
         try { return applyShorthandRows(defaultShorthand(), await cookLog.readShorthandRows()); }
         catch (err) { console.error('Shorthand tab unavailable, using defaults:', err.message); return defaultShorthand(); }
       },
-      loadRecipe: async (tab) => parseDishTab(await readLiveRange(tab, 'A1:E80')),
-      loadPriceBook: async () => (await fresh()).priceBook,
+      loadRecipe: live.loadRecipe,
+      loadPriceBook: live.loadPriceBook,
       isLogged: cookLog.isLogged,
       batchKey: cookLog.batchKey,
       writeBatch: cookLog.writeBatch,
+      deductStock,
     },
+    stock: { getAll: getAllStock, setCount: setStockCount },
     receipt: {
-      loadCatalogue: async () => (await fresh()).catalogue,
+      loadCatalogue: live.loadCatalogue,
       extractReceipt: extractReceiptWithCatalogue,
       appendExpenseRows: (rows) => appendRows('Expense Log', rows),
     },
@@ -92,7 +78,7 @@ function createHandler(getDeps) {
       if (/^(help|\?)$/i.test(text)) return sendBack(deps, ev, HELP);
       let replies;
       try {
-        replies = await processNote(text, deps.note);
+        replies = (deps.stock && await processStock(text, deps.stock)) || await processNote(text, deps.note);
       } catch (err) {
         // Never fail silently in the group: say what went wrong and that nothing was logged.
         console.error('Cook note failed:', err);
@@ -100,9 +86,13 @@ function createHandler(getDeps) {
         const access = /permission|403|404|not found|forbidden/i.test(msg)
           ? "\nThis usually means a sheet isn't shared with the app's service account (Merlin's numbers as Viewer, Claude Log as Editor)."
           : '';
-        return sendBack(deps, ev, `I couldn't process that note. Nothing was logged.\nReason: ${msg}${access}`);
+        return sendBack(deps, ev, `I couldn't process that. Nothing was changed.\nReason: ${msg}${access}`);
       }
-      if (replies) for (const r of replies) await sendBack(deps, ev, r);
+      if (!replies) {
+        // Never go quiet: say plainly that the message wasn't understood.
+        return sendBack(deps, ev, `I didn't recognise that as a cook note, a stock command or a receipt, so nothing was changed.\nSend "help" to see the formats.`);
+      }
+      for (const r of replies) await sendBack(deps, ev, r);
       return;
     }
 

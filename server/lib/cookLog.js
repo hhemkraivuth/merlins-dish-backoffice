@@ -11,10 +11,13 @@ const { seedRows } = require('./aliases');
 
 const COOK_LOG = 'Cook Log';
 const COOK_LINES = 'Cook Log Lines';
+const COOK_SIZES = 'Cook Log Sizes';
 const SHORTHAND = 'Shorthand';
 
 const COOK_LOG_HEADERS = ['Batch Key', 'Date Cooked', 'Dish', 'Yield', 'Ingredient Cost', 'Packaging Cost', 'Utility Cost', 'Total Batch Cost', 'Cost per Portion', 'Flags', 'Logged At', 'Source'];
 const COOK_LINES_HEADERS = ['Batch Key', 'Date Cooked', 'Dish', 'Type', 'Line', 'Qty', 'Unit', 'Unit Cost', 'Price Date', 'Price Source', 'Line Cost', 'Qty From'];
+
+const COOK_SIZES_HEADERS = ['Batch Key', 'Date Cooked', 'Dish', 'Size', 'Portion Weight (g)', 'Count Packed', 'Cost per Portion', 'Total Cooked Weight (g)', 'Cost per Gram'];
 
 const ensured = new Set();
 async function ensureTab(name, headers, seed = []) {
@@ -55,6 +58,12 @@ async function writeBatch(result, key, source = 'LINE') {
   await appendRows(COOK_LINES, result.lines.map((l) => [
     key, d, result.dish, l.type, l.name, l.qty, l.unit, Number(l.unitCost.toFixed(5)), l.priceDate, l.priceSource, Number(l.lineCost.toFixed(2)), l.qtySource,
   ]));
+  if (result.sizes && result.sizes.length) {
+    await ensureTab(COOK_SIZES, COOK_SIZES_HEADERS);
+    await appendRows(COOK_SIZES, result.sizes.map((z) => [
+      key, d, result.dish, z.name, z.weight, z.count, z.costPerPortion, result.cookedWeight, result.costPerGram,
+    ]));
+  }
 }
 
 async function readShorthandRows() {
@@ -62,4 +71,4 @@ async function readShorthandRows() {
   return readTab(SHORTHAND);
 }
 
-module.exports = { writeBatch, isLogged, batchKey, readShorthandRows, ensureTab, COOK_LOG, COOK_LINES, SHORTHAND };
+module.exports = { writeBatch, isLogged, batchKey, readShorthandRows, ensureTab, COOK_LOG, COOK_LINES, COOK_SIZES, SHORTHAND };
