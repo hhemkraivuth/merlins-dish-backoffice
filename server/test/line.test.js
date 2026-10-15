@@ -291,14 +291,30 @@ const stewRecipe = {
 };
 const emptyBook = { lookup: () => null };
 
-test('costBatch: stew cost per gram and per size; packaging override wins', () => {
-  const batch = { date: TODAY, yield: null, lines: [], sizes: [{ name: 'Regular', count: 10, weight: 400 }, { name: 'Large', count: 5, weight: 600 }], cookedWeight: null, packagingQty: { cup: 15 } };
-  const r = costBatch({ batch, recipe: stewRecipe, shorthand: defaultShorthand(), priceBook: emptyBook });
+test('costBatch: stew cups follow the size (Regular 16oz, Large 26oz); cost per gram is the whole batch', () => {
+  const recipe = { ...stewRecipe, packaging: [{ name: 'Packaging Cup (26oz)', qty: 4, unit: 'Set', sheetCost: 3 }, { name: 'Packaging Cup (16oz)', qty: 7, unit: 'Set', sheetCost: 2 }, { name: 'Packaging Cup (12oz)', qty: 0, unit: 'Set', sheetCost: 1 }] };
+  const batch = { date: TODAY, yield: null, lines: [], sizes: [{ name: 'Regular', count: 10, weight: 400 }, { name: 'Large', count: 5, weight: 600 }], cookedWeight: null, packagingQty: {} };
+  const r = costBatch({ batch, recipe, shorthand: defaultShorthand(), priceBook: emptyBook });
   assert.strictEqual(r.yield, 15);
-  assert.strictEqual(r.total, 630); // 2000x0.3 + 15x2
+  assert.strictEqual(r.packagingCost, 35); // 10 x 2 (16oz) + 5 x 3 (26oz)
+  assert.strictEqual(r.total, 635);
   assert.strictEqual(r.cookedWeight, 7000);
-  assert.strictEqual(r.costPerGram, 0.09);
-  assert.deepStrictEqual(r.sizes.map((z) => z.costPerPortion), [36, 54]);
+  assert.strictEqual(r.costPerGram, 0.09071); // 635 / 7000, cups and reheating included
+  assert.deepStrictEqual(r.sizes.map((z) => z.costPerPortion), [36.29, 54.43]); // 400g and 600g at that rate
+});
+
+test('stew tab portion weights are read from columns G and H', () => {
+  const rows = [['Menu', 'Red Wine Beef Stew'], ['Selling Price (฿) Regular', '285'], [], ['Ingredients'], ['Beef', '1600', 'g', '0.38', '', '', 'Portion R (g)', '348'], ['', '', '', '', '', '', 'Portion L (g)', '523']];
+  assert.deepStrictEqual(parseDishTab(rows).portionWeights, { Regular: 348, Large: 523 });
+});
+
+test('stock: "stock add packaging" adds the missing items at 0 and leaves existing ones', async () => {
+  const d = stockDeps();
+  const [out] = await processStock('stock add packaging', d);
+  assert.deepStrictEqual(d.calls.map((c) => c[0]), ['Packaging Cup (26oz)', 'Packaging Box (carb600ml)']); // the 12oz and 16oz cups already exist
+  assert.ok(d.calls.every((c) => c[1] === 0));
+  assert.match(out, /Added at 0/);
+  assert.match(out, /Already there/);
 });
 
 test('runBatch: logs once, deducts packaging stock and reports untracked items', async () => {

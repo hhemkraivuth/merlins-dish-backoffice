@@ -27,5 +27,5 @@ async function fresh() {
 module.exports = {
   loadPriceBook: async () => (await fresh()).priceBook,
   loadCatalogue: async () => (await fresh()).catalogue,
-  loadRecipe: async (tab) => parseDishTab(await readLiveRange(tab, 'A1:E80')),
+  loadRecipe: async (tab) => parseDishTab(await readLiveRange(tab, 'A1:I80')),
 };

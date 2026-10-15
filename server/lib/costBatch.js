@@ -8,6 +8,9 @@
 
 const { normName } = require('./priceBook');
 
+// Which cup each stew size is packed in
+const SIZE_CUP = { Regular: '16oz', Large: '26oz' };
+
 const round2 = (n) => Math.round(n * 100) / 100;
 const fmtDate = (d) => d.toISOString().slice(0, 10).split('-').reverse().join('/');
 
@@ -103,19 +106,26 @@ function costBatch({ batch, recipe, shorthand, priceBook, usualYieldRatio = 0.75
     priceLine('Utility', u.name, qty, u.unit, u.sheetCost, isReheat ? 'yield' : 'recipe');
   }
   const pkgOverride = batch.packagingQty || {};
-  let keptTabCups = false;
+  // Stews: each packed portion takes its own cup (Regular 16oz, Large 26oz). Everything else: one cup per serving.
+  const cupFor = (name) => (sized ? sizedIn.find((z) => new RegExp(SIZE_CUP[z.name] || '^$', 'i').test(name)) : null);
   for (const p of recipe.packaging) {
     const o = pkgOverride[normName(p.name)];
-    if (o === undefined && p.qty <= 0) continue;
+    const z = cupFor(p.name);
     let qty;
     let src;
     if (o !== undefined) { qty = o; src = 'edited'; }
-    else if (sized) { qty = p.qty; src = 'recipe'; keptTabCups = true; } // sized dishes keep the tab's cup counts
-    else { qty = portions ?? p.qty; src = 'yield'; }
+    else if (sized) { qty = z ? z.count : 0; src = 'packed'; }
+    else { if (p.qty <= 0) continue; qty = portions ?? p.qty; src = 'yield'; }
     if (qty <= 0) continue;
     priceLine('Packaging', p.name, qty, p.unit, p.sheetCost, src);
   }
-  if (keptTabCups) flags.push(`Packaging for ${recipe.dish} is kept at the recipe tab's cup counts. Tell me which cups Regular and Large use, or edit them on the web page.`);
+  if (sized) {
+    for (const z of sizedIn) {
+      if (!recipe.packaging.some((p) => new RegExp(SIZE_CUP[z.name] || '^$', 'i').test(p.name))) {
+        flags.push(`${z.name} cup (${SIZE_CUP[z.name]}) is not on the ${recipe.dish} tab, so no cup was costed for ${z.name}.`);
+      }
+    }
+  }
 
   const sum = (type) => lines.filter((l) => l.type === type).reduce((s, l) => s + l.lineCost, 0);
   const ingredientCost = sum('Ingredient');
@@ -136,7 +146,8 @@ function costBatch({ batch, recipe, shorthand, priceBook, usualYieldRatio = 0.75
     flags.push(`Low yield: ${portions} servings against the usual ${recipe.usualYield}. Margin risk.`);
   }
 
-  // Pack-out: cost per gram = batch cost / cooked weight, each size = its portion weight x cost per gram
+  // Pack-out: cost per gram = whole batch cost (ingredients, utilities incl. reheating, packaging) / cooked weight.
+  // Cups are part of the delivered food, so they are already in the total. Each size = portion weight x cost per gram.
   let sizes = null;
   let costPerGram = null;
   let cookedWeight = null;

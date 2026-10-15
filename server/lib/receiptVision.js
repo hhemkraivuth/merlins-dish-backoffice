@@ -6,6 +6,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 let client = null;
 function getClient() {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set in Railway for this app. Add it under Variables and redeploy');
   if (!client) client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   return client;
 }

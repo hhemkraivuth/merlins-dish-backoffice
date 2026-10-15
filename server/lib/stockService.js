@@ -3,6 +3,7 @@
 //   stock                       -> list every item with its count and when it was last updated
 //   stock coke zero zero 5      -> set that item's count to 5 (the full item name is needed)
 //   stock add Cup 12oz, set, 40 -> add a new item: name, unit, starting count
+//   stock add packaging         -> add the 4 packaging items from the recipe tabs at 0 (skips any already there)
 //
 // Same tab and same rules as the web page: your number always wins from that point on.
 
@@ -24,6 +25,22 @@ function findItem(items, name) {
   return { hits };
 }
 
+// The packaging used by the dish tabs in Merlin's numbers. Foil is overhead, so it is not tracked.
+const PACKAGING_ITEMS = ['Packaging Cup (26oz)', 'Packaging Cup (16oz)', 'Packaging Cup (12oz)', 'Packaging Box (carb600ml)'];
+
+// Adds any missing packaging items at 0 so batches can take cups off. Never touches an item that already exists.
+async function seedPackaging(deps) {
+  const items = await deps.getAll();
+  const have = new Set(items.map((i) => norm(i.itemName)));
+  const added = [];
+  for (const name of PACKAGING_ITEMS) {
+    if (have.has(norm(name))) continue;
+    await deps.setCount(name, 0, 'Set', 'Seed');
+    added.push(name);
+  }
+  return { added, skipped: PACKAGING_ITEMS.filter((n) => !added.includes(n)) };
+}
+
 const line = (i) => `• ${i.itemName}: ${i.currentCount}${i.unit ? ' ' + i.unit : ''} (updated ${formatBangkokStamp(i.lastUpdated) || 'never'}${i.lastUpdatedBy ? ', ' + i.lastUpdatedBy : ''})`;
 
 const USAGE = 'Stock commands:\nstock (list everything)\nstock coke zero zero 5 (set a count)\nstock add Cup 12oz, set, 40 (add an item: name, unit, count)';
@@ -38,6 +55,13 @@ async function processStock(text, deps) {
   if (!rest || /^(list|all)$/i.test(rest)) {
     if (!items.length) return ['No stock items yet. Add one with: stock add Cup 12oz, set, 40'];
     return [`Stock counts:\n${items.map(line).join('\n')}`];
+  }
+
+  if (/^add\s+packaging$/i.test(rest)) {
+    const r = await seedPackaging(deps);
+    return [r.added.length
+      ? `Added at 0 (please set the real counts): ${r.added.join(', ')}.${r.skipped.length ? `\nAlready there: ${r.skipped.join(', ')}.` : ''}`
+      : 'All packaging items are already in Stock Counts. Nothing changed.'];
   }
 
   const add = rest.match(/^add\s+(.+?)\s*,\s*(.*?)\s*,\s*(\d+(?:[.,]\d+)?)$/i);
@@ -63,4 +87,4 @@ async function processStock(text, deps) {
   return [`${item.itemName}: ${item.currentCount} → ${n}${item.unit ? ' ' + item.unit : ''}. Updated ${formatBangkokStamp(new Date().toISOString())}.`];
 }
 
-module.exports = { processStock, USAGE };
+module.exports = { processStock, seedPackaging, PACKAGING_ITEMS, USAGE };

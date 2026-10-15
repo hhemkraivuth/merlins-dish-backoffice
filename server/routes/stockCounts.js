@@ -24,4 +24,14 @@ async function updateStock(req, res) {
   }
 }
 
-module.exports = { listStock, updateStock };
+async function seedPackagingRoute(req, res) {
+  try {
+    const { seedPackaging } = require('../lib/stockService');
+    res.json(await seedPackaging({ getAll: getAllStock, setCount: setStockCount }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { listStock, updateStock, seedPackagingRoute };

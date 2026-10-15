@@ -39,6 +39,7 @@ app.post('/api/cook/submit', cookRoute.submit);
 // Mode 4: Stock Counts
 app.get('/api/stock', stockCountsRoute.listStock);
 app.post('/api/stock/update', stockCountsRoute.updateStock);
+app.post('/api/stock/seed-packaging', stockCountsRoute.seedPackagingRoute);
 
 // Back of house LINE group (own LINE channel, separate from the customer bot)
 app.post('/webhook/line', lineRoute.webhook);

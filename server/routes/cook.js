@@ -60,9 +60,9 @@ function createCook(getDeps) {
       for (const n of catalogue) { const p = pb.lookup(n, date); if (p && !p.missing) catalogueCosts[n] = { unitCost: p.cost, priceDate: fmtDMY(p.date) }; }
 
       res.json({
-        dish: r.dish || tab, tab, sized: SIZED.has(tab), date: fmtDMY(date), usualYield: r.usualYield, sellingPrice: r.sellingPrice,
+        portionWeights: r.portionWeights, dish: r.dish || tab, tab, sized: SIZED.has(tab), date: fmtDMY(date), usualYield: r.usualYield, sellingPrice: r.sellingPrice,
         ingredients: shape(r.ingredients, 'Ingredient'),
-        packaging: shape(r.packaging.filter((p) => p.qty > 0), 'Packaging'),
+        packaging: shape(SIZED.has(tab) ? r.packaging : r.packaging.filter((p) => p.qty > 0), 'Packaging'),
         utility: shape(r.utility, 'Utility'),
         catalogue: catalogueCosts,
       });

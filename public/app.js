@@ -236,6 +236,7 @@ function renderCookForm(container, recipe, dateInput) {
   const row = (l, type) => ({ type, name: l.name, unit: l.unit || '', unitCost: l.unitCost, priceDate: l.priceDate, note: l.note, original: l.qty, extra: false });
   recipe.ingredients.forEach((l) => rows.push(row(l, 'Ingredient')));
   recipe.packaging.forEach((l) => rows.push(row(l, 'Packaging')));
+  if (recipe.sized) rows.forEach((r) => { if (r.type === 'Packaging') { r.original = 0; r.qty = undefined; } });
   recipe.utility.forEach((l) => rows.push(row(l, 'Utility')));
 
   container.innerHTML = `
@@ -252,10 +253,10 @@ function renderCookForm(container, recipe, dateInput) {
     <label class="label">Servings yielded</label>
     <input class="input" type="number" id="yieldInput" placeholder="${recipe.sized ? 'fills from the packed counts below' : 'e.g. 21'}" />
     ${recipe.sized ? `
-      <div class="subheading">Pack-out (Regular and Large)</div>
-      <div class="size-row"><span class="size-name">Regular: weight (g)</span><input class="size-input" type="number" id="regWeight" /></div>
+      <div class="subheading">Pack-out (Regular in 16oz cups, Large in 26oz cups)</div>
+      <div class="size-row"><span class="size-name">Regular: weight (g)</span><input class="size-input" type="number" id="regWeight" value="${(recipe.portionWeights && recipe.portionWeights.Regular) || ''}" /></div>
       <div class="size-row"><span class="size-name">Regular: count packed</span><input class="size-input" type="number" id="regCount" /></div>
-      <div class="size-row"><span class="size-name">Large: weight (g)</span><input class="size-input" type="number" id="lgWeight" /></div>
+      <div class="size-row"><span class="size-name">Large: weight (g)</span><input class="size-input" type="number" id="lgWeight" value="${(recipe.portionWeights && recipe.portionWeights.Large) || ''}" /></div>
       <div class="size-row"><span class="size-name">Large: count packed</span><input class="size-input" type="number" id="lgCount" /></div>
       <label class="label">Total cooked weight (g, optional)</label>
       <input class="input" type="number" id="cookedWeight" placeholder="blank = total of what was packed" />` : ''}
@@ -313,7 +314,12 @@ function renderCookForm(container, recipe, dateInput) {
   // Packaging and reheating follow the yield until you type your own number
   function qtyOf(r) {
     if (r.edited) return Number(r.qty) || 0;
-    if (r.type === 'Packaging' && !recipe.sized && yieldN() > 0) return yieldN();
+    if (r.type === 'Packaging' && recipe.sized) {
+      // Regular is packed in a 16oz cup, Large in a 26oz cup
+      const cupOf = { Regular: /16oz/i, Large: /26oz/i };
+      return sizeList().filter((z) => cupOf[z.name].test(r.name)).reduce((a, z) => a + z.count, 0);
+    }
+    if (r.type === 'Packaging' && yieldN() > 0) return yieldN();
     if (r.type === 'Utility' && /reheat/i.test(r.name) && yieldN() > 0) return yieldN();
     return r.qty !== undefined ? Number(r.qty) : r.original;
   }
@@ -339,8 +345,9 @@ function renderCookForm(container, recipe, dateInput) {
     if (recipe.sized) {
       const packed = sz.reduce((a, z) => a + z.count * z.weight, 0);
       const cooked = Number($('cookedWeight').value) > 0 ? Number($('cookedWeight').value) : packed;
+      const perG = total / (cooked || 1);
       $('tSizes').innerHTML = cooked > 0 && sz.length
-        ? `<div class="cost-preview"><span>Cost per gram</span><strong>฿${(total / cooked).toFixed(4)}</strong></div>` + sz.map((z) => `<div class="cost-preview"><span>${z.name} ${z.weight}g</span><strong>${baht(z.weight * total / cooked)}</strong></div>`).join('')
+        ? `<div class="cost-preview"><span>Cost per gram (whole batch)</span><strong>฿${perG.toFixed(4)}</strong></div>` + sz.map((z) => `<div class="cost-preview"><span>${z.name} ${z.weight}g</span><strong>${baht(z.weight * perG)}</strong></div>`).join('')
         : '';
     }
   }
@@ -414,6 +421,7 @@ async function renderStock() {
       </div>
       <div class="stock-list" id="stockList"></div>
       <button class="primary-button" id="addStockBtn" style="margin-top:8px">+ Add item</button>
+      <button class="primary-button" id="seedPkgBtn" style="margin-top:8px">Add the 4 packaging items (at 0)</button>
     </section>
   `);
   main.appendChild(section);
@@ -424,6 +432,15 @@ async function renderStock() {
   }
   stock.forEach((item) => list.appendChild(renderStockRow(item)));
 
+  section.querySelector('#seedPkgBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/stock/seed-packaging', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      alert(data.added.length ? `Added at 0: ${data.added.join(', ')}. Now set the real counts.` : 'All 4 packaging items are already there. Nothing changed.');
+      renderStock();
+    } catch (err) { alert(`Nothing was added: ${err.message}`); }
+  });
   section.querySelector('#addStockBtn').addEventListener('click', () => {
     const name = prompt('Item name:');
     if (!name) return;

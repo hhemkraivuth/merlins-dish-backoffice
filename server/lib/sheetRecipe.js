@@ -12,10 +12,15 @@ function parseDishTab(rows) {
     packaging: [],
     utility: [],
     usualYield: null,
+    portionWeights: {},
   };
   let section = null;
 
   for (const r of rows) {
+    // Stew tabs list the standard portion weights in G/H ("Portion R (g)" 348, "Portion L (g)" 523)
+    const g = String(r[6] || '').trim();
+    if (/^portion r/i.test(g)) recipe.portionWeights.Regular = toNumber(r[7]);
+    if (/^portion l/i.test(g)) recipe.portionWeights.Large = toNumber(r[7]);
     const a = String(r[0] || '').trim();
     if (!a) continue;
     if (/^selling price/i.test(a) && section === null) { recipe.sellingPrice = toNumber(r[1]); continue; }
