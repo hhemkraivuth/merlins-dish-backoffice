@@ -63,4 +63,4 @@ async function updateRow(tabName, rowIndex, values) {
   });
 }
 
-module.exports = { appendRows, readTab, updateRow, CLAUDE_LOG_SHEET_ID };
+module.exports = { appendRows, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };

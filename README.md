@@ -48,3 +48,50 @@ See the project notes for exact column headers for each tab.
    from the existing merlins-dish-bot service if they're already set there)
 5. Railway auto-deploys on push to the default branch
 6. Once deployed, Railway gives you a public URL — open it on your phone to use
+
+
+## Back of house LINE group (cook notes and receipts)
+
+Send cook notes and receipt photos to a private LINE group. The app costs each batch from the
+live Merlin's numbers sheet (read only) and logs it to the Claude Log.
+
+**Cook note** (any time, several batches per message are fine):
+
+```
+7/10
+Bolo
+Meat 1000
+O 446
+G 60
+Cl 234
+C 230
+yield 21
+```
+
+- The date and dish keyword come first. Dish words match the customer bot's (bolo, ragu, tpb, rws, dbs, chix, brocs).
+- Ingredients you list replace the recipe quantity. Everything you leave out stays at the recipe quantity from that dish's tab.
+- Cups and reheating are set to the yield. Cost per portion is total batch cost divided by the yield.
+- Prices are the latest purchase **on or before the cook date**, from the live Price Log plus the Expense Log.
+  A blank date cell in the Price Log counts as the same shopping trip as the row above it.
+- Added to the Claude Log: `Cook Log` (one row per batch) and `Cook Log Lines` (every line, with the price date used).
+- The same note sent twice is logged once.
+- `Shorthand` tab (created automatically): add your own keywords as `Type | Short | Full name`
+  (Type is `Dish` or `Ingredient`). `Meat` always means the first ingredient line of the dish's tab.
+
+**Receipt photo:** read by vision AI, each line mapped to the ingredient names in the Price Tracker
+where it can be, and added to the `Expense Log` (the live Price Log is never written to).
+
+Type `help` in the group for a reminder. Type `groupid` before `BOH_GROUP_ID` is set to find the group's id.
+
+### Setup
+
+1. LINE Developers: create a **new** Messaging API channel for back of house (do not reuse the customer bot's).
+   Turn off auto reply and greeting messages. Turn on "Allow bot to join group chats".
+   Webhook URL: `https://<this-service>.up.railway.app/webhook/line`, then press Verify.
+2. Create a new private LINE group with only this bot and yourself.
+3. In Railway, on this service only, set `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`,
+   `ANTHROPIC_API_KEY`, and the Google variables.
+4. Share the live Merlin's numbers sheet with the service account as **Viewer**; share the Claude Log as **Editor**.
+5. Send `groupid` in the new group, then set the id it replies with as `BOH_GROUP_ID` and redeploy.
+
+Run the tests with `npm test`.

@@ -7,13 +7,15 @@ const ordersRoute = require('./routes/orders');
 const receiptsRoute = require('./routes/receipts');
 const batchCookRoute = require('./routes/batchCook');
 const stockCountsRoute = require('./routes/stockCounts');
+const lineRoute = require('./routes/line');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-app.use(express.json());
+// rawBody is kept so the LINE webhook can verify LINE's signature
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Mode 1: Daily Orders (Grab screenshots)
@@ -31,6 +33,9 @@ app.post('/api/batch-cook/submit', batchCookRoute.submitBatch);
 // Mode 4: Stock Counts
 app.get('/api/stock', stockCountsRoute.listStock);
 app.post('/api/stock/update', stockCountsRoute.updateStock);
+
+// Back of house LINE group (own LINE channel, separate from the customer bot)
+app.post('/webhook/line', lineRoute.webhook);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

@@ -4,7 +4,8 @@
   "description": "Back-of-house tool for Merlin's Dish: batch order/receipt logging via vision AI, and lot-based batch-cook costing",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "express": "^4.19.2",
