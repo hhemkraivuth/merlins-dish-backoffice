@@ -90,7 +90,18 @@ function createHandler(getDeps) {
 
     if (isText) {
       if (/^(help|\?)$/i.test(text)) return sendBack(deps, ev, HELP);
-      const replies = await processNote(text, deps.note);
+      let replies;
+      try {
+        replies = await processNote(text, deps.note);
+      } catch (err) {
+        // Never fail silently in the group: say what went wrong and that nothing was logged.
+        console.error('Cook note failed:', err);
+        const msg = String((err && err.message) || err).slice(0, 300);
+        const access = /permission|403|404|not found|forbidden/i.test(msg)
+          ? "\nThis usually means a sheet isn't shared with the app's service account (Merlin's numbers as Viewer, Claude Log as Editor)."
+          : '';
+        return sendBack(deps, ev, `I couldn't process that note. Nothing was logged.\nReason: ${msg}${access}`);
+      }
       if (replies) for (const r of replies) await sendBack(deps, ev, r);
       return;
     }
