@@ -13,7 +13,7 @@
 //   Lot Usage            audit trail, one row per batch line per lot it took from
 //   Untracked Ingredients  names to leave out of lot tracking (Lily can edit)
 
-const { normName, toNumber, parsePurchaseUnit } = require('./priceBook');
+const { normName, toNumber, parsePurchaseUnit, unitKind } = require('./priceBook');
 const { parseDate, formatDMY } = require('./dates');
 
 const LOTS_TAB = 'Ingredient Lots';
@@ -29,11 +29,7 @@ const round = (n, dp) => Number(n.toFixed(dp));
 
 // Recipe units and purchase units both come in as "g", "gm", "pcs" and so on.
 function baseUnit(u) {
-  const s = String(u || '').trim().toLowerCase();
-  if (['g', 'gm', 'gram', 'grams'].includes(s)) return 'g';
-  if (s === 'ml') return 'ml';
-  if (['p', 'pc', 'pcs', 'piece', 'pieces', 'pack', 'set'].includes(s)) return 'piece';
-  return s;
+  return unitKind(u);
 }
 
 let lotSeq = 0;

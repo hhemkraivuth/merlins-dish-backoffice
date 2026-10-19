@@ -215,7 +215,9 @@ async function processReceipt({ buffer, mime }, messageDate, deps) {
 // deps: { loadCatalogue(), appendExpenseRows(rows) }. Returns an array of replies, or null when the text is not a typed receipt.
 async function processTypedReceipt(text, messageDate, deps) {
   if (!looksLikeTypedReceipt(text)) return null;
-  const { items, problems, undated } = parseTypedReceipt(text, messageDate);
+  // A line saying "prices only" logs the prices (for costing past batches) without adding stock lots.
+  const pricesOnly = /^\s*(prices only|no stock)\s*$/im.test(text);
+  const { items, problems, undated } = parseTypedReceipt(text.replace(/^\s*(prices only|no stock)\s*$/gim, ''), messageDate);
   if (!items.length) return [`I couldn't read any item lines.\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`];
 
   let catalogue = [];
@@ -241,7 +243,7 @@ async function processTypedReceipt(text, messageDate, deps) {
   // Stock lots: every matched, countable ingredient becomes a lot (condiments on the Untracked list do not).
   const lotLines = [];
   const notTracked = [];
-  if (deps.addLots) {
+  if (deps.addLots && !pricesOnly) {
     let untracked = [];
     try { untracked = deps.loadUntracked ? await deps.loadUntracked() : []; } catch (err) { /* treated as none */ }
     const skip = new Set(untracked.map(normName));
@@ -271,6 +273,7 @@ async function processTypedReceipt(text, messageDate, deps) {
   const out = [`Logged to the Expense Log: ${items.length} item${items.length === 1 ? '' : 's'}, ${baht(total)}.`];
   for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
   const replies = [out.join('\n')];
+  if (pricesOnly) replies.push('Prices only: no stock lots were added.');
   if (lotLines.length) replies.push(`Added to stock lots: ${lotLines.join(', ')}.${notTracked.length ? `\nNot stock tracked (condiments): ${notTracked.join(', ')}.` : ''}`);
   else if (notTracked.length) replies.push(`Not stock tracked (condiments): ${notTracked.join(', ')}.`);
   if (unmatched.length) replies.push(`Not matched to a known ingredient, so cost lookups will skip these until the name matches the Price Tracker:\n${unmatched.slice(0, 8).map((u) => `• ${u}`).join('\n')}`);

@@ -31,7 +31,14 @@ const UNIT_FACTORS = {
   ml: ['ml', 1],
   l: ['ml', 1000], ltr: ['ml', 1000], liter: ['ml', 1000], litre: ['ml', 1000],
   p: ['piece', 1], pc: ['piece', 1], pcs: ['piece', 1], piece: ['piece', 1], pieces: ['piece', 1],
-  pack: ['piece', 1], set: ['piece', 1],
+  pack: ['piece', 1], packs: ['piece', 1], set: ['piece', 1],
+  // things counted by the container: cans, bottles, bags and so on are each one piece
+  can: ['piece', 1], cans: ['piece', 1], tin: ['piece', 1], tins: ['piece', 1],
+  bottle: ['piece', 1], bottles: ['piece', 1], jar: ['piece', 1], jars: ['piece', 1],
+  bag: ['piece', 1], bags: ['piece', 1], box: ['piece', 1], boxes: ['piece', 1],
+  sachet: ['piece', 1], sachets: ['piece', 1], carton: ['piece', 1], cartons: ['piece', 1],
+  bunch: ['piece', 1], head: ['piece', 1], heads: ['piece', 1], tray: ['piece', 1], trays: ['piece', 1],
+  roll: ['piece', 1], rolls: ['piece', 1], loaf: ['piece', 1], loaves: ['piece', 1],
 };
 
 // "1000g", "1kg", "2000ml", "8p", "48-pieces" -> { qty (in g/ml/piece), unit } or null
@@ -116,4 +123,10 @@ function buildPriceBook({ priceLogRows = [], expenseRows = [], today } = {}) {
   return { lookup, skipped, size: map.size, names: () => [...map.keys()] };
 }
 
-module.exports = { buildPriceBook, normName, toNumber, parsePurchaseUnit, STALE_DAYS };
+// Unit word -> g / ml / piece (anything not recognised comes back lower cased)
+function unitKind(u) {
+  const k = String(u || '').trim().toLowerCase();
+  return UNIT_FACTORS[k] ? UNIT_FACTORS[k][0] : k;
+}
+
+module.exports = { unitKind, UNIT_FACTORS, buildPriceBook, normName, toNumber, parsePurchaseUnit, STALE_DAYS };

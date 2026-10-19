@@ -1,26 +1,45 @@
-// Reads receipts Lily types herself. Example:
+// Reads receipts Lily types herself. Examples:
 //
 //   18/10
 //   minced pork 1000g 110thb
 //   onion 2kg 90thb
 //
+//   5/10
+//   celery 2kg, 138thb
+//   pelati, 2550g, 275
+//   campbells - mushroom 4 cans, 520
+//
 // A date line applies to the lines below it until the next date line. "18/10 minced pork 1000g 110thb"
-// on one line also works. Every item line needs a price with thb, baht or ฿ on it, which is what
-// tells a receipt apart from a cook note (cook notes never carry a price).
+// on one line also works. The price either ends in thb, baht or ฿, or comes after a comma. That is what
+// tells a receipt apart from a cook note (cook notes have no price and no commas).
 
 const { parseDate } = require('./dates');
 const { parsePurchaseUnit } = require('./priceBook');
 
 const DATE_LINE = /^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/;
 const NUM = '(\\d+(?:[.,]\\d+)?)';
-const UNIT = '(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?|p|pack|set)';
-const ITEM_LINE = new RegExp(`^(.+?)\\s+${NUM}\\s*${UNIT}?\\s+(?:฿\\s*${NUM}|${NUM}\\s*(?:thb|baht|฿))$`, 'i');
+// kg, g, ml, litres, pieces, and things counted by the container (cans, bottles, bags and so on)
+const UNIT = '(kg|gm|grams?|g|ml|ltr|l|pieces?|pcs?|packs?|sets?|cans?|tins?|bottles?|jars?|bags?|boxes|box|sachets?|cartons?|bunch|heads?|trays?|rolls?|loaves|loaf|p)(?![a-z])';
+// Price either carries thb / baht / ฿, or comes after a comma ("celery 2kg, 138"). Commas around the quantity are fine.
+const WITH_MARK = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?[,\\s]+(?:฿\\s*${NUM}|${NUM}\\s*(?:thb|baht|฿))$`, 'i');
+const WITH_COMMA = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?\\s*,\\s*${NUM}$`, 'i');
+
+// "minced pork 1000g 110thb" / "pelati, 2550g, 275" -> { name, qtyText, unitText, price } or null
+function matchItem(line) {
+  const t = String(line || '').trim();
+  let m = t.match(WITH_MARK);
+  if (m) return { name: m[1], qtyText: m[2], unitText: m[3] || '', price: m[4] !== undefined ? m[4] : m[5] };
+  m = t.match(WITH_COMMA);
+  if (m) return { name: m[1], qtyText: m[2], unitText: m[3] || '', price: m[4] };
+  return null;
+}
 
 const num = (s) => Number(String(s).replace(',', '.'));
 
 // "minced pork" and "Pork - minced" are the same words in a different order.
 function tokens(s) {
-  return String(s || '').toLowerCase().replace(/[^a-z0-9฀-๿]+/g, ' ').split(' ').filter((t) => t && t !== 'mutti');
+  // Apostrophes are dropped, not turned into a gap, so "Campbell's" and "campbells" are the same word.
+  return String(s || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9฀-๿]+/g, ' ').split(' ').filter((t) => t && t !== 'mutti');
 }
 
 // Maps what Lily typed to the exact ingredient name in the Price Tracker, or says why it could not.
@@ -55,13 +74,13 @@ function parseTypedReceipt(text, today) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
   function addItem(line) {
-    const m = line.match(ITEM_LINE);
-    if (!m) return false;
-    const name = m[1].trim();
-    const qty = num(m[2]);
-    const unit = (m[3] || 'pc').toLowerCase();
-    const price = num(m[4] !== undefined ? m[4] : m[5]);
-    const pu = parsePurchaseUnit(`${m[2].replace(',', '.')}${unit}`);
+    const it = matchItem(line);
+    if (!it) return false;
+    const name = it.name.replace(/[,\s]+$/, '').trim();
+    const qty = num(it.qtyText);
+    const unit = (it.unitText || 'piece').toLowerCase();
+    const price = num(it.price);
+    const pu = parsePurchaseUnit(`${it.qtyText.replace(',', '.')}${unit}`);
     if (!pu || !(pu.qty > 0)) { problems.push(`Couldn't read the quantity in "${line}"`); return true; }
     if (!currentDate) undated = true;
     items.push({
@@ -69,7 +88,7 @@ function parseTypedReceipt(text, today) {
       typedName: name,
       qty,
       unit,
-      purchaseUnit: `${m[2].replace(',', '.')}${m[3] ? m[3].toLowerCase() : 'piece'}`,
+      purchaseUnit: `${it.qtyText.replace(',', '.')}${unit}`,
       price,
       costPerUnit: Number((price / pu.qty).toFixed(5)),
     });
@@ -102,9 +121,9 @@ function parseTypedReceipt(text, today) {
 function looksLikeTypedReceipt(text) {
   return String(text || '').split(/\r?\n/).some((l) => {
     const t = l.trim();
-    if (ITEM_LINE.test(t)) return true;
+    if (matchItem(t)) return true;
     const sp = t.search(/\s/);
-    return sp > 0 && DATE_LINE.test(t.slice(0, sp)) && ITEM_LINE.test(t.slice(sp).trim());
+    return sp > 0 && DATE_LINE.test(t.slice(0, sp)) && !!matchItem(t.slice(sp).trim());
   });
 }
 
