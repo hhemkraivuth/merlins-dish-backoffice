@@ -84,9 +84,12 @@ function createTyped(getDeps) {
 
 function defaultTypedDeps() {
   const live = require('../lib/liveData');
+  const lots = require('../lib/ingredientLots');
   return {
     loadCatalogue: live.loadCatalogue,
     appendExpenseRows: async (rows) => { await appendRows(EXPENSE_LOG_TAB, rows); live.invalidate(); },
+    addLots: lots.addLots,
+    loadUntracked: lots.loadUntracked,
   };
 }
 

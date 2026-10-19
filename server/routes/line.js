@@ -4,6 +4,7 @@
 const { verifySignature, reply, push, getContent } = require('../lib/lineApi');
 const { processNote, processReceipt, processTypedReceipt, HELP } = require('../lib/cookService');
 const { processStock } = require('../lib/stockService');
+const { processLots } = require('../lib/lotService');
 const { defaultShorthand, applyShorthandRows } = require('../lib/aliases');
 const { bangkokToday } = require('../lib/dates');
 
@@ -22,6 +23,14 @@ function defaultDeps() {
   const { getAllStock, setStockCount, deductStock } = require('../lib/stockCounts');
   const cookLog = require('../lib/cookLog');
   const { extractReceiptWithCatalogue } = require('../lib/receiptVision');
+  const lots = require('../lib/ingredientLots');
+  const lotDeps = {
+    loadLotBook: () => lots.loadLotBook(bangkokToday()),
+    saveLots: lots.saveLots,
+    addLots: lots.addLots,
+    loadUntracked: lots.loadUntracked,
+    loadCatalogue: live.loadCatalogue,
+  };
 
   return {
     token: process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -39,7 +48,10 @@ function defaultDeps() {
       batchKey: cookLog.batchKey,
       writeBatch: cookLog.writeBatch,
       deductStock,
+      loadLotBook: lotDeps.loadLotBook,
+      saveLots: lotDeps.saveLots,
     },
+    lots: lotDeps,
     stock: { getAll: getAllStock, setCount: setStockCount },
     // Photo receipts are off unless RECEIPT_PHOTOS=on (they need an Anthropic key). Typed receipts always work.
     receiptPhotos: String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on',
@@ -47,6 +59,8 @@ function defaultDeps() {
       loadCatalogue: live.loadCatalogue,
       extractReceipt: extractReceiptWithCatalogue,
       appendExpenseRows: async (rows) => { await appendRows('Expense Log', rows); live.invalidate(); },
+      addLots: lotDeps.addLots,
+      loadUntracked: lotDeps.loadUntracked,
     },
   };
 }
@@ -82,6 +96,7 @@ function createHandler(getDeps) {
       try {
         const sent = new Date(ev.timestamp || Date.now());
         replies = (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(text, bangkokToday(sent.getTime()), deps.receipt))
+          || (deps.lots && await processLots(text, bangkokToday(sent.getTime()), deps.lots))
           || (deps.stock && await processStock(text, deps.stock))
           || await processNote(text, deps.note);
       } catch (err) {

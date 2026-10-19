@@ -13,6 +13,7 @@ function defaultDeps() {
   const live = require('../lib/liveData');
   const cookLog = require('../lib/cookLog');
   const { deductStock } = require('../lib/stockCounts');
+  const lots = require('../lib/ingredientLots');
   return {
     loadRecipe: live.loadRecipe,
     loadPriceBook: live.loadPriceBook,
@@ -25,6 +26,8 @@ function defaultDeps() {
     batchKey: cookLog.batchKey,
     writeBatch: cookLog.writeBatch,
     deductStock,
+    loadLotBook: () => lots.loadLotBook(bangkokToday()),
+    saveLots: lots.saveLots,
   };
 }
 
