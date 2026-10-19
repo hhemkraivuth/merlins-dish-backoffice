@@ -3,7 +3,9 @@
 //  * Quantities: whatever Lily listed in her note replaces the recipe quantity. Everything
 //    she left out stays at the recipe quantity from the live sheet's dish tab.
 //  * Packaging (cups) and reheating = the number of servings yielded.
-//  * Prices: the latest purchase on or before the cook date (price book).
+//  * Prices: stock tracked ingredients take their grams from the oldest purchase lots first (FIFO),
+//    blended when a batch spans two lots. Everything else uses the latest purchase on or before
+//    the cook date (price book).
 //  * Cost per portion = total batch cost / servings yielded.
 
 const { normName } = require('./priceBook');
@@ -33,7 +35,7 @@ function findRecipeIngredient(token, recipe, shorthand) {
   return { line: null, target: mapped || token };
 }
 
-function costBatch({ batch, recipe, shorthand, priceBook, usualYieldRatio = 0.75 }) {
+function costBatch({ batch, recipe, shorthand, priceBook, lotBook = null, usualYieldRatio = 0.75 }) {
   const flags = [];
   const notes = [];
   const date = batch.date;
@@ -58,8 +60,33 @@ function costBatch({ batch, recipe, shorthand, priceBook, usualYieldRatio = 0.75
   }
 
   const lines = [];
+  const lotUse = []; // what this batch takes from stock lots, for the audit trail and the stock deduction
+
+  // FIFO from stock lots. Returns true when the line was costed from lots.
+  function lotLine(name, qty, unit, qtySource) {
+    if (!lotBook || !lotBook.hasLots(name) || lotBook.isUntracked(name)) return false;
+    const { parts, short } = lotBook.allocate(name, qty, unit, date);
+    if (!parts.length) {
+      const hadStock = lotBook.lotsFor(name).some((l) => l.date <= date);
+      if (hadStock) flags.push(`${name}: no stock left in the lots, so it was costed at the latest price. Log the purchase if you have bought more.`);
+      return false;
+    }
+    let cost = parts.reduce((sum, x) => sum + x.qty * x.unitCost, 0);
+    if (short > 0) {
+      const p = priceBook.lookup(name, date);
+      const fallback = p && !p.missing ? p.cost : parts[parts.length - 1].unitCost;
+      cost += short * fallback;
+      flags.push(`${name}: only ${Math.round((qty - short) * 100) / 100}${unit || ''} was left in stock lots. The other ${Math.round(short * 100) / 100}${unit || ''} was costed at the latest price (${fallback.toFixed(3)}). Log the purchase or send a count.`);
+    }
+    const unitCost = cost / qty;
+    const label = parts.map((x) => `${fmtDate(x.lot.date)} ${Math.round(x.qty * 100) / 100}${unit || ''} @ ${x.unitCost.toFixed(3)}`).join(' + ');
+    for (const x of parts) lotUse.push({ name, lotId: x.lot.id, lotDate: x.lot.date, qty: x.qty, unitCost: x.unitCost, cost: x.qty * x.unitCost });
+    lines.push({ type: 'Ingredient', name, qty, unit, unitCost, priceDate: fmtDate(parts[0].lot.date), priceSource: `Stock lots (FIFO): ${label}${short > 0 ? ' + latest price for the rest' : ''}`, lineCost: cost, qtySource, staleDays: null });
+    return true;
+  }
 
   function priceLine(type, name, qty, unit, sheetCost, qtySource) {
+    if (type === 'Ingredient' && lotLine(name, qty, unit, qtySource)) return;
     const p = priceBook.lookup(name, date);
     let unitCost = null;
     let priceDate = '';
@@ -168,6 +195,7 @@ function costBatch({ batch, recipe, shorthand, priceBook, usualYieldRatio = 0.75
     date,
     yield: portions,
     lines,
+    lotUse,
     ingredientCost: round2(ingredientCost),
     packagingCost: round2(packagingCost),
     utilityCost: round2(utilityCost),

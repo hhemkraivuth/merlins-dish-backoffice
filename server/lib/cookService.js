@@ -4,8 +4,9 @@
 const { parseNote, looksLikeAttempt } = require('./noteParser');
 const { costBatch } = require('./costBatch');
 const { parseDate, formatDMY, bangkokToday } = require('./dates');
-const { parsePurchaseUnit } = require('./priceBook');
+const { parsePurchaseUnit, normName } = require('./priceBook');
 const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
+const { toBaseQty } = require('./ingredientLots');
 
 const baht = (n) => `฿${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -22,7 +23,9 @@ const HELP = [
   'Receipts: type them with a date, then one line per item with the quantity and price.',
   '18/10',
   'minced pork 1000g 110thb',
-  'They go to the Expense Log and are used for any batch cooked on or after that date.',
+  'They go to the Expense Log and become stock lots. Batches use the oldest lot first.',
+  '',
+  'Stock lots: "lots" shows what is left. "opening 19/10" then lines like "minced pork 2000g 220thb" sets starting stock. "count minced pork 3000g" corrects a quantity.',
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
   '',
   'Stock: send "stock" to list counts, or "stock coke zero zero 5" to set one (full item name).',
@@ -77,6 +80,20 @@ async function deductPackaging(result, deps) {
   return out;
 }
 
+// Ingredient grams used by a batch come off the oldest stock lots. Only called once the batch is logged.
+async function deductLots(result, key, lotBook, deps) {
+  if (!lotBook || !deps.saveLots || !result.lotUse.length) return [];
+  const now = new Date().toISOString();
+  const usage = result.lotUse.map((u) => [key, formatDMY(result.date), u.name, u.lotId, formatDMY(u.lotDate), Math.round(u.qty * 1000) / 1000, Number(u.unitCost.toFixed(5)), Number(u.cost.toFixed(2)), now]);
+  try {
+    await deps.saveLots(lotBook, usage);
+  } catch (err) {
+    return [`The batch is logged, but the stock lots could not be updated (${err.message}). Send a count for: ${[...new Set(result.lotUse.map((u) => u.name))].join(', ')}.`];
+  }
+  const left = [...new Set(result.lotUse.map((u) => u.name))].map((n) => `${n} ${Math.round(lotBook.totalRemaining(n)).toLocaleString('en-AU')}${lotBook.lotsFor(n)[0].unit}`);
+  return [`Stock left after this batch: ${left.join(', ')}`];
+}
+
 // Costs one parsed batch and logs it. Shared by the LINE note and the web form.
 // Returns { status: 'logged' | 'duplicate' | 'nolog' | 'error', text, result?, key? }
 async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LINE' } = {}) {
@@ -93,7 +110,13 @@ async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LI
     return { status: 'error', text: `The "${batch.dishTab}" tab has no ingredient lines I can read. Nothing was logged for it.` };
   }
 
-  const result = costBatch({ batch, recipe, shorthand, priceBook });
+  let lotBook = null;
+  if (deps.loadLotBook) {
+    try { lotBook = await deps.loadLotBook(); }
+    catch (err) { extraFlags.push(`Stock lots could not be read (${err.message}), so latest prices were used.`); }
+  }
+
+  const result = costBatch({ batch, recipe, shorthand, priceBook, lotBook });
   result.flags.unshift(...extraFlags);
 
   if (!result.yield) {
@@ -107,6 +130,7 @@ async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LI
 
   await deps.writeBatch(result, key, source);
   const stockLines = await deductPackaging(result, deps);
+  stockLines.push(...await deductLots(result, key, lotBook, deps));
   return { status: 'logged', result, key, text: formatBatchReply(result, 'Logged to the Cook Log.', stockLines) };
 }
 
@@ -214,6 +238,28 @@ async function processTypedReceipt(text, messageDate, deps) {
 
   await deps.appendExpenseRows(rows);
 
+  // Stock lots: every matched, countable ingredient becomes a lot (condiments on the Untracked list do not).
+  const lotLines = [];
+  const notTracked = [];
+  if (deps.addLots) {
+    let untracked = [];
+    try { untracked = deps.loadUntracked ? await deps.loadUntracked() : []; } catch (err) { /* treated as none */ }
+    const skip = new Set(untracked.map(normName));
+    const toAdd = [];
+    items.forEach((it, i) => {
+      const name = rows[i][1];
+      const matched = matchIngredient(it.typedName, catalogue).name;
+      if (!matched) return;
+      if (skip.has(normName(name))) { notTracked.push(name); return; }
+      const base = toBaseQty(it.purchaseUnit);
+      if (!base) return;
+      toAdd.push({ date: it.date || messageDate, name, qty: base.qty, unit: base.unit, price: it.price, source: 'Receipt' });
+      lotLines.push(`${name} ${Math.round(base.qty * 100) / 100}${base.unit}`);
+    });
+    try { await deps.addLots(toAdd); }
+    catch (err) { lotLines.length = 0; flags.push(`The receipt is in the Expense Log, but the stock lots could not be added (${err.message}).`); }
+  }
+
   const byDate = new Map();
   items.forEach((it, i) => {
     const d = formatDMY(it.date || messageDate);
@@ -225,6 +271,8 @@ async function processTypedReceipt(text, messageDate, deps) {
   const out = [`Logged to the Expense Log: ${items.length} item${items.length === 1 ? '' : 's'}, ${baht(total)}.`];
   for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
   const replies = [out.join('\n')];
+  if (lotLines.length) replies.push(`Added to stock lots: ${lotLines.join(', ')}.${notTracked.length ? `\nNot stock tracked (condiments): ${notTracked.join(', ')}.` : ''}`);
+  else if (notTracked.length) replies.push(`Not stock tracked (condiments): ${notTracked.join(', ')}.`);
   if (unmatched.length) replies.push(`Not matched to a known ingredient, so cost lookups will skip these until the name matches the Price Tracker:\n${unmatched.slice(0, 8).map((u) => `• ${u}`).join('\n')}`);
   if (flags.length) replies.push(`Check:\n${flags.map((f) => `• ${f}`).join('\n')}`);
   if (problems.length) replies.push(`Couldn't use these lines:\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
