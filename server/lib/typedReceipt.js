@@ -5,6 +5,7 @@
 //   onion 2kg 90thb
 //
 //   5/10
+//   at Makro
 //   celery 2kg, 138thb
 //   pelati, 2550g, 275
 //   campbells - mushroom 4 cans, 520
@@ -63,12 +64,16 @@ function matchIngredient(typed, catalogue = []) {
   return {};
 }
 
-// Returns { items: [{ date, typedName, qty, unit, purchaseUnit, price, costPerUnit }], problems, undated }
+// "at Makro", "shop: Makro", "shopped at Tops" -> "Makro". Applies to the items below it until the next shop or date line.
+const SHOP_LINE = /^(?:shopped\s+at|shop|store|at)\s*[:\-]?\s+(\S.*)$/i;
+
+// Returns { items: [{ date, shop, typedName, qty, unit, purchaseUnit, price, costPerUnit }], problems, undated }
 // undated is true when at least one item had no date line above it (the caller decides what date to use).
 function parseTypedReceipt(text, today) {
   const items = [];
   const problems = [];
   let currentDate = null;
+  let currentShop = '';
   let undated = false;
 
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -85,6 +90,7 @@ function parseTypedReceipt(text, today) {
     if (!currentDate) undated = true;
     items.push({
       date: currentDate,
+      shop: currentShop,
       typedName: name,
       qty,
       unit,
@@ -99,7 +105,7 @@ function parseTypedReceipt(text, today) {
     if (DATE_LINE.test(line)) {
       const d = parseDate(line, today);
       if (!d) problems.push(`"${line}" doesn't look like a valid date`);
-      else currentDate = d;
+      else { currentDate = d; currentShop = ''; }
       continue;
     }
     const firstSpace = line.search(/\s/);
@@ -107,11 +113,18 @@ function parseTypedReceipt(text, today) {
       const d = parseDate(line.slice(0, firstSpace), today);
       if (!d) { problems.push(`"${line.slice(0, firstSpace)}" doesn't look like a valid date`); continue; }
       currentDate = d;
-      if (addItem(line.slice(firstSpace).trim())) continue;
-      problems.push(`Couldn't read "${line.slice(firstSpace).trim()}"`);
+      currentShop = '';
+      const rest = line.slice(firstSpace).trim();
+      if (addItem(rest)) continue;
+      const sh = rest.match(SHOP_LINE);
+      if (sh) { currentShop = sh[1].trim(); continue; }
+      problems.push(`Couldn't read "${rest}"`);
       continue;
     }
-    if (!addItem(line)) problems.push(`Couldn't read "${line}"`);
+    if (addItem(line)) continue;
+    const sh = line.match(SHOP_LINE);
+    if (sh) { currentShop = sh[1].trim(); continue; }
+    problems.push(`Couldn't read "${line}"`);
   }
 
   return { items, problems, undated };
