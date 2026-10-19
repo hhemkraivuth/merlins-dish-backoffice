@@ -24,7 +24,11 @@ async function fresh() {
   return cache;
 }
 
+// Called after a receipt is logged so the next cook note sees the new price straight away.
+function invalidate() { cache = { at: 0, priceBook: null, catalogue: null }; }
+
 module.exports = {
+  invalidate,
   loadPriceBook: async () => (await fresh()).priceBook,
   loadCatalogue: async () => (await fresh()).catalogue,
   loadRecipe: async (tab) => parseDishTab(await readLiveRange(tab, 'A1:I80')),

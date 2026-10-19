@@ -5,6 +5,7 @@ const { parseNote, looksLikeAttempt } = require('./noteParser');
 const { costBatch } = require('./costBatch');
 const { parseDate, formatDMY, bangkokToday } = require('./dates');
 const { parsePurchaseUnit } = require('./priceBook');
+const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
 
 const baht = (n) => `฿${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -16,7 +17,12 @@ const HELP = [
   'O 446',
   'yield 21',
   '',
-  'Ingredients you leave out stay at the recipe quantity. Send a receipt photo and I will log it to the Expense Log.',
+  'Ingredients you leave out stay at the recipe quantity.',
+  '',
+  'Receipts: type them with a date, then one line per item with the quantity and price.',
+  '18/10',
+  'minced pork 1000g 110thb',
+  'They go to the Expense Log and are used for any batch cooked on or after that date.',
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
   '',
   'Stock: send "stock" to list counts, or "stock coke zero zero 5" to set one (full item name).',
@@ -181,4 +187,48 @@ async function processReceipt({ buffer, mime }, messageDate, deps) {
   return out.join('\n');
 }
 
-module.exports = { processNote, processReceipt, runBatch, formatBatchReply, HELP };
+// Receipts typed in the group: a date line, then "name qty price" lines, e.g. "minced pork 1000g 110thb".
+// deps: { loadCatalogue(), appendExpenseRows(rows) }. Returns an array of replies, or null when the text is not a typed receipt.
+async function processTypedReceipt(text, messageDate, deps) {
+  if (!looksLikeTypedReceipt(text)) return null;
+  const { items, problems, undated } = parseTypedReceipt(text, messageDate);
+  if (!items.length) return [`I couldn't read any item lines.\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`];
+
+  let catalogue = [];
+  try { catalogue = await deps.loadCatalogue(); } catch (err) { /* names stay as typed, flagged below */ }
+
+  const flags = [];
+  if (undated) flags.push(`No date line above some items, so I used the day you sent it (${formatDMY(messageDate)})`);
+
+  const unmatched = [];
+  const rows = items.map((it) => {
+    const date = it.date || messageDate;
+    const m = matchIngredient(it.typedName, catalogue);
+    const remarks = ['Typed in LINE'];
+    if (!m.name) {
+      unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName);
+      remarks.push(`"${it.typedName}" not matched to a known ingredient`);
+    }
+    return [formatDMY(date), m.name || it.typedName, it.price, it.purchaseUnit, it.costPerUnit, '', remarks.join('; ')];
+  });
+
+  await deps.appendExpenseRows(rows);
+
+  const byDate = new Map();
+  items.forEach((it, i) => {
+    const d = formatDMY(it.date || messageDate);
+    if (!byDate.has(d)) byDate.set(d, []);
+    byDate.get(d).push(`• ${rows[i][1]} ${it.purchaseUnit}, ${baht(it.price)}`);
+  });
+  const total = items.reduce((s, it) => s + it.price, 0);
+
+  const out = [`Logged to the Expense Log: ${items.length} item${items.length === 1 ? '' : 's'}, ${baht(total)}.`];
+  for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
+  const replies = [out.join('\n')];
+  if (unmatched.length) replies.push(`Not matched to a known ingredient, so cost lookups will skip these until the name matches the Price Tracker:\n${unmatched.slice(0, 8).map((u) => `• ${u}`).join('\n')}`);
+  if (flags.length) replies.push(`Check:\n${flags.map((f) => `• ${f}`).join('\n')}`);
+  if (problems.length) replies.push(`Couldn't use these lines:\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
+  return replies;
+}
+
+module.exports = { processNote, processReceipt, processTypedReceipt, runBatch, formatBatchReply, HELP };
