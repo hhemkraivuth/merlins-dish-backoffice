@@ -78,8 +78,21 @@ yield 21
 - `Shorthand` tab (created automatically): add your own keywords as `Type | Short | Full name`
   (Type is `Dish` or `Ingredient`). `Meat` always means the first ingredient line of the dish's tab.
 
-**Receipt photo:** read by vision AI, each line mapped to the ingredient names in the Price Tracker
-where it can be, and added to the `Expense Log` (the live Price Log is never written to).
+**Receipt (typed):** a date line, then one line per item with the quantity and a price ending in `thb`, `baht` or `฿`:
+
+```
+18/10
+minced pork 1000g 110thb
+onion 2kg 90thb
+```
+
+- Items are added to the `Expense Log` (the live Price Log is never written to), with the date you typed.
+- Names are matched to the Price Tracker in any word order, so "minced pork" becomes "Pork - minced". An item that does not match is still logged under the name you typed and flagged.
+- A batch cooked on or after that date uses the price. A batch cooked before it does not.
+- No date line means the day you sent the message, and the reply says so.
+- The same page is on the Weekly Receipts tab of the website.
+
+**Receipt photos** are switched off. To turn them back on, set `RECEIPT_PHOTOS` to `on` in Railway and add `ANTHROPIC_API_KEY`. A photo sent while they are off gets a reminder to type the receipt instead.
 
 Type `help` in the group for a reminder. Type `groupid` before `BOH_GROUP_ID` is set to find the group's id.
 
@@ -90,7 +103,7 @@ Type `help` in the group for a reminder. Type `groupid` before `BOH_GROUP_ID` is
    Webhook URL: `https://<this-service>.up.railway.app/webhook/line`, then press Verify.
 2. Create a new private LINE group with only this bot and yourself.
 3. In Railway, on this service only, set `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`,
-   `ANTHROPIC_API_KEY`, and the Google variables.
+   and the Google variables. (`ANTHROPIC_API_KEY` is only needed if you turn receipt photos on.)
 4. Share the live Merlin's numbers sheet with the service account as **Viewer**; share the Claude Log as **Editor**.
 5. Send `groupid` in the new group, then set the id it replies with as `BOH_GROUP_ID` and redeploy.
 
