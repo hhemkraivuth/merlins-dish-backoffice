@@ -3,7 +3,7 @@
 
 const { parseNote, looksLikeAttempt } = require('./noteParser');
 const { costBatch } = require('./costBatch');
-const { parseDate, formatDMY, bangkokToday } = require('./dates');
+const { parseDate, formatDMY, bangkokToday, bangkokNow } = require('./dates');
 const { parsePurchaseUnit, normName } = require('./priceBook');
 const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
 const { toBaseQty } = require('./ingredientLots');
@@ -83,7 +83,7 @@ async function deductPackaging(result, deps) {
 // Ingredient grams used by a batch come off the oldest stock lots. Only called once the batch is logged.
 async function deductLots(result, key, lotBook, deps) {
   if (!lotBook || !deps.saveLots || !result.lotUse.length) return [];
-  const now = new Date().toISOString();
+  const now = bangkokNow();
   const usage = result.lotUse.map((u) => [key, formatDMY(result.date), u.name, u.lotId, formatDMY(u.lotDate), Math.round(u.qty * 1000) / 1000, Number(u.unitCost.toFixed(5)), Number(u.cost.toFixed(2)), now]);
   try {
     await deps.saveLots(lotBook, usage);
@@ -235,7 +235,7 @@ async function processTypedReceipt(text, messageDate, deps) {
       unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName);
       remarks.push(`"${it.typedName}" not matched to a known ingredient`);
     }
-    return [formatDMY(date), m.name || it.typedName, it.price, it.purchaseUnit, it.costPerUnit, '', remarks.join('; ')];
+    return [formatDMY(date), m.name || it.typedName, it.price, it.purchaseUnit, it.costPerUnit, it.shop || '', remarks.join('; ')];
   });
 
   await deps.appendExpenseRows(rows);
@@ -255,7 +255,7 @@ async function processTypedReceipt(text, messageDate, deps) {
       if (skip.has(normName(name))) { notTracked.push(name); return; }
       const base = toBaseQty(it.purchaseUnit);
       if (!base) return;
-      toAdd.push({ date: it.date || messageDate, name, qty: base.qty, unit: base.unit, price: it.price, source: 'Receipt' });
+      toAdd.push({ date: it.date || messageDate, name, qty: base.qty, unit: base.unit, price: it.price, source: 'Receipt', note: it.shop || '' });
       lotLines.push(`${name} ${Math.round(base.qty * 100) / 100}${base.unit}`);
     });
     try { await deps.addLots(toAdd); }
@@ -264,7 +264,7 @@ async function processTypedReceipt(text, messageDate, deps) {
 
   const byDate = new Map();
   items.forEach((it, i) => {
-    const d = formatDMY(it.date || messageDate);
+    const d = `${formatDMY(it.date || messageDate)}${it.shop ? `, ${it.shop}` : ''}`;
     if (!byDate.has(d)) byDate.set(d, []);
     byDate.get(d).push(`• ${rows[i][1]} ${it.purchaseUnit}, ${baht(it.price)}`);
   });

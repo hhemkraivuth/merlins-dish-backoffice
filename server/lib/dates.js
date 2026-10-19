@@ -61,4 +61,9 @@ function formatBangkokStamp(value) {
   return `${p2(b.getUTCDate())}/${p2(b.getUTCMonth() + 1)}/${b.getUTCFullYear()} ${p2(b.getUTCHours())}:${p2(b.getUTCMinutes())}`;
 }
 
-module.exports = { parseDate, formatDMY, bangkokToday, daysBetween, utc, formatBangkokStamp };
+// Right now in Bangkok time, as "19/10/2026 22:08". Used for every timestamp written to the sheets.
+function bangkokNow(nowMs = Date.now()) {
+  return formatBangkokStamp(new Date(nowMs).toISOString());
+}
+
+module.exports = { bangkokNow, parseDate, formatDMY, bangkokToday, daysBetween, utc, formatBangkokStamp };

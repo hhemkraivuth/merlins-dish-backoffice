@@ -14,7 +14,7 @@
 //   Untracked Ingredients  names to leave out of lot tracking (Lily can edit)
 
 const { normName, toNumber, parsePurchaseUnit, unitKind } = require('./priceBook');
-const { parseDate, formatDMY } = require('./dates');
+const { parseDate, formatDMY, bangkokNow } = require('./dates');
 
 const LOTS_TAB = 'Ingredient Lots';
 const USAGE_TAB = 'Lot Usage';
@@ -117,7 +117,7 @@ class LotBook {
 // ---- Google Sheets side -------------------------------------------------------------------
 
 function lotRow(l, status) {
-  return [l.id, l.name, formatDMY(l.date), l.source, round(l.qty, 3), l.unit, round(Math.max(l.remaining, 0), 3), round(l.total, 2), round(l.unitCost, 5), status || (l.remaining > EPS ? 'Active' : 'Used up'), new Date().toISOString(), l.note || ''];
+  return [l.id, l.name, formatDMY(l.date), l.source, round(l.qty, 3), l.unit, round(Math.max(l.remaining, 0), 3), round(l.total, 2), round(l.unitCost, 5), status || (l.remaining > EPS ? 'Active' : 'Used up'), bangkokNow(), l.note || ''];
 }
 
 async function loadLotBook(today) {
@@ -159,7 +159,7 @@ async function addLots(items) {
   const cookLog = require('./cookLog');
   const { appendRows } = require('./sheets');
   await cookLog.ensureTab(LOTS_TAB, LOT_HEADERS);
-  const lots = items.map((it) => ({ id: newLotId(it.date), name: it.name, date: it.date, source: it.source || 'Receipt', qty: it.qty, unit: baseUnit(it.unit), remaining: it.qty, total: it.price, unitCost: it.price / it.qty }));
+  const lots = items.map((it) => ({ id: newLotId(it.date), name: it.name, date: it.date, source: it.source || 'Receipt', qty: it.qty, unit: baseUnit(it.unit), remaining: it.qty, total: it.price, unitCost: it.price / it.qty, note: it.note || '' }));
   await appendRows(LOTS_TAB, lots.map((l) => lotRow(l)));
   return lots;
 }

@@ -6,7 +6,7 @@
 
 const crypto = require('crypto');
 const { appendRows, readTab, getSheetsClient, CLAUDE_LOG_SHEET_ID } = require('./sheets');
-const { formatDMY } = require('./dates');
+const { formatDMY, bangkokNow } = require('./dates');
 const { seedRows } = require('./aliases');
 
 const COOK_LOG = 'Cook Log';
@@ -53,7 +53,7 @@ async function writeBatch(result, key, source = 'LINE') {
   const d = formatDMY(result.date);
   await appendRows(COOK_LOG, [[
     key, d, result.dish, result.yield, result.ingredientCost, result.packagingCost, result.utilityCost,
-    result.total, result.perPortion, result.flags.join(' | '), new Date().toISOString(), source,
+    result.total, result.perPortion, result.flags.join(' | '), bangkokNow(), source,
   ]]);
   await appendRows(COOK_LINES, result.lines.map((l) => [
     key, d, result.dish, l.type, l.name, l.qty, l.unit, Number(l.unitCost.toFixed(5)), l.priceDate, l.priceSource, Number(l.lineCost.toFixed(2)), l.qtySource,
