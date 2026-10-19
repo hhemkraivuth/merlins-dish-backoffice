@@ -89,6 +89,7 @@ onion 2kg 90thb
 - Items are added to the `Expense Log` (the live Price Log is never written to), with the date you typed.
 - Names are matched to the Price Tracker in any word order, so "minced pork" becomes "Pork - minced". An item that does not match is still logged under the name you typed and flagged.
 - A batch cooked on or after that date uses the price. A batch cooked before it does not.
+- Where you shopped: a line like `at Makro` (or `shop Makro`) under the date. It applies to the items below it until the next shop or date line, and goes in the Expense Log's Shopped at column. It is optional.
 - No date line means the day you sent the message, and the reply says so.
 - Commas are fine (`celery 2kg, 138thb`), the price can end in `thb`, `baht` or `฿` or simply follow a comma (`pelati, 2550g, 275`), and things counted by the container work (`campbells - mushroom 4 cans, 520`).
 - Catching up on an old receipt? Add a line `prices only` and it logs the prices for costing past batches but adds no stock lots, so stock does not show as unused when it was cooked long ago.
