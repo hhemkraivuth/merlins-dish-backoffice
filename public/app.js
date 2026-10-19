@@ -115,7 +115,7 @@ function renderOrders() {
   });
 }
 
-// ---- Mode 2: Weekly Receipts ----
+// ---- Mode 2: Weekly Receipts (typed) ----
 
 function renderReceipts() {
   main.innerHTML = '';
@@ -123,50 +123,42 @@ function renderReceipts() {
     <section class="section">
       <div class="intro">
         <h1 class="intro-title">Weekly Receipts</h1>
-        <p class="intro-body">Drop in this week's shopping receipt photos. Items get logged into a new Expense Log tab — kept separate from your live Price Log, so nothing here can touch the real file. Review it, then copy across whenever you're ready.</p>
+        <p class="intro-body">Type your shopping with a date, then one line per item with the quantity and price. Items go into the Expense Log, kept separate from your live Price Log. A batch cooked on or after that date uses the price.</p>
       </div>
-      <label class="upload-box">
-        <input type="file" id="receiptFiles" accept="image/*" multiple style="display:none" />
-        <span class="upload-icon">+</span>
-        <span class="upload-label" id="receiptFilesLabel">Select receipt photos</span>
-      </label>
-      <button class="primary-button" id="receiptSubmit" disabled>Select receipts first</button>
+      <textarea id="receiptText" rows="8" placeholder="18/10&#10;minced pork 1000g 110thb&#10;onion 2kg 90thb" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
+      <button class="primary-button" id="receiptSubmit" disabled>Type a receipt first</button>
       <div id="receiptResult"></div>
     </section>
   `);
   main.appendChild(section);
 
-  const input = section.querySelector('#receiptFiles');
-  const label = section.querySelector('#receiptFilesLabel');
+  const input = section.querySelector('#receiptText');
   const submitBtn = section.querySelector('#receiptSubmit');
   const resultDiv = section.querySelector('#receiptResult');
 
-  input.addEventListener('change', () => {
-    const n = input.files.length;
-    label.textContent = n ? `${n} receipt${n === 1 ? '' : 's'} selected` : 'Select receipt photos';
-    submitBtn.disabled = n === 0;
-    submitBtn.textContent = n ? `Process ${n} receipt${n === 1 ? '' : 's'}` : 'Select receipts first';
-    resultDiv.innerHTML = '';
+  input.addEventListener('input', () => {
+    const has = input.value.trim().length > 0;
+    submitBtn.disabled = !has;
+    submitBtn.textContent = has ? 'Log receipt' : 'Type a receipt first';
   });
 
   submitBtn.addEventListener('click', async () => {
-    if (!input.files.length) return;
+    if (!input.value.trim()) return;
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Reading receipts…';
+    submitBtn.textContent = 'Logging…';
     resultDiv.innerHTML = '';
     try {
-      const formData = new FormData();
-      Array.from(input.files).forEach((f) => formData.append('receipts', f));
-      const res = await fetch('/api/receipts/batch', { method: 'POST', body: formData });
+      const res = await fetch('/api/receipts/typed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: input.value }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
-      renderResultCard(resultDiv, data, { itemKey: 'file', writtenLabel: 'itemsLogged' });
+      const html = data.replies.map((r) => `<div class="result-card"><pre style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(r)}</pre></div>`).join('');
+      resultDiv.appendChild(el(`<div>${html}</div>`));
+      input.value = '';
     } catch (err) {
       resultDiv.appendChild(el(`<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`));
     } finally {
-      submitBtn.disabled = false;
-      const n = input.files.length;
-      submitBtn.textContent = `Process ${n} receipt${n === 1 ? '' : 's'}`;
+      submitBtn.disabled = !input.value.trim();
+      submitBtn.textContent = input.value.trim() ? 'Log receipt' : 'Type a receipt first';
     }
   });
 }
