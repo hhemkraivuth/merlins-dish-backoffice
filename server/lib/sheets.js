@@ -63,4 +63,19 @@ async function updateRow(tabName, rowIndex, values) {
   });
 }
 
-module.exports = { appendRows, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };
+// Deletes every data row (never the header) of a tab where predicate(row) is true. Returns how many went.
+async function deleteRowsWhere(tabName, predicate) {
+  const rows = await readTab(tabName);
+  const at = [];
+  rows.forEach((r, i) => { if (i > 0 && predicate(r)) at.push(i); });
+  if (!at.length) return 0;
+  const sheets = await getSheetsClient();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: CLAUDE_LOG_SHEET_ID, fields: 'sheets.properties(sheetId,title)' });
+  const tab = (meta.data.sheets || []).find((x) => x.properties.title === tabName);
+  if (!tab) return 0;
+  const requests = at.reverse().map((i) => ({ deleteDimension: { range: { sheetId: tab.properties.sheetId, dimension: 'ROWS', startIndex: i, endIndex: i + 1 } } }));
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId: CLAUDE_LOG_SHEET_ID, requestBody: { requests } });
+  return at.length;
+}
+
+module.exports = { deleteRowsWhere, appendRows, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };

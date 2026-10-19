@@ -7,6 +7,7 @@ const { parseDate, formatDMY, bangkokToday, bangkokNow } = require('./dates');
 const { parsePurchaseUnit, normName } = require('./priceBook');
 const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
 const { toBaseQty } = require('./ingredientLots');
+const { applyPackSize, isContainerWord } = require('./packSizes');
 
 const baht = (n) => `฿${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -26,6 +27,7 @@ const HELP = [
   'They go to the Expense Log and become stock lots. Batches use the oldest lot first.',
   '',
   'Stock lots: "lots" shows what is left. "opening 19/10" then lines like "minced pork 2000g 220thb" sets starting stock. "count minced pork 3000g" corrects a quantity.',
+  'Bottle and can sizes: "size worcestershire sauce 290ml" so "2 bottles" is stored as 580ml. "undo noir ragu 6/10" takes a logged batch back out so you can send it again.',
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
   '',
   'Stock: send "stock" to list counts, or "stock coke zero zero 5" to set one (full item name).',
@@ -217,7 +219,9 @@ async function processTypedReceipt(text, messageDate, deps) {
   if (!looksLikeTypedReceipt(text)) return null;
   // A line saying "prices only" logs the prices (for costing past batches) without adding stock lots.
   const pricesOnly = /^\s*(prices only|no stock)\s*$/im.test(text);
-  const { items, problems, undated } = parseTypedReceipt(text.replace(/^\s*(prices only|no stock)\s*$/gim, ''), messageDate);
+  const parsed = parseTypedReceipt(text.replace(/^\s*(prices only|no stock)\s*$/gim, ''), messageDate);
+  const { problems, undated } = parsed;
+  let items = parsed.items;
   if (!items.length) return [`I couldn't read any item lines.\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`];
 
   let catalogue = [];
@@ -225,6 +229,31 @@ async function processTypedReceipt(text, messageDate, deps) {
 
   const flags = [];
   if (undated) flags.push(`No date line above some items, so I used the day you sent it (${formatDMY(messageDate)})`);
+
+  // "2 bottles" becomes the real amount when the ingredient has a size in the Pack Sizes tab (2 x 290ml = 580ml).
+  let sizes = null;
+  if (deps.loadPackSizes) { try { sizes = await deps.loadPackSizes(); } catch (err) { flags.push(`The Pack Sizes tab could not be read (${err.message}), so bottle and can sizes were not applied.`); } }
+  let priceBook = null;
+  if (deps.loadPriceBook) { try { priceBook = await deps.loadPriceBook(); } catch (err) { /* the guard below is skipped */ } }
+
+  const held = [];
+  items = items.filter((it) => {
+    const name = matchIngredient(it.typedName, catalogue).name;
+    if (!name) return true;
+    const conv = applyPackSize(it, name, sizes);
+    if (conv) { it.purchaseUnit = conv.purchaseUnit; it.costPerUnit = conv.costPerUnit; it.pack = conv.pack; return true; }
+    // A container with no known size whose price is wildly different from past prices is held back, not logged wrongly.
+    if (priceBook && isContainerWord(it.unit)) {
+      const prev = priceBook.lookup(name, it.date || messageDate);
+      if (prev && prev.cost > 0 && (it.costPerUnit / prev.cost >= 20 || it.costPerUnit / prev.cost <= 0.05)) {
+        held.push(`${name} ${it.qty} ${it.unit}: I need the size of one ${String(it.unit).replace(/s$/, '')}. Send "size ${name.toLowerCase()} 290ml" (with the real size), then send this line again.`);
+        return false;
+      }
+    }
+    return true;
+  });
+  if (!items.length) return [`Nothing was logged.\n${held.map((h) => `• ${h}`).join('\n')}`];
+  if (held.length) flags.push(...held.map((h) => `Not logged, ${h}`));
 
   const unmatched = [];
   const rows = items.map((it) => {
@@ -266,7 +295,7 @@ async function processTypedReceipt(text, messageDate, deps) {
   items.forEach((it, i) => {
     const d = `${formatDMY(it.date || messageDate)}${it.shop ? `, ${it.shop}` : ''}`;
     if (!byDate.has(d)) byDate.set(d, []);
-    byDate.get(d).push(`• ${rows[i][1]} ${it.purchaseUnit}, ${baht(it.price)}`);
+    byDate.get(d).push(`• ${rows[i][1]} ${it.purchaseUnit}${it.pack ? ` (${it.pack})` : ''}, ${baht(it.price)}`);
   });
   const total = items.reduce((s, it) => s + it.price, 0);
 

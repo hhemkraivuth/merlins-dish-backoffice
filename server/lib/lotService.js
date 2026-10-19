@@ -18,7 +18,10 @@ const qtyText = (n, unit) => `${Number(n.toFixed(2)).toLocaleString('en-AU')}${u
 
 const COUNT = /^count\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?)?$/i;
 
-const USAGE = 'Stock lot commands:\nlots (what is left)\nopening 19/10 then lines like: minced pork 2000g 220thb\ncount minced pork 3000g (set the real quantity)';
+const USAGE = 'Stock lot commands:\nlots (what is left)\nopening 19/10 then lines like: minced pork 2000g 220thb\ncount minced pork 3000g (set the real quantity)\nsize worcestershire sauce 290ml (how much is in one bottle or can)\nundo noir ragu 6/10 (take a logged batch back out)';
+
+const SIZE = /^size\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr)$/i;
+const UNDO = /^undo\s+(.*?)\s*(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?)$/i;
 
 // deps: { loadLotBook(), saveLots(book, usage), addLots(items), loadCatalogue(), loadUntracked() }
 // Returns an array of replies, or null when the text is not a lot command.
@@ -93,7 +96,29 @@ async function processLots(text, messageDate, deps) {
     return [`${r.name}: ${qtyText(r.before, r.unit)} on the books, now ${qtyText(r.after, r.unit)}. ${note}`];
   }
 
-  if (/^(count|opening)\b/i.test(first)) return [USAGE];
+  const sz = first.match(SIZE);
+  if (sz && raw === first && deps.setPackSize) {
+    let catalogue = [];
+    try { catalogue = await deps.loadCatalogue(); } catch (err) { /* falls through to not found */ }
+    const m = matchIngredient(sz[1], catalogue);
+    if (!m.name) {
+      return [m.ambiguous
+        ? `Nothing changed. "${sz[1]}" could be:\n${m.ambiguous.map((n) => `• ${n}`).join('\n')}\nSend the full name.`
+        : `Nothing changed. I don't know an ingredient called "${sz[1]}".`];
+    }
+    const text = `${sz[2].replace(',', '.')}${sz[3].toLowerCase()}`;
+    const done = await deps.setPackSize(m.name, text);
+    return [`${m.name}: one bottle, can or bag is now ${text} (${done}). Receipts that say "2 bottles" will be stored as ${Number((2 * (toBaseQty(text) || { qty: 0 }).qty).toFixed(3))}${(toBaseQty(text) || {}).unit || ''}.`];
+  }
+
+  const un = first.match(UNDO);
+  if (un && raw === first && deps.undoBatch) {
+    const date = parseDate(un[2], messageDate);
+    if (!date) return [`"${un[2]}" doesn't look like a valid date. Nothing was changed.`];
+    return [(await deps.undoBatch(un[1], date)).text];
+  }
+
+  if (/^(count|opening|size|undo)\b/i.test(first)) return [USAGE];
   return null;
 }
 
