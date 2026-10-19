@@ -2,7 +2,7 @@
 // customer bot's). Only messages from BOH_GROUP_ID are acted on.
 
 const { verifySignature, reply, push, getContent } = require('../lib/lineApi');
-const { processNote, processReceipt, HELP } = require('../lib/cookService');
+const { processNote, processReceipt, processTypedReceipt, HELP } = require('../lib/cookService');
 const { processStock } = require('../lib/stockService');
 const { defaultShorthand, applyShorthandRows } = require('../lib/aliases');
 const { bangkokToday } = require('../lib/dates');
@@ -41,10 +41,12 @@ function defaultDeps() {
       deductStock,
     },
     stock: { getAll: getAllStock, setCount: setStockCount },
+    // Photo receipts are off unless RECEIPT_PHOTOS=on (they need an Anthropic key). Typed receipts always work.
+    receiptPhotos: String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on',
     receipt: {
       loadCatalogue: live.loadCatalogue,
       extractReceipt: extractReceiptWithCatalogue,
-      appendExpenseRows: (rows) => appendRows('Expense Log', rows),
+      appendExpenseRows: async (rows) => { await appendRows('Expense Log', rows); live.invalidate(); },
     },
   };
 }
@@ -78,7 +80,10 @@ function createHandler(getDeps) {
       if (/^(help|\?)$/i.test(text)) return sendBack(deps, ev, HELP);
       let replies;
       try {
-        replies = (deps.stock && await processStock(text, deps.stock)) || await processNote(text, deps.note);
+        const sent = new Date(ev.timestamp || Date.now());
+        replies = (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(text, bangkokToday(sent.getTime()), deps.receipt))
+          || (deps.stock && await processStock(text, deps.stock))
+          || await processNote(text, deps.note);
       } catch (err) {
         // Never fail silently in the group: say what went wrong and that nothing was logged.
         console.error('Cook note failed:', err);
@@ -97,6 +102,9 @@ function createHandler(getDeps) {
     }
 
     if (ev.message.type === 'image') {
+      if (!deps.receiptPhotos) {
+        return sendBack(deps, ev, 'Receipt photos are switched off. Type the receipt instead, for example:\n18/10\nminced pork 1000g 110thb');
+      }
       try {
         const content = await deps.getContent(ev.message.id, deps.token);
         const sent = new Date(ev.timestamp || Date.now());

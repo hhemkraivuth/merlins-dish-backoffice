@@ -62,4 +62,34 @@ async function handleBatch(req, res) {
   }
 }
 
-module.exports = { handleBatch };
+// Typed receipts from the web page. Same parser and same Expense Log rows as the LINE group.
+function createTyped(getDeps) {
+  return async function handleTyped(req, res) {
+    try {
+      const text = String((req.body && req.body.text) || '').trim();
+      if (!text) return res.status(400).json({ error: 'Type the receipt first.' });
+      const { processTypedReceipt } = require('../lib/cookService');
+      const { bangkokToday } = require('../lib/dates');
+      const replies = await processTypedReceipt(text, bangkokToday(), getDeps());
+      if (!replies) {
+        return res.status(400).json({ error: 'I could not find any item lines. Each line needs a quantity and a price, for example: minced pork 1000g 110thb' });
+      }
+      res.json({ replies });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  };
+}
+
+function defaultTypedDeps() {
+  const live = require('../lib/liveData');
+  return {
+    loadCatalogue: live.loadCatalogue,
+    appendExpenseRows: async (rows) => { await appendRows(EXPENSE_LOG_TAB, rows); live.invalidate(); },
+  };
+}
+
+const handleTyped = createTyped(defaultTypedDeps);
+
+module.exports = { handleBatch, handleTyped, createTyped };
