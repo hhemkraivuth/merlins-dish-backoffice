@@ -23,7 +23,11 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.post('/api/orders/batch', upload.array('screenshots', 60), ordersRoute.handleBatch);
 
 // Mode 2: Weekly Receipts
-app.post('/api/receipts/batch', upload.array('receipts', 60), receiptsRoute.handleBatch);
+app.post('/api/receipts/typed', receiptsRoute.handleTyped);
+// Photo reading is off unless RECEIPT_PHOTOS=on (it needs an Anthropic key and credit).
+if (String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on') {
+  app.post('/api/receipts/batch', upload.array('receipts', 60), receiptsRoute.handleBatch);
+}
 
 // Mode 3: Batch Cook
 app.get('/api/batch-cook/dishes', batchCookRoute.listDishes);
