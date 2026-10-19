@@ -92,6 +92,21 @@ onion 2kg 90thb
 - No date line means the day you sent the message, and the reply says so.
 - The same page is on the Weekly Receipts tab of the website.
 
+### Stock lots (first in, first out)
+
+Every countable ingredient you buy becomes a **lot** (date, quantity, price) in the `Ingredient Lots` tab of the Claude Log.
+A batch takes its grams from the oldest lot first, using only lots bought on or before the cook date. A batch that spans
+two lots is costed as the blend of the two prices. When a lot is used up, the next one takes over.
+
+- **New purchases:** typed receipts create lots automatically.
+- **Starting stock (one off):** `opening 19/10` then lines like `minced pork 2000g 220thb` (total price paid for that quantity). An ingredient that already has lots is skipped.
+- **Check:** send `lots` to see what is left, oldest first.
+- **Correct the quantity:** `count minced pork 3000g`. Lower than the books reduces the oldest lots. Higher adds an adjustment lot at the newest price.
+- **Condiments:** names in the `Untracked Ingredients` tab (starts with Black pepper, Salt, All purpose flour) never get lots and keep using the latest price. Add more rows there any time.
+- **Running short:** if a batch needs more than the lots hold, the rest is costed at the latest price and the reply says so. If an ingredient has no lots at all, it uses the latest price as before.
+- `Lot Usage` tab records which lot each batch line took grams from. Lots are only reduced once a batch is actually logged, so a duplicate or a note with no yield takes nothing.
+- The web Batch Cook page shows latest prices in its preview. The logged cost uses the lots.
+
 **Receipt photos** are switched off. To turn them back on, set `RECEIPT_PHOTOS` to `on` in Railway and add `ANTHROPIC_API_KEY`. A photo sent while they are off gets a reminder to type the receipt instead.
 
 Type `help` in the group for a reminder. Type `groupid` before `BOH_GROUP_ID` is set to find the group's id.
