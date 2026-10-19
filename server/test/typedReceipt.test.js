@@ -126,3 +126,59 @@ test('LINE group: typed receipt is logged, a photo gets the typing hint and no v
   assert.match(replies[1], /Receipt photos are switched off/);
   assert.strictEqual(visionCalls, 0);
 });
+
+const HER_RECEIPT = '5/10\ncelery 2kg, 138thb\nmushroom - white 1000g, 218thb\nminced pork 5kg, 610thb\ncampbells - mushroom 4 cans, 520thb\ncampbells - chicken mushroom, 2 cans, 142thb\npelati, 2550g, 275thb\nworcestershire sauce, 2bottles, 363thb';
+
+test('commas around quantity and price, counted units, and the price without thb all read', () => {
+  for (const text of [HER_RECEIPT, HER_RECEIPT.replace(/thb/g, '')]) {
+    assert.ok(looksLikeTypedReceipt(text));
+    const r = parseTypedReceipt(text, TODAY);
+    assert.strictEqual(r.problems.length, 0);
+    assert.deepStrictEqual(r.items.map((i) => [i.typedName, i.purchaseUnit, i.price]), [
+      ['celery', '2kg', 138],
+      ['mushroom - white', '1000g', 218],
+      ['minced pork', '5kg', 610],
+      ['campbells - mushroom', '4cans', 520],
+      ['campbells - chicken mushroom', '2cans', 142],
+      ['pelati', '2550g', 275],
+      ['worcestershire sauce', '2bottles', 363],
+    ]);
+    assert.ok(r.items.every((i) => i.date.toISOString().slice(0, 10) === '2026-10-05'));
+  }
+});
+
+test('a cook note with commas-free lines is still not a receipt', () => {
+  assert.ok(!looksLikeTypedReceipt('5/10\nbolo\nmeat 1000\nO 446\nCl 234\nyield 21'));
+});
+
+test('cans and bottles are stored as pieces, apostrophes do not block a match', () => {
+  const { parsePurchaseUnit } = require('../lib/priceBook');
+  assert.deepStrictEqual(parsePurchaseUnit('4cans'), { qty: 4, unit: 'piece' });
+  assert.deepStrictEqual(parsePurchaseUnit('2bottles'), { qty: 2, unit: 'piece' });
+  assert.strictEqual(matchIngredient('campbells - mushroom', ["Campbell's - Mushroom", "Campbell's - Chicken Mushroom"]).name, "Campbell's - Mushroom");
+  assert.strictEqual(matchIngredient('pelati', ['Mutti Pelati', 'Polpa']).name, 'Mutti Pelati');
+});
+
+test('her whole receipt is logged: 7 rows, per piece cost for cans', async () => {
+  const rows = [];
+  const replies = await processTypedReceipt(HER_RECEIPT, TODAY, {
+    loadCatalogue: async () => ['Celery', 'Mushroom - white', 'Pork - minced', "Campbell's - Mushroom", "Campbell's - Chicken Mushroom", 'Pelati', 'Worcestershire sauce'],
+    appendExpenseRows: async (r) => rows.push(...r),
+  });
+  assert.strictEqual(rows.length, 7);
+  assert.deepStrictEqual(rows[3].slice(0, 5), ['05/10/2026', "Campbell's - Mushroom", 520, '4cans', 130]);
+  assert.match(replies[0], /7 items, ฿2,266\.00/);
+  assert.ok(!replies.some((r) => /Not matched/.test(r)));
+});
+
+test('a "prices only" line logs prices but adds no stock lots', async () => {
+  const rows = []; const lots = [];
+  const replies = await processTypedReceipt('5/10\nprices only\nminced pork 5kg, 610', TODAY, {
+    loadCatalogue: async () => CATALOGUE, appendExpenseRows: async (r) => rows.push(...r),
+    addLots: async (l) => lots.push(...l), loadUntracked: async () => [],
+  });
+  assert.strictEqual(rows.length, 1);
+  assert.strictEqual(lots.length, 0);
+  assert.ok(replies.some((r) => /Prices only/.test(r)));
+  assert.ok(!replies.some((r) => /Couldn't use/.test(r)));
+});
