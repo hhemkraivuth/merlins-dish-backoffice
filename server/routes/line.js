@@ -24,12 +24,15 @@ function defaultDeps() {
   const cookLog = require('../lib/cookLog');
   const { extractReceiptWithCatalogue } = require('../lib/receiptVision');
   const lots = require('../lib/ingredientLots');
+  const packs = require('../lib/packSizes');
   const lotDeps = {
     loadLotBook: () => lots.loadLotBook(bangkokToday()),
     saveLots: lots.saveLots,
     addLots: lots.addLots,
     loadUntracked: lots.loadUntracked,
     loadCatalogue: live.loadCatalogue,
+    setPackSize: packs.setPackSize,
+    undoBatch: (words, date) => require('../lib/batchUndo').undoBatch(words, date),
   };
 
   return {
@@ -61,6 +64,8 @@ function defaultDeps() {
       appendExpenseRows: async (rows) => { await appendRows('Expense Log', rows); live.invalidate(); },
       addLots: lotDeps.addLots,
       loadUntracked: lotDeps.loadUntracked,
+      loadPackSizes: packs.loadPackSizes,
+      loadPriceBook: live.loadPriceBook,
     },
   };
 }

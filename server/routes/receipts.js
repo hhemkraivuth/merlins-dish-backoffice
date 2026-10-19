@@ -90,6 +90,8 @@ function defaultTypedDeps() {
     appendExpenseRows: async (rows) => { await appendRows(EXPENSE_LOG_TAB, rows); live.invalidate(); },
     addLots: lots.addLots,
     loadUntracked: lots.loadUntracked,
+    loadPackSizes: require('../lib/packSizes').loadPackSizes,
+    loadPriceBook: live.loadPriceBook,
   };
 }
 
