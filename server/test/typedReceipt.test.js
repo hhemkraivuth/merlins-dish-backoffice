@@ -182,3 +182,19 @@ test('a "prices only" line logs prices but adds no stock lots', async () => {
   assert.ok(replies.some((r) => /Prices only/.test(r)));
   assert.ok(!replies.some((r) => /Couldn't use/.test(r)));
 });
+
+test('where you shopped: a shop line applies until the next shop or date line', async () => {
+  const text = '5/10\nat Makro\nminced pork 5kg, 610\ncelery 2kg, 138\nshop Tops\npelati, 2550g, 275\n6/10 at Villa\nonion 2kg, 90';
+  const r = parseTypedReceipt(text, TODAY);
+  assert.strictEqual(r.problems.length, 0);
+  assert.deepStrictEqual(r.items.map((i) => [i.typedName, i.shop]), [['minced pork', 'Makro'], ['celery', 'Makro'], ['pelati', 'Tops'], ['onion', 'Villa']]);
+
+  const rows = [];
+  const replies = await processTypedReceipt('5/10\nat Makro\nminced pork 5kg, 610', TODAY, { loadCatalogue: async () => CATALOGUE, appendExpenseRows: async (x) => rows.push(...x) });
+  assert.strictEqual(rows[0][5], 'Makro');
+  assert.match(replies[0], /05\/10\/2026, Makro/);
+
+  const noShop = parseTypedReceipt('5/10\natlantic salmon 1kg, 500', TODAY);
+  assert.strictEqual(noShop.items[0].shop, '');
+  assert.strictEqual(noShop.items[0].typedName, 'atlantic salmon');
+});
