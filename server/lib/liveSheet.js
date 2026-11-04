@@ -17,7 +17,7 @@ function getReadOnlyClient() {
     credentials: { client_email: email, private_key: privateKey },
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   });
-  client = google.sheets({ version: 'v4', auth });
+  client = google.sheets({ version: 'v4', auth, retryConfig: require('./sheetsRetry').SHEETS_RETRY });
   return client;
 }
 
