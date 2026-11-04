@@ -108,4 +108,18 @@ async function sortTab(tabName, columnCount, keys) {
   return true;
 }
 
-module.exports = { sortTab, deleteRowsWhere, appendRows, writeTab, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };
+// Writes only the given cells of one row, as typed (RAW), so dates and the other cells are never reinterpreted.
+// cells: [{ col: 0-based column, value }]. rowIndex is the 1-based sheet row.
+function colLetter(i) { let n = i; let s = ''; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0); return s; }
+async function updateCells(tabName, rowIndex, cells) {
+  const sheets = await getSheetsClient();
+  return sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: CLAUDE_LOG_SHEET_ID,
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: cells.map((c) => ({ range: `${tabName}!${colLetter(c.col)}${rowIndex}`, values: [[c.value]] })),
+    },
+  });
+}
+
+module.exports = { updateCells, sortTab, deleteRowsWhere, appendRows, writeTab, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };
