@@ -28,8 +28,8 @@ async function refresh(req, res) {
 const shape = (p) => ({ ...p, from: formatDMY(p.from), to: formatDMY(p.to) });
 async function summary(req, res) {
   try {
-    const { weekly, monthly } = await svc.computeReports();
-    res.json({ weekly: weekly.map(shape), monthly: monthly.map(shape) });
+        const { daily, weekly, monthly } = await svc.computeReports();
+    res.json({ daily: (daily || []).map(shape), weekly: weekly.map(shape), monthly: monthly.map(shape) });
   } catch (err) { fail(res, err); }
 }
 
