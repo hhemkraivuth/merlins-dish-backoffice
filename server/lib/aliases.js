@@ -25,19 +25,28 @@ const DEFAULT_INGREDIENT_ALIASES = {
   c: 'Carrot',
 };
 
+const { normName: norm } = require('./priceBook');
+
 function defaultShorthand() {
   const dishes = new Map();
   for (const [tab, list] of Object.entries(DEFAULT_DISH_ALIASES)) {
     for (const a of list) dishes.set(a, tab);
   }
   const ingredients = new Map(Object.entries(DEFAULT_INGREDIENT_ALIASES));
-  return { dishes, ingredients };
+  return { dishes, ingredients, swaps: [] };
 }
 
 // Rows from the Shorthand tab: [Type, Short, Full name] (header row optional)
 function applyShorthandRows(base, rows = []) {
-  const out = { dishes: new Map(base.dishes), ingredients: new Map(base.ingredients) };
+  const out = { dishes: new Map(base.dishes), ingredients: new Map(base.ingredients), swaps: [...(base.swaps || [])] };
   for (const r of rows) {
+    if (String(r[0] || '').trim().toLowerCase() === 'swap') {
+      // Swap | <dish tab> | <recipe line> | <new ingredient> | <from YYYY-MM-DD, optional>
+      const parts = String(r[1] || '').split('|').map((x) => x.trim());
+      const fresh = String(r[2] || '').trim();
+      if (parts.length >= 2 && parts[0] && parts[1] && fresh) out.swaps.push({ dish: norm(parts[0]), old: norm(parts[1]), new: fresh, from: String(r[3] || '').trim() });
+      continue;
+    }
     const type = String(r[0] || '').trim().toLowerCase();
     const short = String(r[1] || '').trim().toLowerCase().replace(/\s+/g, '');
     const full = String(r[2] || '').trim();
