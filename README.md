@@ -192,3 +192,8 @@ Condiments on the Untracked Ingredients tab (salt, flour, pepper) are not costed
 
 ## Condiments in grams, and low alerts
 To track a condiment (salt, flour, pepper) by grams like any other ingredient, delete it from the `Untracked Ingredients` tab. Receipts then make lots, cook notes take grams off (recipe quantity when a line is left out), and `count salt 400g` corrects it when a bag runs out early or has leftovers. Set an alert with `low salt 500g` (stored in the `Reorder Levels` tab). `low` lists what is below its level, `lots` marks it LOW and the nightly huddle includes it.
+
+## Undo, short names and one receipt path
+Every typed receipt gets an ID (for example R261104-153211), shown in the reply and written into the Remarks of the Expense Log and Overheads rows and the Note of the stock lots. `undo receipt` removes the latest receipt, `undo receipt <ID>` an older one. Lots a batch has already used from are kept.
+`alias en ziero = <full name>` saves a short name in the Shorthand tab (Type Ingredient). The catalogue for matching is the Price Tracker plus every ingredient already in the Price Log.
+The Weekly Receipts page and the LINE group now share one set of dependencies (`server/lib/receiptDeps.js`), so both do the same thing. The Daily Orders page is gone; Grab CSVs go in through the Numbers page. The Stock Counts page also shows ingredient stock from the lots (read only).
