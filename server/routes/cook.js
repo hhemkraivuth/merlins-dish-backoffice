@@ -38,7 +38,7 @@ function dateFrom(str) {
   return d;
 }
 
-function createCook(getDeps) {
+function createCook(getDeps, getCommandDeps = () => require('./line').getDefaultDeps()) {
   const dishes = (req, res) => {
     const tabs = [...new Set(defaultShorthand().dishes.values())];
     res.json({ dishes: tabs.map((name) => ({ name, sized: SIZED.has(name) })) });
@@ -125,7 +125,22 @@ function createCook(getDeps) {
     }
   }
 
-  return { dishes, recipe, submit };
+  // Anything you could type in the LINE group: cook notes (one or many batches), receipts, undo, swap, stock, rider fees, reports.
+  async function note(req, res) {
+    try {
+      const text = String((req.body && req.body.text) || '').trim();
+      if (!text) return res.status(400).json({ error: 'Paste a note or a command first.' });
+      const { runCommands } = require('../lib/textCommands');
+      const replies = await runCommands(text, getCommandDeps());
+      if (!replies) return res.status(400).json({ error: `I didn't recognise that as a cook note, a stock command or a receipt, so nothing was changed.\nSend "help" to see the formats.` });
+      res.json({ replies });
+    } catch (err) {
+      console.error('Note failed:', err);
+      res.status(500).json({ error: `I couldn't process that. Nothing was changed.\nReason: ${err.message}` });
+    }
+  }
+
+  return { dishes, recipe, submit, note };
 }
 
 let d = null;
