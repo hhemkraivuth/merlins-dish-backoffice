@@ -75,7 +75,7 @@ function lineItemCost(row, table) {
 
 // ---- weekly / monthly ----------------------------------------------------------------------
 // ledger: objects from ledgerObjects().  cookBatches: [{ key, date, dish, portions, cost }].  purchases: [{ date, amount }]
-function summarise(ledger, cookBatches, purchases, type = 'week') {
+function summarise(ledger, cookBatches, purchases, type = 'week', { through = null } = {}) {
   const table = buildCostTable(ledger);
   const periods = new Map();
   const get = (date) => {
@@ -124,6 +124,16 @@ function summarise(ledger, cookBatches, purchases, type = 'week') {
   }
   for (const x of purchases) { if (x.kind === 'overhead') get(x.date).overheads += x.amount || 0; else get(x.date).purchases += x.amount || 0; }
 
+  // Every day (or week, or month) between the first and the last one appears, even with nothing in it, so no date is skipped.
+  // "through" (usually today) extends the end, so quiet days since the last order show too.
+  if (periods.size) {
+    const all = [...periods.values()];
+    const stepOf = (x) => (type === 'day' ? addDays(x, 1) : type === 'week' ? addDays(x, 7) : new Date(Date.UTC(x.getUTCFullYear(), x.getUTCMonth() + 1, 1)));
+    const last = Math.max(...all.map((x) => x.to.getTime()), through ? through.getTime() : 0);
+    let d = new Date(Math.min(...all.map((x) => x.from.getTime())));
+    for (let guard = 0; d.getTime() <= last && guard < 4000; d = stepOf(d), guard += 1) get(d);
+  }
+
   return [...periods.values()].sort((a, b) => a.from - b.from).map((p) => {
     const grabNet = p.grab.gross - p.grab.discount - p.grab.commission - p.grab.marketing - p.grab.otherFees;
     const lineNet = p.line.gross - p.line.discount;
@@ -162,7 +172,7 @@ function dayDetail(ledger, cookBatches, purchases, date) {
   const t = date.getTime();
   const rows = ledger.filter((r) => r.date.getTime() === t).map((r) => ({
     time: r.time, channel: r.channel, type: r.type, desc: r.desc, qty: r.qty, orderNo: r.orderNo, customer: r.customer,
-    orderFrom: r.orderFrom, status: statusOf(r.orderFrom), moneyIn: r.moneyIn, cost: r.cost, net: r.net, flags: r.flags,
+    orderFrom: r.orderFrom, status: statusOf(r.orderFrom), moneyIn: r.moneyIn, cost: r.cost, net: r.net, flags: r.flags, key: r.key,
   }));
   const cooked = cookBatches.filter((b) => b.date.getTime() === t).map((b) => ({ dish: b.dish, portions: b.portions, cost: r2(b.cost || 0), perPortion: b.portions ? r2((b.cost || 0) / b.portions) : null }));
   const bought = purchases.filter((x) => x.date.getTime() === t).map((x) => ({ name: x.name || '', amount: r2(x.amount || 0), kind: x.kind === 'overhead' ? 'Overhead' : 'Ingredient' }));
