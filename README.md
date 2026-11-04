@@ -114,6 +114,48 @@ two lots is costed as the blend of the two prices. When a lot is used up, the ne
 
 Type `help` in the group for a reminder. Type `groupid` before `BOH_GROUP_ID` is set to find the group's id.
 
+## Numbers: Ledger, weekly and monthly reports, handoffs, huddle
+
+One `Ledger` tab in the Claude Log holds every sale from both channels in one shape. The weekly and monthly reports, the team
+inbox and the daily huddle are all built from it, with plain code (no AI, no tokens).
+
+**Open the Numbers page** (link in the Back of House header, or `/reports.html`):
+
+- **Import Grab CSV**: choose the nightly CSV (the 12 column Claude Log format). Importing replaces any Grab rows already
+  stored for the days in that file, so a corrected CSV can be imported again safely and nothing doubles up.
+  Rows with `XXXXXX` are kept and flagged.
+- **Sync LINE orders**: reads the customer bot's `Orders` tab (read only) and adds any new orders, one row per item. Address and
+  phone are not copied. Running it twice adds nothing.
+- **Update report tabs in the sheet**: rebuilds the `Weekly Report` and `Monthly Report` tabs in the Claude Log.
+
+**How the numbers are worked out** (this follows accounting-rules, so nothing is counted twice):
+
+- Net income = Grab (gross sales, less discounts, commission, marketing fee) + LINE (gross sales less promo discounts).
+- Batch dishes (stews, braises, Bolognese, Ragu, soups): cost lands on the **cook date**, from the Cook Log.
+- Pasta, Bacon Steak and drinks: cost is the Recipe row on the Grab order. LINE orders have no Recipe rows, so their cost is
+  **estimated** from the most recent Grab Recipe cost for the same item. An item with no Grab cost yet is listed in the
+  `Checks` column instead of being guessed.
+- **Delivery:** what the customer paid for delivery is income (it comes from the bot's Orders tab, as `Delivery` rows; free
+  delivery logs nothing). What you actually paid the rider is a cost, typed into the back of house LINE group:
+  `rider 001 55` (order #001 today), `rider 001 55 3/11` (another day), `rider 001,002 80` (one trip, two orders, split evenly).
+  Send a fee again to correct it. Once you have logged your first rider fee, finished days with a LINE order and no rider fee
+  show up in the Handoffs tab.
+- Ingredient purchases from the Expense Log are shown as a **memo column** and never added to cost.
+- Margin is **before ads and overheads**, after the rider fees you paid. Advertising and fixed costs are not in the system yet.
+
+**Team handoffs** (`Handoffs` tab): the four teams are App sales (Grab), Direct sales (LINE), Operations (cooking) and
+Purchasing. Notes are raised automatically: stock older than 5 days (flash sale), a dish sold out, a dish down to 3 portions or
+fewer, portions sold beyond what the cook notes cover, and an ingredient price move of 10% or more. Type in the Reply column
+and set Status to Done if you want to close one yourself. A note whose situation has cleared closes itself.
+
+**Daily huddle**: type `huddle` in the back of house LINE group for the summary (yesterday, the week so far, stock left, open
+handoffs). `week` and `month` show the income and cost summary, and `sync` pulls in the latest LINE orders.
+To send the huddle automatically every night, set `HUDDLE_AUTO` to `on` in Railway (time is `HUDDLE_TIME`, Bangkok time,
+default `21:30`). A call to `POST /api/huddle/run` with the header `x-huddle-token` set to `HUDDLE_TOKEN` also runs it.
+
+New Railway variables on this service: `ORDERS_SHEET_ID` (same value as `GOOGLE_SHEET_ID` in merlins-dish-bot), and
+optionally `HUDDLE_AUTO`, `HUDDLE_TIME`, `HUDDLE_TOKEN`. Nothing changes in merlins-dish-bot.
+
 ### Setup
 
 1. LINE Developers: create a **new** Messaging API channel for back of house (do not reuse the customer bot's).
