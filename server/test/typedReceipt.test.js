@@ -384,9 +384,9 @@ test('short forms of long names match when only one ingredient fits', () => {
 
 test('ads lines are logged to the Overheads tab as Ads and counted separately', async () => {
   const { splitOverheads, overheadRows, overheadsFrom } = require('../lib/overheads');
-  const out = splitOverheads('04/11\nmeta ads, 1200thb\nads grab\nfoodie picks, 500thb\noverhead\npot 7lt, 2575thb', new Date(Date.UTC(2026, 10, 4)));
+  const out = splitOverheads('04/11\nmeta ads, 1200thb\nads\nfoodie picks, 500thb\noverhead\npot 7lt, 2575thb', new Date(Date.UTC(2026, 10, 4)));
   assert.strictEqual(out.items.length, 3);
-  assert.deepStrictEqual(out.items.map((i) => [i.category, i.ads]), [['Ads Meta', true], ['Ads Grab', true], ['', false]]);
+  assert.deepStrictEqual(out.items.map((i) => [i.category, i.ads]), [['Ads Meta', true], ['Ads', true], ['', false]]);
   const kinds = overheadsFrom([['Date'], ...overheadRows(out.items)]).map((x) => [x.amount, x.kind]);
   assert.deepStrictEqual(kinds, [[1200, 'ads'], [500, 'ads'], [2575, 'overhead']]);
 });
