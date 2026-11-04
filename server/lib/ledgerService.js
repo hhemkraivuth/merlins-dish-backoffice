@@ -145,9 +145,9 @@ async function computeReports(data) {
   };
 }
 
-async function dayDetailFor(date) {
+async function dayDetailFor(date, toDate = null) {
   const d = await loadAll();
-  return dayDetail(d.ledger, d.cookBatches, d.purchases, date);
+  return dayDetail(d.ledger, d.cookBatches, d.purchases, date, toDate);
 }
 
 async function refreshReports() {
