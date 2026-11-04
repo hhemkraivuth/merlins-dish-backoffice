@@ -44,6 +44,7 @@ app.post('/api/cook/submit', cookRoute.submit);
 
 // Mode 4: Stock Counts
 app.get('/api/stock', stockCountsRoute.listStock);
+app.get('/api/stock/ingredients', stockCountsRoute.listIngredientStock);
 app.post('/api/stock/update', stockCountsRoute.updateStock);
 app.post('/api/stock/seed-packaging', stockCountsRoute.seedPackagingRoute);
 
@@ -52,6 +53,7 @@ app.post('/api/ledger/grab-csv', upload.single('csv'), ledgerRoute.importGrab);
 app.post('/api/ledger/sync-line', ledgerRoute.syncLine);
 app.post('/api/reports/refresh', ledgerRoute.refresh);
 app.get('/api/reports/summary', ledgerRoute.summary);
+app.get('/api/reports/day', ledgerRoute.day);
 app.post('/api/huddle/run', ledgerRoute.runHuddle);
 
 // Back of house LINE group (own LINE channel, separate from the customer bot)
