@@ -9,6 +9,7 @@ const { processReports } = require('../lib/reportCommands');
 const { processRider } = require('../lib/riderCommand');
 const { processReceiptUndo } = require('../lib/receiptUndo');
 const { processAlias } = require('../lib/ingredientAlias');
+const { processSwap } = require('../lib/swapCommand');
 const { defaultShorthand, applyShorthandRows } = require('../lib/aliases');
 const { bangkokToday } = require('../lib/dates');
 
@@ -62,6 +63,17 @@ function defaultDeps() {
       saveLots: lotDeps.saveLots,
     },
     lots: lotDeps,
+    swap: {
+      loadShorthand: async () => {
+        try { return applyShorthandRows(defaultShorthand(), await cookLog.readShorthandRows()); }
+        catch (err) { return defaultShorthand(); }
+      },
+      loadRecipe: live.loadRecipe,
+      loadCatalogue: live.loadCatalogue,
+      readRows: () => cookLog.readShorthandRows(),
+      saveSwap: async (row) => { await cookLog.readShorthandRows(); await appendRows(cookLog.SHORTHAND, [row], { raw: true }); },
+      deleteSwaps: (pred) => require('../lib/sheets').deleteRowsWhere(cookLog.SHORTHAND, pred),
+    },
     rider: {
       findOrders: (dmy) => require('../lib/ledgerService').findLineOrders(dmy),
       saveRider: (rows, keys) => require('../lib/ledgerService').saveRider(rows, keys),
@@ -110,6 +122,7 @@ function createHandler(getDeps) {
         const sent = new Date(ev.timestamp || Date.now());
         replies = (deps.receipt && deps.receipt.undo && await processReceiptUndo(text, deps.receipt.undo))
           || (deps.receipt && deps.receipt.alias && await processAlias(text, deps.receipt.alias))
+          || (deps.swap && await processSwap(text, bangkokToday(sent.getTime()), deps.swap))
           || (deps.rider && await processRider(text, bangkokToday(sent.getTime()), deps.rider))
           || (deps.reports && await processReports(text, deps.reports))
           || (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(text, bangkokToday(sent.getTime()), deps.receipt))
