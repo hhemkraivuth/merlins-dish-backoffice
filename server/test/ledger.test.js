@@ -204,7 +204,7 @@ test('huddle text states how far each channel runs', () => {
   assert.match(text, /Yesterday \(02\/11\/2026\): .*LINE 2 orders/);
   assert.match(text, /Grab data runs to 09\/09\/2026 \(import the latest CSV\)/);
   assert.match(text, /Open handoffs \(1\)/);
-  assert.match(buildPeriodText(summarise(ledger, [], [], 'week'), 'week', utc(2026, 11, 3)), /Margin after overheads, before ads/);
+  assert.match(buildPeriodText(summarise(ledger, [], [], 'week'), 'week', utc(2026, 11, 3)), /Margin after overheads and ads/);
 });
 
 test('huddle timer runs once per Bangkok day after the set time, and only when switched on', async () => {
