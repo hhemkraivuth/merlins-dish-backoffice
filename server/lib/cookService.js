@@ -183,10 +183,13 @@ async function processNote(text, deps) {
     return recipes.get(tab);
   } };
 
+  let anyLogged = false;
   for (const batch of batches) {
     const out = await runBatch(batch, cached, shorthand, priceBook, { today, source: 'LINE' });
+    if (out.status === 'logged') anyLogged = true;
     replies.push(out.text);
   }
+  if (anyLogged && deps.tidy) { try { await deps.tidy(); } catch (err) { console.error('tidy failed:', err.message); } }
 
   if (problems.length) replies.push(`Couldn't use these lines:\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
   return replies;
