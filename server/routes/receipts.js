@@ -71,7 +71,7 @@ function createTyped(getDeps) {
       const { processTypedReceipt } = require('../lib/cookService');
       const { processReceiptUndo } = require('../lib/receiptUndo');
       const { bangkokToday } = require('../lib/dates');
-      const deps = getDeps();
+      const deps = { ...getDeps(), typedVia: 'Typed on the web' };
       const replies = (deps.undo && await processReceiptUndo(text, deps.undo)) || await processTypedReceipt(text, bangkokToday(), deps);
       if (!replies) {
         return res.status(400).json({ error: 'I could not find any item lines. Each line needs a quantity and a price, for example: minced pork 1000g 110thb' });
