@@ -18,6 +18,11 @@ const HEADERS = ['Date', 'Item', 'Category', 'Price', 'Shopped at', 'Remarks'];
 const DATE_LINE = /^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/;
 const SHOP_LINE = /^(?:shopped\s+at|shop|store|at)\s*[:\-]?\s+(\S.*)$/i;
 const MARKER = /^overheads?\b[\s:\-]*(.*)$/i;
+// Ads: "ads", "meta ads", "grab ads" on a line of their own starts an ads block. "meta ads, 1200thb" on one line is a single ad spend.
+const PLATFORM = 'meta|facebook|instagram|grab|google|line';
+const ADS = new RegExp(`^(?:(${PLATFORM})\\s+)?(?:ads?|advertising)(?:\\s+(${PLATFORM})\\b)?[\\s:\\-]*(.*)$`, 'i');
+const adsCategory = (m) => { const w = m[1] || m[2]; return `Ads${w ? ' ' + w[0].toUpperCase() + w.slice(1).toLowerCase() : ''}`; };
+const isAds = (category) => /^ads\b/i.test(String(category || ''));
 const BACK_TO_FOOD = /^(ingredients?|food)$/i;
 const num = (s) => Number(String(s).replace(/[,฿\s]/g, ''));
 
@@ -35,7 +40,8 @@ function overheadItem(line) {
 // rest is the message with the overhead lines and the marker lines taken out, for the ingredient reader.
 function splitOverheads(text, today) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (!lines.some((l) => MARKER.test(l))) return { found: false, rest: text, items: [], problems: [], undated: false };
+  const isAdsLine = (l) => { const m = l.match(ADS); return !!m && (!m[3] || !!overheadItem(l)); };
+  if (!lines.some((l) => MARKER.test(l) || isAdsLine(l))) return { found: false, rest: text, items: [], problems: [], undated: false };
   const rest = []; const items = []; const problems = [];
   let date = null; let shop = ''; let mode = false; let category = ''; let undated = false;
   for (const line of lines) {
@@ -46,6 +52,12 @@ function splitOverheads(text, today) {
     }
     const sh = line.match(SHOP_LINE);
     if (sh && !overheadItem(line)) { shop = sh[1].trim(); rest.push(line); continue; }
+    const ad = isAdsLine(line) ? line.match(ADS) : null;
+    if (ad) {
+      const one = overheadItem(line);
+      if (one) { if (!date) undated = true; items.push({ date: date || today, name: one.name, price: one.price, shop, category: adsCategory(ad), ads: true }); continue; }
+      if (!ad[3]) { mode = true; category = adsCategory(ad); continue; }
+    }
     const mk = line.match(MARKER);
     if (mk) { mode = true; category = mk[1].trim(); continue; }
     if (BACK_TO_FOOD.test(line)) { mode = false; category = ''; continue; }
@@ -53,7 +65,7 @@ function splitOverheads(text, today) {
     const it = overheadItem(line);
     if (!it) { problems.push(`Couldn't read "${line}". Write it like: pot 7lt, 2575thb`); continue; }
     if (!date) undated = true;
-    items.push({ date: date || today, name: it.name, price: it.price, shop, category });
+    items.push({ date: date || today, name: it.name, price: it.price, shop, category, ads: isAds(category) });
   }
   return { found: true, rest: rest.join('\n'), items, problems, undated };
 }
@@ -70,9 +82,9 @@ function overheadsFrom(rows) {
     const date = parseDate(r[0]);
     const amount = num(r[3]);
     if (!date || !Number.isFinite(amount)) return;
-    out.push({ date, name: String(r[1] || '').trim(), amount, kind: 'overhead' });
+    out.push({ date, name: String(r[1] || '').trim(), amount, kind: isAds(r[2]) ? 'ads' : 'overhead' });
   });
   return out;
 }
 
-module.exports = { splitOverheads, overheadItem, overheadRows, overheadsFrom, TAB, HEADERS };
+module.exports = { isAds, splitOverheads, overheadItem, overheadRows, overheadsFrom, TAB, HEADERS };
