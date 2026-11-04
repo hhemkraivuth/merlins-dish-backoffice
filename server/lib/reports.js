@@ -149,6 +149,15 @@ function summarise(ledger, cookBatches, purchases, type = 'week') {
 
 // Everything that happened on one day, like a Master Log page: the ledger rows in sheet order, the batches cooked and the things bought.
 const statusOf = (orderFrom) => (/-n$/i.test(orderFrom) ? 'New' : /-rt$/i.test(orderFrom) ? 'RT' : '');
+// "8:15PM" is 20, "12:28PM" is 12, "12:05AM" is 00, "15:42" is 15. Returns a two digit hour, or null when there is no time.
+function hourOf(time) {
+  const m = /^(\d{1,2})[:.]\d{2}(?:[:.]\d{2})?\s*([ap]m)?/i.exec(String(time || '').trim());
+  if (!m) return null;
+  let h = Number(m[1]);
+  if (m[2]) h = (h % 12) + (m[2].toLowerCase() === 'pm' ? 12 : 0);
+  return h >= 0 && h < 24 ? String(h).padStart(2, '0') : null;
+}
+
 function dayDetail(ledger, cookBatches, purchases, date) {
   const t = date.getTime();
   const rows = ledger.filter((r) => r.date.getTime() === t).map((r) => ({
@@ -164,8 +173,8 @@ function dayDetail(ledger, cookBatches, purchases, date) {
     if (r.type !== 'Order' || !r.orderNo || seen.has(r.channel + r.orderNo)) continue;
     seen.add(r.channel + r.orderNo);
     orders.push({ time: r.time, channel: r.channel, orderNo: r.orderNo, customer: r.customer, status: r.status });
-    const h = /^(\d{1,2})[:.]/.exec(r.time || '');
-    if (h) byHour[h[1].padStart(2, '0')] = (byHour[h[1].padStart(2, '0')] || 0) + 1;
+    const hh = hourOf(r.time);
+    if (hh) byHour[hh] = (byHour[hh] || 0) + 1;
   }
   const people = { new: orders.filter((o) => o.status === 'New').length, rt: orders.filter((o) => o.status === 'RT').length };
   return { date: formatDMY(date), summary, rows, cooked, bought, orders, byHour, people };
@@ -282,4 +291,4 @@ function priceMoves(expenseRows, threshold = 0.1) {
   return moves;
 }
 
-module.exports = { dayDetail, periodOf, weekStart, addDays, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps, buildCostTable, lookupCost, lineItemCost, r2 };
+module.exports = { hourOf, dayDetail, periodOf, weekStart, addDays, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps, buildCostTable, lookupCost, lineItemCost, r2 };
