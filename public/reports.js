@@ -37,9 +37,9 @@ function draw(id, periods, clickable) {
   const t = $(id);
   if (!periods.length) { t.innerHTML = '<tr><td>No data yet. Import the Grab CSV and sync LINE orders.</td></tr>'; return; }
   const head = `<tr>${COLUMNS.map((c) => `<th>${c[0]}</th>`).join('')}</tr>`;
-  const body = [...periods].reverse().map((p) => `<tr class="${clickable ? 'row' : ''}" data-date="${clickable ? p.from : ''}" title="${(p.missingCosts.length ? 'No cost found for: ' + p.missingCosts.join(', ') : '')}">${COLUMNS.map((c) => `<td class="${c[3] && c[3](p) ? 'neg' : ''}">${c[1](p)}</td>`).join('')}</tr>`).join('');
+  const body = periods.map((p, i) => ({ p, i })).reverse().map(({ p, i }) => `<tr class="${clickable ? 'row' : ''}" data-from="${clickable ? p.from : ''}" data-to="${clickable ? p.to : ''}" data-i="${i}" title="${(p.missingCosts.length ? 'No cost found for: ' + p.missingCosts.join(', ') : '')}">${COLUMNS.map((c) => `<td class="${c[3] && c[3](p) ? 'neg' : ''}">${c[1](p)}</td>`).join('')}</tr>`).join('');
   t.innerHTML = head + body;
-  if (clickable) t.querySelectorAll('tr.row').forEach((tr) => tr.addEventListener('click', () => showDay(tr.dataset.date)));
+  if (clickable) t.querySelectorAll('tr.row').forEach((tr) => tr.addEventListener('click', () => showDay(tr.dataset.from, tr.dataset.to, periods[Number(tr.dataset.i)])));
 }
 
 function table(headers, rows) {
@@ -61,7 +61,7 @@ function wireRows(box, d) {
       td.querySelector('.edit').addEventListener('click', edit);
       td.querySelector('.del').addEventListener('click', async () => {
         if (!confirm(`Delete this row?\n${row.channel} ${row.type}: ${row.desc} (${row.orderNo || 'no order number'})`)) return;
-        try { await call('/api/ledger/row/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key }) }); say('Row deleted.'); showDay(d.date); load(); } catch (err) { say(err.message, true); }
+        try { await call('/api/ledger/row/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key }) }); say('Row deleted.'); reopen(); load(); } catch (err) { say(err.message, true); }
       });
     };
     const edit = () => {
@@ -70,35 +70,54 @@ function wireRows(box, d) {
       field(0, 'time', row.time); field(2, 'customer', row.customer, true); field(6, 'desc', row.desc, true);
       field(7, 'qty', row.qty); field(8, 'moneyIn', row.moneyIn); field(9, 'cost', row.cost); field(10, 'net', row.net);
       td.innerHTML = '<button class="save">Save</button><button class="cancel">Cancel</button>';
-      td.querySelector('.cancel').addEventListener('click', () => showDay(d.date));
+      td.querySelector('.cancel').addEventListener('click', () => reopen());
       td.querySelector('.save').addEventListener('click', async () => {
         const changes = {};
         tr.querySelectorAll('input.cell').forEach((i) => { changes[i.dataset.f] = i.value; });
-        try { await call('/api/ledger/row/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key, changes }) }); say('Row saved. Net income is not recalculated, so edit Net too if you change Money in.'); showDay(d.date); load(); } catch (err) { say(err.message, true); }
+        try { await call('/api/ledger/row/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key, changes }) }); say('Row saved. Net income is not recalculated, so edit Net too if you change Money in.'); reopen(); load(); } catch (err) { say(err.message, true); }
       });
     };
     show();
   });
 }
 
-async function showDay(dmy) {
+let current = null;
+const reopen = () => { if (current) showDay(current.from, current.to, current.p); };
+
+async function showDay(from, to, p) {
+  current = { from, to, p };
   const box = $('detail');
   box.innerHTML = '<p class="intro-body">Loading…</p>';
   try {
-    const d = await call('/api/reports/day?date=' + encodeURIComponent(dmy));
-    const s = d.summary;
+    const d = await call('/api/reports/day?date=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to || from));
+    const range = d.from !== d.to;
+    const s = d.summary || p;
+    const when = (r) => (range ? `${esc(r.date)}<br>` : '');
     const head = s ? `<p class="intro-body">Net income ฿${baht(s.revenue)}, food cost ฿${baht(s.foodCost)}, rider fees ฿${baht(s.line.rider)}, new customers ${d.people.new}, RT customers ${d.people.rt}, overheads ฿${baht(s.overheads)}, ads ฿${baht(s.ads)}, margin after overheads and ads ฿${baht(s.margin)}${s.marginPct === null ? '' : ' (' + s.marginPct + '%)'}.</p>` : '';
-    box.innerHTML = `<h3>${esc(d.date)}</h3>${head}
+    box.innerHTML = `<h3>${esc(d.date)} <button id="delPeriod" class="alt-btn">Delete all rows in this period</button></h3>${head}
       <h3>Orders and fees</h3>
       ${table([['Time', 1], ['Order', 1], ['Customer', 1], ['Status', 1], ['Channel', 1], ['Type', 1], ['Description', 1], ['Qty'], ['Money in'], ['Cost'], ['Net'], ['Flags', 1], ['']],
-        d.rows.map((r) => [esc(r.time), esc(r.orderNo), esc(r.customer), esc(r.status), esc(r.channel), esc(r.type), esc(r.desc), r.qty ?? '', baht(r.moneyIn), baht(r.cost), baht(r.net), r.flags ? `<span class="flag">${esc(r.flags)}</span>` : '', r.key ? `<span class="act" data-key="${esc(r.key)}"></span>` : '']))}
+        d.rows.map((r) => [when(r) + esc(r.time), esc(r.orderNo), esc(r.customer), esc(r.status), esc(r.channel), esc(r.type), esc(r.desc), r.qty ?? '', baht(r.moneyIn), baht(r.cost), baht(r.net), r.flags ? `<span class="flag">${esc(r.flags)}</span>` : '', r.key ? `<span class="act" data-key="${esc(r.key)}"></span>` : '']))}
       <h3>Orders by hour</h3>
       ${Object.keys(d.byHour).length ? `<p class="intro-body">${Object.keys(d.byHour).sort().map((h) => `${h}:00 → ${d.byHour[h]}`).join(' · ')}</p>` : '<p class="intro-body">No order times logged.</p>'}
       <h3>Cooked</h3>
-      ${table([['Dish', 1], ['Portions'], ['Batch cost'], ['Per portion']], d.cooked.map((c) => [esc(c.dish), c.portions, baht(c.cost), c.perPortion === null ? '' : c.perPortion]))}
+      ${table([['Date', 1], ['Dish', 1], ['Portions'], ['Batch cost'], ['Per portion']], d.cooked.map((c) => [esc(c.date), esc(c.dish), c.portions, baht(c.cost), c.perPortion === null ? '' : c.perPortion]))}
       <h3>Bought</h3>
-      ${table([['Item', 1], ['Type', 1], ['Amount']], d.bought.map((b) => [esc(b.name), esc(b.kind), baht(b.amount)]))}`;
+      ${table([['Date', 1], ['Item', 1], ['Type', 1], ['Amount']], d.bought.map((b) => [esc(b.date), esc(b.name), esc(b.kind), baht(b.amount)]))}`;
     wireRows(box, d);
+    $('delPeriod').addEventListener('click', async () => {
+      const body = { from: d.from, to: d.to, channel: 'All' };
+      const post = (extra) => call('/api/ledger/delete-range', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, ...extra }) });
+      try {
+        const peek = await post({ dryRun: true });
+        if (!peek.count) { say('No ledger rows in this period.'); return; }
+        if (!confirm(`Delete all ${peek.count} ledger rows (Grab and LINE) for ${d.date}? This cannot be undone.`)) { say('Nothing deleted.'); return; }
+        const r = await post({});
+        say(`${r.deleted} rows deleted.`);
+        box.innerHTML = '';
+        load();
+      } catch (err) { say(err.message, true); }
+    });
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) { box.innerHTML = ''; say(err.message, true); }
 }
@@ -108,8 +127,8 @@ async function load() {
     const d = await call('/api/reports/summary');
     if (!d.daily) say('The server is still on an older version, so the Daily table is empty. Wait for the Railway deploy to finish, then refresh.', true);
     draw('daily', (d.daily || []).slice(-60), true);
-    draw('weekly', d.weekly);
-    draw('monthly', d.monthly);
+    draw('weekly', d.weekly, true);
+    draw('monthly', d.monthly, true);
   } catch (err) { say(err.message, true); }
 }
 
