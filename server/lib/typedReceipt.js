@@ -95,6 +95,16 @@ function matchIngredient(typed, catalogue = []) {
   if (near.length === 1) return { name: near[0] };
   if (near.length > 1) return { ambiguous: near.slice(0, 5) };
 
+  // Short forms of long names: a typed word of 5+ letters may be the start of an ingredient word
+  // ("worcester" for Worcestershire, "maison" for MaisonPerrier). Only runs when the whole word match above found nothing.
+  const starts = (w, h) => w === h || (w.length >= 5 && h.length >= w.length + 2 && h.startsWith(w));
+  const prefixed = catalogue.filter((n) => {
+    const have = tokens(n);
+    return have.length && want.every((w) => have.some((h) => starts(w, h)));
+  });
+  if (prefixed.length === 1) return { name: prefixed[0] };
+  if (prefixed.length > 1) return { ambiguous: prefixed.slice(0, 5) };
+
   // Last resort, a spelling slip. Every typed word must be close to a word of the ingredient (or the other way round).
   const cost = (a, b) => {
     let total = 0;

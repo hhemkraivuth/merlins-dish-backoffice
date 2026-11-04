@@ -372,3 +372,12 @@ test('the Untracked list ignores hyphens and capitals: "All purpose flour" is Al
   });
   assert.strictEqual(lots.length, 0);
 });
+
+test('short forms of long names match when only one ingredient fits', () => {
+  const cat = ['Worcestershire sauce', 'MaisonPerrier - Forever Lemon', 'MaisonPerrier - Lemon&Ginger', 'Salted butter', 'EN Ziero - Golden Apple and Yuzu'];
+  assert.strictEqual(matchIngredient('worcester sauce', cat).name, 'Worcestershire sauce');
+  assert.strictEqual(matchIngredient('maison forever', cat).name, 'MaisonPerrier - Forever Lemon');
+  assert.deepStrictEqual(matchIngredient('maison', cat).ambiguous, ['MaisonPerrier - Forever Lemon', 'MaisonPerrier - Lemon&Ginger']);
+  assert.deepStrictEqual(matchIngredient('salt', cat), {});   // 4 letters is too short to be a prefix, so no false match to Salted butter
+  assert.strictEqual(matchIngredient('en ziero', cat).name, 'EN Ziero - Golden Apple and Yuzu');
+});
