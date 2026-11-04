@@ -381,3 +381,17 @@ test('short forms of long names match when only one ingredient fits', () => {
   assert.deepStrictEqual(matchIngredient('salt', cat), {});   // 4 letters is too short to be a prefix, so no false match to Salted butter
   assert.strictEqual(matchIngredient('en ziero', cat).name, 'EN Ziero - Golden Apple and Yuzu');
 });
+
+test('ads lines are logged to the Overheads tab as Ads and counted separately', async () => {
+  const { splitOverheads, overheadRows, overheadsFrom } = require('../lib/overheads');
+  const out = splitOverheads('04/11\nmeta ads, 1200thb\nads grab\nfoodie picks, 500thb\noverhead\npot 7lt, 2575thb', new Date(Date.UTC(2026, 10, 4)));
+  assert.strictEqual(out.items.length, 3);
+  assert.deepStrictEqual(out.items.map((i) => [i.category, i.ads]), [['Ads Meta', true], ['Ads Grab', true], ['', false]]);
+  const kinds = overheadsFrom([['Date'], ...overheadRows(out.items)]).map((x) => [x.amount, x.kind]);
+  assert.deepStrictEqual(kinds, [[1200, 'ads'], [500, 'ads'], [2575, 'overhead']]);
+});
+
+test('ordinary chat that starts with the word ads is not read as an ads receipt', () => {
+  const { splitOverheads } = require('../lib/overheads');
+  assert.strictEqual(splitOverheads('ads are working well today', new Date(Date.UTC(2026, 10, 4))).found, false);
+});
