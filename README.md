@@ -142,7 +142,7 @@ inbox and the daily huddle are all built from it, with plain code (no AI, no tok
   Send a fee again to correct it. Once you have logged your first rider fee, finished days with a LINE order and no rider fee
   show up in the Handoffs tab.
 - Ingredient purchases from the Expense Log are shown as a **memo column** and never added to cost.
-- Margin is **before ads and overheads**, after the rider fees you paid. Advertising and fixed costs are not in the system yet.
+- Margin is after the rider fees you paid and after the **overheads you bought** that period (pots, bags, knives, the cash spent). Advertising is not in the system yet.
 
 **Team handoffs** (`Handoffs` tab): the four teams are App sales (Grab), Direct sales (LINE), Operations (cooking) and
 Purchasing. Notes are raised automatically: stock older than 5 days (flash sale), a dish sold out, a dish down to 3 portions or
@@ -177,3 +177,6 @@ Open `/commands.html` (linked as Commands in the header) for every command, for 
 Every receipt refreshes the `Best Prices` tab in the Claude Log: the cheapest price per unit ever paid for each ingredient (Price Log plus Expense Log), written like the Price Tracker remark, for example `best price: 105.25/900g`, with the date and shop. Free stock never counts. To see it in the Price Tracker, put `=IFERROR(VLOOKUP(B77, IMPORTRANGE("<Claude Log sheet URL>","Best Prices!A:B"),2,FALSE),"")` in a spare column (column E stays yours).
 
 Spelling slips in typed receipts (one wrong or swapped letter) are matched to the nearest ingredient and listed in the reply.
+
+## Overheads
+Pots, paper bags, knives and other non-ingredients: put an `overhead` line (or `overhead equipment`, `overhead packaging` to tag it) under the date in a typed receipt, then `pot 7lt, 2575thb` lines. They are written to the `Overheads` tab in the Claude Log and nowhere else. The Numbers page and Weekly and Monthly Report tabs show them in an `Overheads bought` column. They count as that period's spending: the Numbers page shows Margin before overheads, Overheads bought and Margin after overheads. They are never counted as food cost and never taken off stock (paper bags are not tracked per order).
