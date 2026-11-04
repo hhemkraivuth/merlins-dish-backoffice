@@ -25,7 +25,7 @@ const COLUMNS = [
   ['Rider fees paid', (p) => baht(p.line.rider)],
   ['Margin before overheads', (p) => baht(p.marginBeforeOverheads)],
   ['Overheads bought', (p) => baht(p.overheads)],
-  ['Ads (Meta + Grab)', (p) => baht(p.ads)],
+  ['Meta ads', (p) => baht(p.ads)],
   ['Margin after overheads and ads', (p) => baht(p.margin), false, (p) => p.margin < 0],
   ['Margin %', (p) => (p.marginPct === null ? '' : p.marginPct + '%')],
   ['Purchases (memo)', (p) => baht(p.purchases)],
@@ -46,15 +46,14 @@ function draw(id, periods, clickable) {
 const PROFIT = [
   ['Month', (m) => m.label, true],
   ['Direct sales (LINE)', (m) => baht(m.line.net + m.line.delivery)],
-  ['Meta ads', (m) => baht(m.adsMeta)],
+  ['Meta ads', (m) => baht(m.ads)],
   ['Grab sales', (m) => baht(m.grab.gross)],
   ['Merchant funded (discounts)', (m) => baht(m.grab.discount)],
   ['Service fee (commission)', (m) => baht(m.grab.commission)],
   ['Marketing fee', (m) => baht(m.grab.marketing)],
   ['Other Grab fees', (m) => baht(m.grab.otherFees)],
-  ['Grab ads', (m) => baht(m.adsGrab)],
-  ['Net Grab earning', (m) => baht(m.grab.net - m.adsGrab)],
-  ['Total earning', (m) => baht(m.line.net + m.line.delivery + m.grab.net - m.adsGrab)],
+  ['Net Grab earning', (m) => baht(m.grab.net)],
+  ['Total earning', (m) => baht(m.line.net + m.line.delivery + m.grab.net)],
   ['Cooking costs', (m) => baht(m.foodCost)],
   ['Rider fees', (m) => baht(m.line.rider)],
   ['Overheads', (m) => baht(m.overheads)],
@@ -70,7 +69,7 @@ function drawProfit(months) {
     label: 'Total',
     line: { net: sumOf((m) => m.line.net), delivery: sumOf((m) => m.line.delivery), rider: sumOf((m) => m.line.rider) },
     grab: { gross: sumOf((m) => m.grab.gross), discount: sumOf((m) => m.grab.discount), commission: sumOf((m) => m.grab.commission), marketing: sumOf((m) => m.grab.marketing), otherFees: sumOf((m) => m.grab.otherFees), net: sumOf((m) => m.grab.net) },
-    adsMeta: sumOf((m) => m.adsMeta), adsGrab: sumOf((m) => m.adsGrab), foodCost: sumOf((m) => m.foodCost), overheads: sumOf((m) => m.overheads), margin: sumOf((m) => m.margin),
+    ads: sumOf((m) => m.ads), foodCost: sumOf((m) => m.foodCost), overheads: sumOf((m) => m.overheads), margin: sumOf((m) => m.margin),
   };
   const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : ''}">${c[1](m)}</td>`).join('');
   t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`;
@@ -195,6 +194,15 @@ $('refresh').addEventListener('click', async () => {
   try {
     const r = await call('/api/reports/refresh', { method: 'POST' });
     say(`Weekly Report and Monthly Report tabs updated (${r.weeks} weeks, ${r.months} months).`);
+  } catch (err) { say(err.message, true); }
+});
+
+$('manGo').addEventListener('click', async () => {
+  try {
+    const r = await call('/api/ledger/manual-orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: $('manText').value }) });
+    const lines = r.added.map((o) => `Added ${o.date} ${o.name}, ฿${baht(o.total)} (${o.ref})`).concat(r.skipped.map((o) => `Already there: ${o.date} ${o.name}, ฿${baht(o.total)}`), r.problems);
+    say(lines.join('\n'), r.problems.length > 0 && !r.added.length);
+    if (r.added.length) { $('manText').value = ''; load(); }
   } catch (err) { say(err.message, true); }
 });
 
