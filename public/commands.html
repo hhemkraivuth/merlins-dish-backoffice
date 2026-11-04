@@ -46,12 +46,15 @@
         <tr><td>at Makro</td><td>A shop line under the date. Applies to every item below it until the next shop or date line. Goes to the Shopped at column.</td></tr>
         <tr><td>overhead<br>pot 7lt, 2575thb</td><td>Overheads (pots, paper bags, knives). Put an "overhead" line under the date, then one line per item with the price. Add a word to tag it, like "overhead equipment". Goes to the Overheads tab only, never to ingredient prices, stock or food cost, but the cash spent comes off that month's margin. A date line, or a line saying "ingredients", ends the overhead section.</td></tr>
         <tr><td>prices only</td><td>A line in a receipt: logs the prices but makes no stock lots, for the items below it until the next date line.</td></tr>
+        <tr><td>worcestershire sauce, 290ml, 8bottles, 1168</td><td>Size of one bottle, then how many, then the total price. 8 bottles of 290ml is stored as 2320ml, so recipes in ml cost correctly. The same works for cans, bags and boxes. Items your recipe counts in pieces (Knorr cube, EN Ziero cans) stay as pieces.</td></tr>
         <tr><td>tomato paste (Mica) 560g, 12pcs, 816thb</td><td>A brand goes in brackets after the ingredient name. It is saved in Remarks and shown on the Best Prices tab, so you see which brand gave the best price. 12 tins of 560g is 6720g.</td></tr>
         <tr><td>en ziero 2 cans, 16thb ea</td><td>"ea" or "each" after the price means the price is for one. 2 cans at 16 each is logged as 32.</td></tr>
         <tr><td>pecorino 60g 2pcs, 180</td><td>A weight then a count is weight each: 120g for 180. Items you usually buy by the piece (Knorr cube 20g 48pcs) stay as pieces.</td></tr>
         <tr><td>opening 1/11<br>minced pork 2000g 220thb</td><td>One off starting stock. Skips any ingredient that already has lots.</td></tr>
         <tr><td>free 4/11<br>knorr cube 2 boxes of 6</td><td>Free samples. Adds a lot costed at ฿0 (Source: Free sample). Nothing goes in the Expense Log.</td></tr>
         <tr><td>lots</td><td>Shows what is left per ingredient, oldest lot first.</td></tr>
+        <tr><td>low salt 500g</td><td>Alert level: flags the ingredient when less than that is left in the stock lots. Shows as LOW in lots and in the nightly huddle.</td></tr>
+        <tr><td>low</td><td>Lists what is below its alert level right now.</td></tr>
         <tr><td>count minced pork 1500g</td><td>Corrects a quantity to what is really on the shelf.</td></tr>
         <tr><td>size worcestershire sauce 290ml</td><td>Sets the size of one bottle or can, so "2 bottles" is stored as 580ml.</td></tr>
       </table>
@@ -67,7 +70,8 @@
 
       <h3>Drinks and packaging counts</h3>
       <table>
-        <tr><td>stock</td><td>Lists counts (BOH stock, separate from the customer bot's "stock").</td></tr>
+        <tr><td>stock</td><td>Lists counts (BOH stock, separate from the customer bot's "stock"). Packs at 1 or less show RUNNING LOW.</td></tr>
+        <tr><td>stock add Salt, pack, 3</td><td>Starts counting unopened packs of a condiment (salt, flour, pepper). Receipts then add the packs you buy. Cooking never takes packs off: the open bag is not counted. Set the real number any time with: stock salt 2</td></tr>
         <tr><td>stock coke zero zero 5</td><td>Sets one count. Use the full item name.</td></tr>
       </table>
 
