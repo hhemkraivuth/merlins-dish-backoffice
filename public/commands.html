@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merlin's Dish — All commands</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .wide { max-width: 900px; }
+    h2 { font-size: 17px; margin: 28px 0 4px; }
+    h3 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    p.where { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    td:first-child { width: 42%; font-family: ui-monospace, Menlo, monospace; white-space: pre-line; }
+    a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
+    .note { font-size: 13px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <span class="logo-mark">MD</span>
+        <div>
+          <div class="title">All commands</div>
+          <div class="subtitle">Customer bot and back of house. <a class="back" href="/">Back of House</a> · <a class="back" href="reports.html">Numbers</a></div>
+        </div>
+      </div>
+    </header>
+    <main class="main wide">
+
+      <h2>Back of house (BOH private group)</h2>
+      <p class="where">Type these in the BOH LINE group. The BOH app answers.</p>
+
+      <h3>Cooking</h3>
+      <table>
+        <tr><td>7/10<br>Bolo<br>Meat 1000<br>O 446<br>yield 21</td><td>Cook note: date, dish, any ingredient changes, yield. Costs the batch on the cook date. Left out ingredients stay at recipe quantity.</td></tr>
+        <tr><td>undo noir ragu 6/10</td><td>Takes a logged batch back out (and gives the grams back to the lots) so you can send it again.</td></tr>
+        <tr><td>Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs</td><td>Shorthand for dishes. Add more in the Shorthand tab.</td></tr>
+      </table>
+
+      <h3>Purchasing and stock lots</h3>
+      <table>
+        <tr><td>18/10<br>minced pork 1000g 110thb</td><td>Typed receipt: date, then one line per item with quantity and total price. Goes to the Expense Log and becomes a stock lot.</td></tr>
+        <tr><td>prices only</td><td>As a line in a receipt: logs the prices but makes no stock lots.</td></tr>
+        <tr><td>opening 1/11<br>minced pork 2000g 220thb</td><td>One off starting stock. Skips any ingredient that already has lots.</td></tr>
+        <tr><td>free 4/11<br>knorr cube 2 boxes of 6</td><td>Free samples. Adds a lot costed at ฿0 (Source: Free sample). Nothing goes in the Expense Log.</td></tr>
+        <tr><td>lots</td><td>Shows what is left per ingredient, oldest lot first.</td></tr>
+        <tr><td>count minced pork 1500g</td><td>Corrects a quantity to what is really on the shelf.</td></tr>
+        <tr><td>size worcestershire sauce 290ml</td><td>Sets the size of one bottle or can, so "2 bottles" is stored as 580ml.</td></tr>
+      </table>
+
+      <h3>Numbers and team handoffs</h3>
+      <table>
+        <tr><td>huddle</td><td>The team summary: sales, cooking, stock to move, open handoffs. Also sent automatically each night.</td></tr>
+        <tr><td>week &nbsp; or &nbsp; month</td><td>Income, costs and margin for the current week or month.</td></tr>
+        <tr><td>sync</td><td>Pulls the latest LINE orders into the Ledger.</td></tr>
+        <tr><td>rider 001 55</td><td>Logs what you paid the rider for LINE order #001. Add a date to log another day: rider 001 55 3/11.</td></tr>
+        <tr><td>rider 001,002 80</td><td>One trip for two orders, split evenly.</td></tr>
+      </table>
+
+      <h3>Drinks and packaging counts</h3>
+      <table>
+        <tr><td>stock</td><td>Lists counts (BOH stock, separate from the customer bot's "stock").</td></tr>
+        <tr><td>stock coke zero zero 5</td><td>Sets one count. Use the full item name.</td></tr>
+      </table>
+
+      <h2>Customer bot (LINE OA)</h2>
+      <p class="where">Admin commands: type them in your own one to one chat with the OA, from the admin account. Group commands: type them in the BOH private group.</p>
+
+      <h3>Private group only</h3>
+      <table>
+        <tr><td>ok &nbsp; /&nbsp; ok 001 &nbsp; /&nbsp; 001 ok</td><td>Places an order whose slip you checked by eye.</td></tr>
+        <tr><td>55<br>001 55</td><td>Delivery fee reply for the oldest waiting request, or for a named order.</td></tr>
+        <tr><td>change the 5 point reward to bacon steak</td><td>Changes the 5 or 10 point loyalty reward (Reward Config tab).</td></tr>
+      </table>
+
+      <h3>Opening hours</h3>
+      <table>
+        <tr><td>close &nbsp; /&nbsp; close today</td><td>Marks the shop closed until you text open.</td></tr>
+        <tr><td>close 11/9<br>close 11/9-13/9</td><td>Closes one day or a range. Clears itself afterwards.</td></tr>
+        <tr><td>open &nbsp; /&nbsp; open now</td><td>Forces the shop open, even outside normal hours.</td></tr>
+        <tr><td>normal hours</td><td>Back to the automatic schedule.</td></tr>
+        <tr><td>status &nbsp; /&nbsp; hours</td><td>Shows open or closed, overrides and scheduled closures.</td></tr>
+      </table>
+
+      <h3>Menu stock (what customers can order)</h3>
+      <table>
+        <tr><td>stock</td><td>Lists every item with its id and count.</td></tr>
+        <tr><td>soldout bolo, ragu</td><td>Marks whole items sold out.</td></tr>
+        <tr><td>soldout rws l<br>soldout bolo luma</td><td>Marks one size or one pasta sold out only.</td></tr>
+        <tr><td>instock bolo</td><td>Puts it back. Same forms as soldout.</td></tr>
+        <tr><td>setstock rws 10<br>left rws 10</td><td>Sets the count for a whole dish. Zero marks it sold out.</td></tr>
+        <tr><td>setstock rws l4 r7<br>setstock bolo luma 3 riga 5</td><td>Sets counts per size or per pasta.</td></tr>
+        <tr><td>keywords</td><td>Shows the shorthand words the bot understands.</td></tr>
+      </table>
+
+      <h3>Menu items</h3>
+      <table>
+        <tr><td>additem drinks | Pepsi Max | 38 | Zero sugar</td><td>Adds a dish. Categories: spotlight, mains, pasta, soup, extras, drinks. Description optional. Add "pasta" or "size" as a 5th part for choices. Then send the photo.</td></tr>
+        <tr><td>setimage bolo</td><td>Then send a photo within 15 minutes to replace the dish photo.</td></tr>
+        <tr><td>remove bolo</td><td>Takes an item off the menu (not allowed while it is a loyalty reward).</td></tr>
+        <tr><td>removed &nbsp; /&nbsp; restore &nbsp; /&nbsp; restore bolo</td><td>Lists removed items, or brings one back.</td></tr>
+      </table>
+
+      <h3>Promotions and announcements</h3>
+      <table>
+        <tr><td>promo</td><td>Shows the storewide and item promos.</td></tr>
+        <tr><td>promo 10 14/9-30/9 Launch Campaign</td><td>Storewide percentage off. Start can be "today".</td></tr>
+        <tr><td>promo off</td><td>Turns the storewide promo off.</td></tr>
+        <tr><td>itempromo bolognese 20 14/9-30/9 Bolognese Deal</td><td>A promo for one item. It replaces the storewide one for that item.</td></tr>
+        <tr><td>itempromo bolognese off</td><td>Clears that item's promo.</td></tr>
+        <tr><td>announce Headline | Body text | 14/9-30/9</td><td>Shows an announcement to customers for those dates.</td></tr>
+      </table>
+
+      <h3>What customers can type</h3>
+      <table>
+        <tr><td>menu &nbsp; /&nbsp; order</td><td>Sends the ordering link.</td></tr>
+        <tr><td>change address &nbsp; /&nbsp; change payment &nbsp; /&nbsp; cancel</td><td>Changes the address or payment, or cancels the order.</td></tr>
+        <tr><td>help &nbsp; /&nbsp; staff</td><td>Hands the chat to you. The bot stays quiet until they type menu.</td></tr>
+      </table>
+
+      <p class="note">Dates are day/month (4/11). The numbers pages are at Numbers. Nothing here changes the customer bot unless you send it from the admin chat or the private group.</p>
+    </main>
+  </div>
+</body>
+</html>

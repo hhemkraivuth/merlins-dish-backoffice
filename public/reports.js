@@ -28,17 +28,47 @@ const COLUMNS = [
   ['Purchases (memo)', (p) => baht(p.purchases)],
 ];
 
-function draw(id, periods) {
+const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function draw(id, periods, clickable) {
   const t = $(id);
   if (!periods.length) { t.innerHTML = '<tr><td>No data yet. Import the Grab CSV and sync LINE orders.</td></tr>'; return; }
   const head = `<tr>${COLUMNS.map((c) => `<th>${c[0]}</th>`).join('')}</tr>`;
-  const body = [...periods].reverse().map((p) => `<tr title="${(p.missingCosts.length ? 'No cost found for: ' + p.missingCosts.join(', ') : '')}">${COLUMNS.map((c) => `<td class="${c[3] && c[3](p) ? 'neg' : ''}">${c[1](p)}</td>`).join('')}</tr>`).join('');
+  const body = [...periods].reverse().map((p) => `<tr class="${clickable ? 'row' : ''}" data-date="${clickable ? p.from : ''}" title="${(p.missingCosts.length ? 'No cost found for: ' + p.missingCosts.join(', ') : '')}">${COLUMNS.map((c) => `<td class="${c[3] && c[3](p) ? 'neg' : ''}">${c[1](p)}</td>`).join('')}</tr>`).join('');
   t.innerHTML = head + body;
+  if (clickable) t.querySelectorAll('tr.row').forEach((tr) => tr.addEventListener('click', () => showDay(tr.dataset.date)));
+}
+
+function table(headers, rows) {
+  if (!rows.length) return '<p class="intro-body">Nothing logged.</p>';
+  return `<div class="tablewrap"><table><tr>${headers.map((h, i) => `<th class="${i === 0 || h[1] ? 'left' : ''}">${h[0] || h}</th>`).join('')}</tr>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${headers[i][1] ? 'left' : ''}">${c}</td>`).join('')}</tr>`).join('')}</table></div>`;
+}
+
+async function showDay(dmy) {
+  const box = $('detail');
+  box.innerHTML = '<p class="intro-body">Loading…</p>';
+  try {
+    const d = await call('/api/reports/day?date=' + encodeURIComponent(dmy));
+    const s = d.summary;
+    const head = s ? `<p class="intro-body">Net income ฿${baht(s.revenue)}, food cost ฿${baht(s.foodCost)}, rider fees ฿${baht(s.line.rider)}, new customers ${d.people.new}, RT customers ${d.people.rt}, margin ฿${baht(s.margin)}${s.marginPct === null ? '' : ' (' + s.marginPct + '%)'}.</p>` : '';
+    box.innerHTML = `<h3>${esc(d.date)}</h3>${head}
+      <h3>Orders and fees</h3>
+      ${table([['Time', 1], ['Order', 1], ['Customer', 1], ['Status', 1], ['Channel', 1], ['Type', 1], ['Description', 1], ['Qty'], ['Money in'], ['Cost'], ['Net'], ['Flags', 1]],
+        d.rows.map((r) => [esc(r.time), esc(r.orderNo), esc(r.customer), esc(r.status), esc(r.channel), esc(r.type), esc(r.desc), r.qty ?? '', baht(r.moneyIn), baht(r.cost), baht(r.net), r.flags ? `<span class="flag">${esc(r.flags)}</span>` : '']))}
+      <h3>Orders by hour</h3>
+      ${Object.keys(d.byHour).length ? `<p class="intro-body">${Object.keys(d.byHour).sort().map((h) => `${h}:00 → ${d.byHour[h]}`).join(' · ')}</p>` : '<p class="intro-body">No order times logged.</p>'}
+      <h3>Cooked</h3>
+      ${table([['Dish', 1], ['Portions'], ['Batch cost'], ['Per portion']], d.cooked.map((c) => [esc(c.dish), c.portions, baht(c.cost), c.perPortion === null ? '' : c.perPortion]))}
+      <h3>Bought</h3>
+      ${table([['Item', 1], ['Amount']], d.bought.map((b) => [esc(b.name), baht(b.amount)]))}`;
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) { box.innerHTML = ''; say(err.message, true); }
 }
 
 async function load() {
   try {
     const d = await call('/api/reports/summary');
+    draw('daily', d.daily.slice(-60), true);
     draw('weekly', d.weekly);
     draw('monthly', d.monthly);
   } catch (err) { say(err.message, true); }

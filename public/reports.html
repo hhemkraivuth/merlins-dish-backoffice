@@ -22,6 +22,12 @@
     th { font-weight: 600; color: var(--muted); }
     .neg { color: var(--flag); }
     h2 { font-size: 16px; margin: 20px 0 8px; }
+    .hint { font-size: 12px; font-weight: 400; color: var(--muted); }
+    table.clickable tr.row { cursor: pointer; }
+    table.clickable tr.row:hover td { background: rgba(0,0,0,.04); }
+    #detail h3 { font-size: 15px; margin: 14px 0 6px; }
+    #detail td.left, #detail th.left { text-align: left; }
+    .flag { color: var(--flag); }
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
   </style>
 </head>
@@ -32,7 +38,7 @@
         <span class="logo-mark">MD</span>
         <div>
           <div class="title">Numbers</div>
-          <div class="subtitle">Grab + LINE + cooking, weekly and monthly. <a class="back" href="/">Back of House</a></div>
+          <div class="subtitle">Grab + LINE + cooking, daily, weekly and monthly. <a class="back" href="/">Back of House</a> · <a class="back" href="commands.html">Commands</a></div>
         </div>
       </div>
     </header>
@@ -43,6 +49,9 @@
         <button id="refresh" class="alt">Update report tabs in the sheet</button>
       </div>
       <div id="status" class="status"></div>
+      <h2>Daily <span class="hint">(tap a day to see every order, batch and purchase)</span></h2>
+      <div class="tablewrap"><table id="daily" class="clickable"></table></div>
+      <div id="detail"></div>
       <h2>Weekly</h2>
       <div class="tablewrap"><table id="weekly"></table></div>
       <h2>Monthly</h2>
