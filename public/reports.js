@@ -43,14 +43,15 @@ function draw(id, periods, clickable) {
 }
 
 // One row per month, laid out like the Merlin's numbers tab: money in, Grab deductions, ads, costs, profit.
+const DASH = '–'; // months from before the app only have a total cost
 const PROFIT = [
   ['Month', (m) => m.label, true],
-  ['Money to take out', (m) => baht(m.moneyToTakeOut)],
+  ['Money to take out', (m) => (m.history ? DASH : baht(m.moneyToTakeOut))],
   ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0],
-  ['Costs (approx)', (m) => baht(m.foodCost + m.line.rider + m.overheads)],
-  ['Overheads', (m) => baht(m.overheads)],
-  ['Rider fees', (m) => baht(m.line.rider)],
-  ['Cooking costs', (m) => baht(m.foodCost)],
+  ['Costs (approx)', (m) => baht(m.costs !== undefined ? m.costs : m.foodCost + m.line.rider + m.overheads)],
+  ['Overheads', (m) => (m.history ? DASH : baht(m.overheads))],
+  ['Rider fees', (m) => (m.history ? DASH : baht(m.line.rider))],
+  ['Cooking costs', (m) => (m.history ? DASH : baht(m.foodCost))],
   ['Meta ads', (m) => baht(m.ads)],
   ['Direct sales (LINE)', (m) => baht(m.line.net + m.line.delivery)],
   ['Grab sales', (m) => baht(m.grab.gross)],
@@ -72,6 +73,7 @@ function drawProfit(months) {
     grab: { gross: sumOf((m) => m.grab.gross), discount: sumOf((m) => m.grab.discount), commission: sumOf((m) => m.grab.commission), marketing: sumOf((m) => m.grab.marketing), otherFees: sumOf((m) => m.grab.otherFees), net: sumOf((m) => m.grab.net) },
     ads: sumOf((m) => m.ads), foodCost: sumOf((m) => m.foodCost), overheads: sumOf((m) => m.overheads), margin: sumOf((m) => m.margin),
     moneyToTakeOut: sumOf((m) => m.moneyToTakeOut || 0),
+    costs: sumOf((m) => (m.history ? m.costs : m.foodCost + m.line.rider + m.overheads)),
   };
   const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : ''}">${c[1](m)}</td>`).join('');
   t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`;
@@ -164,7 +166,7 @@ async function load() {
     draw('daily', (d.daily || []).slice(-60), true);
     draw('weekly', d.weekly, true);
     draw('monthly', d.monthly, true);
-    drawProfit(d.monthly || []);
+    drawProfit(d.profit || d.monthly || []);
   } catch (err) { say(err.message, true); }
 }
 
