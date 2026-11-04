@@ -32,6 +32,8 @@ function defaultDeps() {
     saveLots: lots.saveLots,
     addLots: lots.addLots,
     loadUntracked: lots.loadUntracked,
+    loadLevels: require('../lib/reorderLevels').loadLevels,
+    setLevel: require('../lib/reorderLevels').setLevel,
     loadCatalogue: live.loadCatalogue,
     loadPriceBook: live.loadPriceBook,
     setPackSize: packs.setPackSize,
@@ -72,6 +74,16 @@ function defaultDeps() {
     receiptPhotos: String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on',
     receipt: {
       loadCatalogue: live.loadCatalogue,
+      loadUnits: live.loadUnits,
+      adjustPacks: async (name, delta) => {
+        const all = await getAllStock();
+        const norm = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const item = all.find((i) => norm(i.itemName) === norm(name));
+        if (!item) return { found: false };
+        const now = (Number(item.currentCount) || 0) + delta;
+        await setStockCount(item.itemName, now, item.unit, 'Receipt');
+        return { found: true, now };
+      },
       extractReceipt: extractReceiptWithCatalogue,
       appendExpenseRows: async (rows) => { await appendRows('Expense Log', rows); live.invalidate(); },
       appendOverheads: async (rows) => { const o = require('../lib/overheads'); await require('../lib/cookLog').ensureTab(o.TAB, o.HEADERS); await appendRows(o.TAB, rows); },
