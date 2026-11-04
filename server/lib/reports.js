@@ -151,6 +151,9 @@ function summarise(ledger, cookBatches, purchases, type = 'week', { through = nu
       recipeCost: r2(p.grab.recipeCost), lineEstCost: r2(p.line.estCost), cookCost: r2(p.cook.cost), cookBatches: p.cook.batches, cookPortions: p.cook.portions,
       foodCost: r2(foodCost), marginBeforeOverheads: r2(marginBefore), margin: r2(margin), marginPct: gross > 0 ? r2((margin / gross) * 100) : null,
       purchases: r2(p.purchases), overheads: r2(p.overheads), ads: r2(p.ads),
+      // Cash Lily paid out of her own pocket for shopping this period: ingredient receipts plus overheads (pots, bags, knives).
+      // Meta ads are left out (shown on their own) because they are not paid from shopping money.
+      moneyToTakeOut: r2(p.purchases + p.overheads),
       missingCosts: [...p.line.missing].map(([n, q]) => `${n} x${q}`),
       flags: [...p.flags],
     };
