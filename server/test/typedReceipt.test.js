@@ -198,3 +198,57 @@ test('where you shopped: a shop line applies until the next shop or date line', 
   assert.strictEqual(noShop.items[0].shop, '');
   assert.strictEqual(noShop.items[0].typedName, 'atlantic salmon');
 });
+
+test('kilo weights typed with a g: 0.478g is 478g, "0.60g 2pcs" is 0.6kg each, and the guess is said out loud', async () => {
+  const r = parseTypedReceipt('9/10\nbroccoli 0.478g, 28.25\npecorino 0.60g 2pcs, 180\nknorr cube - beef 20g 48pcs, 280\nonion 450g, 20', TODAY);
+  assert.deepStrictEqual(r.items.map((i) => i.purchaseUnit), ['0.478kg', '1200g', '48pcs', '450g']);
+  assert.match(r.items[0].assumed, /478g/);
+  assert.strictEqual(r.items[2].assumed, '');
+  assert.strictEqual(r.items[3].assumed, '');
+});
+
+test('a doubled letter does not stop a name matching (peccorino finds Pecorino)', () => {
+  assert.strictEqual(matchIngredient('peccorino', ['Pecorino', 'Onion']).name, 'Pecorino');
+});
+
+test('spelling slips are caught and said out loud, but short or different words are not guessed', async () => {
+  const cat = ['Pecorino', 'Pork - minced', 'Onion', 'Parmesan', 'Milk'];
+  assert.deepStrictEqual(matchIngredient('pecroino', cat), { name: 'Pecorino', fuzzy: true });    // swapped letters
+  assert.deepStrictEqual(matchIngredient('pecorinno', cat), { name: 'Pecorino' });                 // doubled letters are ignored
+  assert.deepStrictEqual(matchIngredient('parmasan', cat), { name: 'Parmesan', fuzzy: true });    // wrong vowel
+  assert.deepStrictEqual(matchIngredient('minsed pork', cat), { name: 'Pork - minced', fuzzy: true });
+  assert.deepStrictEqual(matchIngredient('mik', cat), {});                                         // too short to guess
+  assert.deepStrictEqual(matchIngredient('salmon', cat), {});
+  const rows = [];
+  const replies = await processTypedReceipt('5/10\npecroino 500g, 90', TODAY, { loadCatalogue: async () => cat, appendExpenseRows: async (x) => rows.push(...x) });
+  assert.strictEqual(rows[0][1], 'Pecorino');
+  assert.ok(replies.some((r) => /corrected the spelling/.test(r) && /pecroino → Pecorino/.test(r)));
+});
+
+test('best prices: the cheapest per unit ever paid, written like the Price Tracker remark', () => {
+  const { buildPriceBook } = require('../lib/priceBook');
+  const { bestRows, remark } = require('../lib/bestPrices');
+  const pb = buildPriceBook({
+    today: TODAY,
+    priceLogRows: [['Shopping Date', 'Ingredient', 'Purchase Price', 'Purchase Unit', 'Cost per Recipe Unit', 'Shopped at', 'Remarks'], ['05/09/2026', 'Anchovies', 1038, '680g', 1.526, '', '']],
+    expenseRows: [['Date', 'Ingredient', 'Price', 'Unit', 'Cost', 'Shop', 'Remark'], ['09/10/2026', 'Pecorino', 105.25, '0.90kg', 0.11694, 'Makro', ''], ['12/10/2026', 'Pecorino', 150, '1000g', 0.15, 'Tops', ''], ['13/10/2026', 'Pecorino', 0, '500g', 0, '', 'free']],
+  });
+  const rows = bestRows(pb);
+  const pec = rows.find((r) => r[0] === 'Pecorino');
+  assert.strictEqual(pec[1], 'best price: 105.25/900g');
+  assert.strictEqual(pec[4], 'Makro');
+  assert.strictEqual(pec[5], 0.15);                   // the free line is ignored, the latest paid price is 150/1000g
+  assert.strictEqual(rows.find((r) => r[0] === 'Anchovies')[1], 'best price: 1,038/680g');
+  assert.strictEqual(remark({ price: 26, unitText: '1can', cost: 26 }), 'best price: 26/1can');
+});
+
+test('a kilo guess far from the last price is read as the dropped zero (0.90g is 90g, not 900g)', async () => {
+  const { buildPriceBook } = require('../lib/priceBook');
+  const pb = buildPriceBook({ today: TODAY, priceLogRows: [['Date', 'Ingredient', 'Price', 'Unit', 'Cost', 'Shop', 'Remark'], ['01/10/2026', 'Pecorino', 117, '100g', 1.17, '', '']] });
+  const rows = [];
+  const replies = await processTypedReceipt('9/10\npecorino 0.90g, 105.25\npecorino 0.108g, 126.25\npecorino 0.60g 2pcs, 180\nbroccoli 0.478g, 28.25', TODAY, {
+    loadCatalogue: async () => ['Pecorino', 'Broccoli'], loadPriceBook: async () => pb, appendExpenseRows: async (x) => rows.push(...x),
+  });
+  assert.deepStrictEqual(rows.map((r) => r[3]), ['90g', '0.108kg', '120g', '0.478kg']);   // 0.108kg (108g) already fits the last price, so it stays
+  assert.ok(replies.some((r) => /guess on the weights/.test(r) && /would be/.test(r)));
+});
