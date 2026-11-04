@@ -1,231 +1,309 @@
-const $ = (id) => document.getElementById(id);
-const baht = (n) => (n === '' || n === null || n === undefined ? '' : Number(n).toLocaleString('en-AU', { maximumFractionDigits: 0 }));
+// Weekly and monthly numbers, sell-through, and price moves. Pure functions over plain data.
+//
+// How cost is counted (it follows accounting-rules, so nothing is counted twice):
+//   Batch dishes   cost lands on the COOK date, from the Cook Log. Orders never carry a cost for them.
+//   Pasta, Bacon Steak, drinks   cost is the Recipe row on a Grab order. LINE orders have no Recipe rows,
+//                  so their cost is ESTIMATED from the most recent Grab Recipe cost for the same item.
+//   Ingredient purchases are shown as a memo line only. They are never added to cost (that would count food twice).
+//   Overheads (pots, bags, knives) are the cash spent in the period and come off the margin. Advertising is not in the system yet.
 
-function say(msg, err) { const s = $('status'); s.textContent = msg; s.className = 'status' + (err ? ' err' : ''); }
+const { formatDMY, daysBetween } = require('./dates');
+const { normName, batchDishOf, pastaOf, NOT_A_PORTION, PASTAS } = require('./dishes');
 
-async function call(url, opts) {
-  const res = await fetch(url, opts);
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
-  return body;
+const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+// ---- periods ------------------------------------------------------------------------------
+// Dates are midnight UTC, so plain millisecond arithmetic is exact (and safe across month and year ends).
+function addDays(d, n) { return new Date(d.getTime() + n * 86400000); }
+function weekStart(d) {
+  const dow = (d.getUTCDay() + 6) % 7; // Monday = 0
+  return addDays(d, -dow);
 }
 
-const COLUMNS = [
-  ['Period', (p) => p.label, true],
-  ['Grab orders', (p) => p.grab.orders],
-  ['Grab gross', (p) => baht(p.grab.gross)],
-  ['Grab fees + discounts', (p) => baht(p.grab.discount + p.grab.commission + p.grab.marketing + p.grab.otherFees)],
-  ['Grab net', (p) => baht(p.grab.net)],
-  ['LINE orders', (p) => p.line.orders],
-  ['LINE net', (p) => baht(p.line.net)],
-  ['Delivery charged', (p) => baht(p.line.delivery)],
-  ['Net income', (p) => baht(p.revenue)],
-  ['Recipe costs', (p) => baht(p.recipeCost + p.lineEstCost)],
-  ['Batch cook costs', (p) => baht(p.cookCost)],
-  ['Rider fees paid', (p) => baht(p.line.rider)],
-  ['Margin before overheads', (p) => baht(p.marginBeforeOverheads)],
-  ['Overheads bought', (p) => baht(p.overheads)],
-  ['Meta ads', (p) => baht(p.ads)],
-  ['Margin after overheads and ads', (p) => baht(p.margin), false, (p) => p.margin < 0],
-  ['Margin %', (p) => (p.marginPct === null ? '' : p.marginPct + '%')],
-  ['Purchases (memo)', (p) => baht(p.purchases)],
-];
-
-const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-function draw(id, periods, clickable) {
-  const t = $(id);
-  if (!periods.length) { t.innerHTML = '<tr><td>No data yet. Import the Grab CSV and sync LINE orders.</td></tr>'; return; }
-  const head = `<tr>${COLUMNS.map((c) => `<th>${c[0]}</th>`).join('')}</tr>`;
-  const body = periods.map((p, i) => ({ p, i })).reverse().map(({ p, i }) => `<tr class="${clickable ? 'row' : ''}" data-from="${clickable ? p.from : ''}" data-to="${clickable ? p.to : ''}" data-i="${i}" title="${(p.missingCosts.length ? 'No cost found for: ' + p.missingCosts.join(', ') : '')}">${COLUMNS.map((c) => `<td class="${c[3] && c[3](p) ? 'neg' : ''}">${c[1](p)}</td>`).join('')}</tr>`).join('');
-  t.innerHTML = head + body;
-  if (clickable) t.querySelectorAll('tr.row').forEach((tr) => tr.addEventListener('click', () => showDay(tr.dataset.from, tr.dataset.to, periods[Number(tr.dataset.i)])));
+function periodOf(date, type) {
+  if (type === 'day') {
+    return { key: date.toISOString().slice(0, 10), label: formatDMY(date), from: date, to: date };
+  }
+  if (type === 'month') {
+    const from = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+    const to = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
+    return { key: `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, '0')}`, label: `${String(from.getUTCMonth() + 1).padStart(2, '0')}/${from.getUTCFullYear()}`, from, to };
+  }
+  const from = weekStart(date);
+  const to = addDays(from, 6);
+  return { key: from.toISOString().slice(0, 10), label: `${formatDMY(from)} to ${formatDMY(to)}`, from, to };
 }
 
-// One row per month, laid out like the Merlin's numbers tab: money in, Grab deductions, ads, costs, profit.
-const PROFIT = [
-  ['Month', (m) => m.label, true],
-  ['Money to take out', (m) => baht(m.moneyToTakeOut)],
-  ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0],
-  ['Costs (approx)', (m) => baht(m.foodCost + m.line.rider + m.overheads)],
-  ['Overheads', (m) => baht(m.overheads)],
-  ['Rider fees', (m) => baht(m.line.rider)],
-  ['Cooking costs', (m) => baht(m.foodCost)],
-  ['Meta ads', (m) => baht(m.ads)],
-  ['Direct sales (LINE)', (m) => baht(m.line.net + m.line.delivery)],
-  ['Grab sales', (m) => baht(m.grab.gross)],
-  ['Merchant funded (discounts)', (m) => baht(m.grab.discount)],
-  ['Service fee (commission)', (m) => baht(m.grab.commission)],
-  ['Marketing fee', (m) => baht(m.grab.marketing)],
-  ['Other Grab fees', (m) => baht(m.grab.otherFees)],
-  ['Net Grab earning', (m) => baht(m.grab.net)],
-  ['Total earning', (m) => baht(m.line.net + m.line.delivery + m.grab.net)],
-];
+// ---- LINE cost estimate ---------------------------------------------------------------------
+// Cost table: the Recipe rows already in the ledger (Grab), newest first per item.
+function buildCostTable(ledger) {
+  const table = new Map();
+  for (const r of ledger) {
+    if (r.type !== 'Recipe' || r.cost === null || r.cost <= 0) continue;
+    const k = normName(r.desc);
+    if (!table.has(k)) table.set(k, []);
+    table.get(k).push({ t: r.date.getTime(), cost: r.cost });
+  }
+  for (const list of table.values()) list.sort((a, b) => a.t - b.t);
+  return table;
+}
+function lookupCost(table, name, date) {
+  const list = table.get(normName(name));
+  if (!list || !list.length) return null;
+  let best = null;
+  for (const e of list) if (e.t <= date.getTime()) best = e;
+  return (best || list[0]).cost;
+}
 
-function drawProfit(months) {
-  const t = $('profit');
-  if (!months.length) { t.innerHTML = '<tr><td>No data yet.</td></tr>'; return; }
-  const sumOf = (f) => months.reduce((s, m) => s + f(m), 0);
-  const total = {
-    label: 'Total',
-    line: { net: sumOf((m) => m.line.net), delivery: sumOf((m) => m.line.delivery), rider: sumOf((m) => m.line.rider) },
-    grab: { gross: sumOf((m) => m.grab.gross), discount: sumOf((m) => m.grab.discount), commission: sumOf((m) => m.grab.commission), marketing: sumOf((m) => m.grab.marketing), otherFees: sumOf((m) => m.grab.otherFees), net: sumOf((m) => m.grab.net) },
-    ads: sumOf((m) => m.ads), foodCost: sumOf((m) => m.foodCost), overheads: sumOf((m) => m.overheads), margin: sumOf((m) => m.margin),
-    moneyToTakeOut: sumOf((m) => m.moneyToTakeOut || 0),
+// Cost of one LINE Order row, or { cost: 0 } when the item carries none, or { missing: true }.
+function lineItemCost(row, table) {
+  const qty = row.qty || 0;
+  const dish = batchDishOf(row.desc);
+  if (dish) {
+    // The bot writes the pasta choice in brackets: "Noir Ragu + Pasta (Radiatori)" or "Red Wine Beef Stew (Tubetti)".
+    const groups = [...row.desc.matchAll(/\(([^)]+)\)/g)].map((m) => m[1].trim());
+    const pasta = groups.find((g) => PASTAS.includes(g.toLowerCase()));
+    if (!pasta) return { cost: 0 };
+    const c = lookupCost(table, pasta, row.date);
+    return c === null ? { cost: 0, missing: `${pasta} (pasta)` } : { cost: c * qty };
+  }
+  if (NOT_A_PORTION.test(row.desc)) return { cost: 0 };
+  const pasta = pastaOf(row.desc);
+  const c = lookupCost(table, pasta || row.desc, row.date);
+  return c === null ? { cost: 0, missing: row.desc } : { cost: c * qty };
+}
+
+// ---- weekly / monthly ----------------------------------------------------------------------
+// ledger: objects from ledgerObjects().  cookBatches: [{ key, date, dish, portions, cost }].  purchases: [{ date, amount }]
+function summarise(ledger, cookBatches, purchases, type = 'week', { through = null } = {}) {
+  const table = buildCostTable(ledger);
+  const periods = new Map();
+  const get = (date) => {
+    const p = periodOf(date, type);
+    if (!periods.has(p.key)) {
+      periods.set(p.key, {
+        key: p.key, label: p.label, from: p.from, to: p.to,
+        grab: { orders: new Set(), gross: 0, discount: 0, commission: 0, marketing: 0, otherFees: 0, recipeCost: 0 },
+        line: { orders: new Set(), gross: 0, discount: 0, delivery: 0, rider: 0, estCost: 0, missing: new Map() },
+        cook: { batches: 0, portions: 0, cost: 0 },
+        purchases: 0, overheads: 0, ads: 0, flags: new Set(),
+      });
+    }
+    return periods.get(p.key);
   };
-  const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : ''}">${c[1](m)}</td>`).join('');
-  t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`;
-}
 
-function table(headers, rows) {
-  if (!rows.length) return '<p class="intro-body">Nothing logged.</p>';
-  return `<div class="tablewrap"><table><tr>${headers.map((h, i) => `<th class="${i === 0 || h[1] ? 'left' : ''}">${h[0] || h}</th>`).join('')}</tr>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${headers[i][1] ? 'left' : ''}">${c}</td>`).join('')}</tr>`).join('')}</table></div>`;
-}
+  for (const r of ledger) {
+    const p = get(r.date);
+    const net = r.net ?? 0;
+    if (r.flags) p.flags.add(`${r.channel} ${r.dmy}: ${r.flags}`);
+    if (r.channel === 'Grab') {
+      if (r.type === 'Order') { p.grab.gross += net; if (r.orderNo) p.grab.orders.add(`${r.dmy}|${r.orderNo}`); }
+      else if (r.type === 'Recipe') p.grab.recipeCost += Math.abs(net);
+      else if (r.type === 'Grab') {
+        const amt = Math.abs(net);
+        if (/discount/i.test(r.desc)) p.grab.discount += amt;
+        else if (/commission/i.test(r.desc)) p.grab.commission += amt;
+        else if (/marketing/i.test(r.desc)) p.grab.marketing += amt;
+        else p.grab.otherFees += amt;
+      }
+    } else if (r.channel === 'LINE') {
+      if (r.type === 'Order') {
+        p.line.gross += net;
+        if (r.orderNo) p.line.orders.add(`${r.dmy}|${r.orderNo}`);
+        const c = lineItemCost(r, table);
+        p.line.estCost += c.cost;
+        if (c.missing) p.line.missing.set(c.missing, (p.line.missing.get(c.missing) || 0) + (r.qty || 1));
+      } else if (r.type === 'Discount') p.line.discount += Math.abs(net);
+      else if (r.type === 'Delivery') p.line.delivery += net;
+      else if (r.type === 'Rider') p.line.rider += Math.abs(net);
+    }
+  }
+  for (const b of cookBatches) {
+    const p = get(b.date);
+    p.cook.batches += 1; p.cook.portions += b.portions || 0; p.cook.cost += b.cost || 0;
+  }
+  for (const x of purchases) { if (x.kind === 'overhead') get(x.date).overheads += x.amount || 0; else if (x.kind === 'ads') get(x.date).ads += x.amount || 0; else get(x.date).purchases += x.amount || 0; }
 
+  // Every day (or week, or month) between the first and the last one appears, even with nothing in it, so no date is skipped.
+  // "through" (usually today) extends the end, so quiet days since the last order show too.
+  if (periods.size) {
+    const all = [...periods.values()];
+    const stepOf = (x) => (type === 'day' ? addDays(x, 1) : type === 'week' ? addDays(x, 7) : new Date(Date.UTC(x.getUTCFullYear(), x.getUTCMonth() + 1, 1)));
+    const last = Math.max(...all.map((x) => x.to.getTime()), through ? through.getTime() : 0);
+    let d = new Date(Math.min(...all.map((x) => x.from.getTime())));
+    for (let guard = 0; d.getTime() <= last && guard < 4000; d = stepOf(d), guard += 1) get(d);
+  }
 
-// Edit and Delete for each Ledger row of the open day. Rows are found by their Source Key.
-function wireRows(box, d) {
-  const byKey = new Map(d.rows.filter((r) => r.key).map((r) => [r.key, r]));
-  box.querySelectorAll('span.act').forEach((span) => {
-    const td = span.closest('td'); td.classList.add('act');
-    const tr = span.closest('tr');
-    const key = span.dataset.key;
-    const row = byKey.get(key);
-    const show = () => {
-      td.innerHTML = '<button class="edit">Edit</button><button class="danger del">Delete</button>';
-      td.querySelector('.edit').addEventListener('click', edit);
-      td.querySelector('.del').addEventListener('click', async () => {
-        if (!confirm(`Delete this row?\n${row.channel} ${row.type}: ${row.desc} (${row.orderNo || 'no order number'})`)) return;
-        try { await call('/api/ledger/row/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key }) }); say('Row deleted.'); reopen(); load(); } catch (err) { say(err.message, true); }
-      });
+  return [...periods.values()].sort((a, b) => a.from - b.from).map((p) => {
+    const grabNet = p.grab.gross - p.grab.discount - p.grab.commission - p.grab.marketing - p.grab.otherFees;
+    const lineNet = p.line.gross - p.line.discount;
+    const revenue = grabNet + lineNet + p.line.delivery;           // delivery the customer paid is income
+    const recipe = p.grab.recipeCost + p.line.estCost;
+    const foodCost = recipe + p.cook.cost;
+    const marginBefore = revenue - foodCost - p.line.rider;         // the rider fee you actually paid is a cost
+    const margin = marginBefore - p.overheads - p.ads;              // overheads and ads are that period's cash spent
+    const gross = p.grab.gross + p.line.gross;
+    return {
+      key: p.key, label: p.label, from: p.from, to: p.to,
+      grab: { orders: p.grab.orders.size, gross: r2(p.grab.gross), discount: r2(p.grab.discount), commission: r2(p.grab.commission), marketing: r2(p.grab.marketing), otherFees: r2(p.grab.otherFees), net: r2(grabNet) },
+      line: { orders: p.line.orders.size, gross: r2(p.line.gross), discount: r2(p.line.discount), net: r2(lineNet), delivery: r2(p.line.delivery), rider: r2(p.line.rider) },
+      revenue: r2(revenue),
+      recipeCost: r2(p.grab.recipeCost), lineEstCost: r2(p.line.estCost), cookCost: r2(p.cook.cost), cookBatches: p.cook.batches, cookPortions: p.cook.portions,
+      foodCost: r2(foodCost), marginBeforeOverheads: r2(marginBefore), margin: r2(margin), marginPct: gross > 0 ? r2((margin / gross) * 100) : null,
+      purchases: r2(p.purchases), overheads: r2(p.overheads), ads: r2(p.ads),
+      // Everything Lily paid out of her own pocket this period and must be reimbursed: ingredient receipts, overheads (pots, bags, knives) and Meta ads.
+      moneyToTakeOut: r2(p.purchases + p.overheads + p.ads),
+      missingCosts: [...p.line.missing].map(([n, q]) => `${n} x${q}`),
+      flags: [...p.flags],
     };
-    const edit = () => {
-      const cells = tr.querySelectorAll('td');
-      const field = (i, name, val, wide) => { cells[i].innerHTML = `<input class="cell${wide ? ' wide' : ''}" data-f="${name}" value="${esc(val ?? '')}" />`; };
-      field(0, 'time', row.time); field(2, 'customer', row.customer, true); field(6, 'desc', row.desc, true);
-      field(7, 'qty', row.qty); field(8, 'moneyIn', row.moneyIn); field(9, 'cost', row.cost); field(10, 'net', row.net);
-      td.innerHTML = '<button class="save">Save</button><button class="cancel">Cancel</button>';
-      td.querySelector('.cancel').addEventListener('click', () => reopen());
-      td.querySelector('.save').addEventListener('click', async () => {
-        const changes = {};
-        tr.querySelectorAll('input.cell').forEach((i) => { changes[i.dataset.f] = i.value; });
-        try { await call('/api/ledger/row/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key, changes }) }); say('Row saved. Net income is not recalculated, so edit Net too if you change Money in.'); reopen(); load(); } catch (err) { say(err.message, true); }
-      });
-    };
-    show();
   });
 }
 
-let current = null;
-const reopen = () => { if (current) showDay(current.from, current.to, current.p); };
-
-async function showDay(from, to, p) {
-  current = { from, to, p };
-  const box = $('detail');
-  box.innerHTML = '<p class="intro-body">Loading…</p>';
-  try {
-    const d = await call('/api/reports/day?date=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to || from));
-    const range = d.from !== d.to;
-    const s = d.summary || p;
-    const when = (r) => (range ? `${esc(r.date)}<br>` : '');
-    const head = s ? `<p class="intro-body">Net income ฿${baht(s.revenue)}, food cost ฿${baht(s.foodCost)}, rider fees ฿${baht(s.line.rider)}, new customers ${d.people.new}, RT customers ${d.people.rt}, overheads ฿${baht(s.overheads)}, ads ฿${baht(s.ads)}, margin after overheads and ads ฿${baht(s.margin)}${s.marginPct === null ? '' : ' (' + s.marginPct + '%)'}.</p>` : '';
-    box.innerHTML = `<h3>${esc(d.date)} <button id="delPeriod" class="alt-btn">Delete all rows in this period</button></h3>${head}
-      <h3>Orders and fees</h3>
-      ${table([['Time', 1], ['Order', 1], ['Customer', 1], ['Status', 1], ['Channel', 1], ['Type', 1], ['Description', 1], ['Qty'], ['Money in'], ['Cost'], ['Net'], ['Flags', 1], ['']],
-        d.rows.map((r) => [when(r) + esc(r.time), esc(r.orderNo), esc(r.customer), esc(r.status), esc(r.channel), esc(r.type), esc(r.desc), r.qty ?? '', baht(r.moneyIn), baht(r.cost), baht(r.net), r.flags ? `<span class="flag">${esc(r.flags)}</span>` : '', r.key ? `<span class="act" data-key="${esc(r.key)}"></span>` : '']))}
-      <h3>Orders by hour</h3>
-      ${Object.keys(d.byHour).length ? `<p class="intro-body">${Object.keys(d.byHour).sort().map((h) => `${h}:00 → ${d.byHour[h]}`).join(' · ')}</p>` : '<p class="intro-body">No order times logged.</p>'}
-      <h3>Cooked</h3>
-      ${table([['Date', 1], ['Dish', 1], ['Portions'], ['Batch cost'], ['Per portion']], d.cooked.map((c) => [esc(c.date), esc(c.dish), c.portions, baht(c.cost), c.perPortion === null ? '' : c.perPortion]))}
-      <h3>Bought</h3>
-      ${table([['Date', 1], ['Item', 1], ['Type', 1], ['Amount']], d.bought.map((b) => [esc(b.date), esc(b.name), esc(b.kind), baht(b.amount)]))}`;
-    wireRows(box, d);
-    $('delPeriod').addEventListener('click', async () => {
-      const body = { from: d.from, to: d.to, channel: 'All' };
-      const post = (extra) => call('/api/ledger/delete-range', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, ...extra }) });
-      try {
-        const peek = await post({ dryRun: true });
-        if (!peek.count) { say('No ledger rows in this period.'); return; }
-        if (!confirm(`Delete all ${peek.count} ledger rows (Grab and LINE) for ${d.date}? This cannot be undone.`)) { say('Nothing deleted.'); return; }
-        const r = await post({});
-        say(`${r.deleted} rows deleted.`);
-        box.innerHTML = '';
-        load();
-      } catch (err) { say(err.message, true); }
-    });
-    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (err) { box.innerHTML = ''; say(err.message, true); }
+// Everything that happened on one day, like a Master Log page: the ledger rows in sheet order, the batches cooked and the things bought.
+const statusOf = (orderFrom) => (/-n$/i.test(orderFrom) ? 'New' : /-rt$/i.test(orderFrom) ? 'RT' : '');
+// "8:15PM" is 20, "12:28PM" is 12, "12:05AM" is 00, "15:42" is 15. Returns a two digit hour, or null when there is no time.
+function hourOf(time) {
+  const m = /^(\d{1,2})[:.]\d{2}(?:[:.]\d{2})?\s*([ap]m)?/i.exec(String(time || '').trim());
+  if (!m) return null;
+  let h = Number(m[1]);
+  if (m[2]) h = (h % 12) + (m[2].toLowerCase() === 'pm' ? 12 : 0);
+  return h >= 0 && h < 24 ? String(h).padStart(2, '0') : null;
 }
 
-async function load() {
-  try {
-    const d = await call('/api/reports/summary');
-    if (!d.daily) say('The server is still on an older version, so the Daily table is empty. Wait for the Railway deploy to finish, then refresh.', true);
-    draw('daily', (d.daily || []).slice(-60), true);
-    draw('weekly', d.weekly, true);
-    draw('monthly', d.monthly, true);
-    drawProfit(d.monthly || []);
-  } catch (err) { say(err.message, true); }
-}
-
-$('csv').addEventListener('change', async (e) => {
-  const files = [...e.target.files];
-  if (!files.length) return;
-  const lines = [];
-  let failed = 0;
-  // One file at a time, so a bad file never stops the others. Each CSV replaces only its own Grab days, so re-importing is safe.
-  for (const [i, f] of files.entries()) {
-    say(`Importing ${i + 1} of ${files.length}: ${f.name}…`);
-    try {
-      const fd = new FormData();
-      fd.append('csv', f);
-      const r = await call('/api/ledger/grab-csv', { method: 'POST', body: fd });
-      lines.push(`${f.name}: ${r.imported} rows for ${r.days.length} days, ${r.orders} orders. Replaced ${r.replaced} rows already there.${r.flagged ? ` ${r.flagged} rows carry XXXXXX or a missing figure.` : ''}${r.problems.length ? ` Skipped: ${r.problems.slice(0, 3).join(' ')}` : ''}`);
-    } catch (err) { failed += 1; lines.push(`${f.name}: ${err.message}`); }
+function dayDetail(ledger, cookBatches, purchases, date, toDate = null) {
+  const t = date.getTime();
+  const range = toDate && toDate.getTime() !== t;
+  const inRange = (d) => (range ? d.getTime() >= t && d.getTime() <= toDate.getTime() : d.getTime() === t);
+  const rows = ledger.filter((r) => inRange(r.date)).map((r) => ({
+    date: formatDMY(r.date),
+    time: r.time, channel: r.channel, type: r.type, desc: r.desc, qty: r.qty, orderNo: r.orderNo, customer: r.customer,
+    orderFrom: r.orderFrom, status: statusOf(r.orderFrom), moneyIn: r.moneyIn, cost: r.cost, net: r.net, flags: r.flags, key: r.key,
+  }));
+  const cooked = cookBatches.filter((b) => inRange(b.date)).map((b) => ({ date: formatDMY(b.date), dish: b.dish, portions: b.portions, cost: r2(b.cost || 0), perPortion: b.portions ? r2((b.cost || 0) / b.portions) : null }));
+  const bought = purchases.filter((x) => inRange(x.date)).map((x) => ({ date: formatDMY(x.date), name: x.name || '', amount: r2(x.amount || 0), kind: x.kind === 'overhead' ? 'Overhead' : x.kind === 'ads' ? 'Ads' : 'Ingredient' }));
+  const summary = range ? null : (summarise(ledger, cookBatches, purchases, 'day').find((d) => d.key === date.toISOString().slice(0, 10)) || null);
+  // Who ordered and when: one entry per order, so the peak hours and the repeat customers show up.
+  const seen = new Set(); const orders = []; const byHour = {};
+  for (const r of rows) {
+    if (r.type !== 'Order' || !r.orderNo || seen.has(r.channel + r.orderNo)) continue;
+    seen.add(r.channel + r.orderNo);
+    orders.push({ time: r.time, channel: r.channel, orderNo: r.orderNo, customer: r.customer, status: r.status });
+    const hh = hourOf(r.time);
+    if (hh) byHour[hh] = (byHour[hh] || 0) + 1;
   }
-  say(lines.join('\n'), failed > 0);
-  load();
-  e.target.value = '';
-});
+  const people = { new: orders.filter((o) => o.status === 'New').length, rt: orders.filter((o) => o.status === 'RT').length };
+  return { date: range ? `${formatDMY(date)} to ${formatDMY(toDate)}` : formatDMY(date), from: formatDMY(date), to: formatDMY(range ? toDate : date), summary, rows, cooked, bought, orders, byHour, people };
+}
 
-$('sync').addEventListener('click', async () => {
-  say('Reading LINE orders…');
-  try {
-    const r = await call('/api/ledger/sync-line', { method: 'POST' });
-    say(`${r.added} new LINE rows added (${r.read} read).${r.problems.length ? `\nChecks: ${r.problems.slice(0, 3).join(' ')}` : ''}`);
-    load();
-  } catch (err) { say(err.message, true); }
-});
+const REPORT_HEADERS = [
+  'Period', 'From', 'To', 'Grab orders', 'Grab gross', 'Grab discounts', 'Grab commission', 'Grab marketing fee', 'Grab net',
+  'LINE orders', 'LINE gross', 'LINE discounts', 'LINE net', 'LINE delivery charged', 'Net income (all channels)',
+  'Recipe costs (Grab)', 'Recipe costs (LINE, estimated)', 'Batch cook costs', 'Total food cost', 'Rider fees paid',
+  'Margin before overheads', 'Overheads bought (pots, bags, knives)', 'Meta ads', 'Margin after overheads and ads', 'Margin % of gross sales', 'Ingredient purchases (memo, not in cost)', 'Checks',
+];
+function reportRows(periods) {
+  return periods.map((p) => [
+    p.label, formatDMY(p.from), formatDMY(p.to), p.grab.orders, p.grab.gross, p.grab.discount, p.grab.commission, p.grab.marketing, p.grab.net,
+    p.line.orders, p.line.gross, p.line.discount, p.line.net, p.line.delivery, p.revenue,
+    p.recipeCost, p.lineEstCost, p.cookCost, p.foodCost, p.line.rider, p.marginBeforeOverheads, p.overheads, p.ads, p.margin, p.marginPct === null ? '' : p.marginPct, p.purchases,
+    [p.missingCosts.length ? `No cost found for: ${p.missingCosts.slice(0, 5).join(', ')}` : '', p.flags.length ? `${p.flags.length} flagged rows` : ''].filter(Boolean).join(' | '),
+  ]);
+}
 
-$('refresh').addEventListener('click', async () => {
-  say('Updating…');
-  try {
-    const r = await call('/api/reports/refresh', { method: 'POST' });
-    say(`Weekly Report and Monthly Report tabs updated (${r.weeks} weeks, ${r.months} months).`);
-  } catch (err) { say(err.message, true); }
-});
+// ---- sell-through (first in, first out) ------------------------------------------------------
+// Cooked portions per batch come off the Cook Log. Sold portions are Order rows for that dish on either channel.
+// Sales before a dish's first logged batch are ignored (the cook notes only start on a date).
+function sellThrough(ledger, cookBatches, today) {
+  const dishes = new Map();
+  const dish = (name) => {
+    if (!dishes.has(name)) dishes.set(name, { dish: name, events: [], cooked: 0, sold: 0, oversold: 0, batches: [] });
+    return dishes.get(name);
+  };
+  for (const b of cookBatches) {
+    if (!b.portions) continue;
+    const d = dish(b.dish);
+    d.events.push({ t: b.date.getTime(), order: 0, batch: { key: b.key, date: b.date, portions: b.portions, remaining: b.portions } });
+  }
+  const soldByDay = new Map();
+  for (const r of ledger) {
+    if (r.type !== 'Order') continue;
+    const name = batchDishOf(r.desc);
+    if (!name || !r.qty) continue;
+    const k = `${name}|${r.date.getTime()}`;
+    soldByDay.set(k, (soldByDay.get(k) || 0) + r.qty);
+  }
+  for (const [k, qty] of soldByDay) {
+    const [name, t] = [k.slice(0, k.lastIndexOf('|')), Number(k.slice(k.lastIndexOf('|') + 1))];
+    if (dishes.has(name)) dishes.get(name).events.push({ t, order: 1, sold: qty });
+  }
 
-$('manGo').addEventListener('click', async () => {
-  try {
-    const r = await call('/api/ledger/manual-orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: $('manText').value }) });
-    const lines = r.added.map((o) => `Added ${o.date} ${o.name}, ฿${baht(o.total)} (${o.ref})`).concat(r.skipped.map((o) => `Already there: ${o.date} ${o.name}, ฿${baht(o.total)}`), r.problems);
-    say(lines.join('\n'), r.problems.length > 0 && !r.added.length);
-    if (r.added.length) { $('manText').value = ''; load(); }
-  } catch (err) { say(err.message, true); }
-});
+  const out = [];
+  for (const d of dishes.values()) {
+    const firstCook = Math.min(...d.events.filter((e) => e.batch).map((e) => e.t));
+    d.events.sort((a, b) => a.t - b.t || a.order - b.order);
+    for (const e of d.events) {
+      if (e.batch) { d.batches.push(e.batch); d.cooked += e.batch.portions; continue; }
+      if (e.t < firstCook) continue;
+      let need = e.sold;
+      d.sold += e.sold;
+      for (const b of d.batches) {
+        if (!need) break;
+        const take = Math.min(b.remaining, need);
+        b.remaining -= take; need -= take;
+      }
+      d.oversold += need;
+    }
+    const live = d.batches.filter((b) => b.remaining > 0).map((b) => ({ ...b, ageDays: today ? daysBetween(today, b.date) : 0 }));
+    const latest = d.batches[d.batches.length - 1];
+    out.push({
+      dish: d.dish, cooked: d.cooked, sold: d.sold, oversold: d.oversold,
+      remaining: live.reduce((s, b) => s + b.remaining, 0), live,
+      latestBatch: latest ? { key: latest.key, date: latest.date } : null,
+      oldestAgeDays: live.length ? Math.max(...live.map((b) => b.ageDays)) : 0,
+    });
+  }
+  return out.sort((a, b) => a.dish.localeCompare(b.dish));
+}
 
-$('delGo').addEventListener('click', async () => {
-  const body = { from: $('delFrom').value.trim(), to: $('delTo').value.trim(), channel: $('delChannel').value };
-  const post = (extra) => call('/api/ledger/delete-range', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, ...extra }) });
-  try {
-    const peek = await post({ dryRun: true });
-    if (!peek.count) { say('No rows match that range.'); return; }
-    if (!confirm(`Delete ${peek.count} ${body.channel} rows from ${body.from} to ${body.to}? This cannot be undone.`)) { say('Nothing deleted.'); return; }
-    const r = await post({});
-    say(`${r.deleted} rows deleted.`);
-    $('detail').innerHTML = '';
-    load();
-  } catch (err) { say(err.message, true); }
-});
+// ---- rider fees ------------------------------------------------------------------------------
+// LINE orders from a finished day (within the last 14) that have no rider fee yet. Nothing is flagged until the first rider
+// fee has been logged, and only orders from that first day onwards, so the old history does not flood the inbox.
+function riderGaps(ledger, today) {
+  const riders = ledger.filter((r) => r.channel === 'LINE' && r.type === 'Rider');
+  if (!riders.length) return [];
+  const start = Math.min(...riders.map((r) => r.date.getTime()));
+  const have = new Set(riders.map((r) => `${r.dmy}|${r.orderNo}`));
+  const gaps = new Map();
+  for (const r of ledger) {
+    if (r.channel !== 'LINE' || r.type !== 'Order' || !r.orderNo.startsWith('#')) continue;
+    const t = r.date.getTime();
+    if (t < start || t >= today.getTime() || daysBetween(today, r.date) > 14) continue;
+    const k = `${r.dmy}|${r.orderNo}`;
+    if (!have.has(k) && !gaps.has(k)) gaps.set(k, { dmy: r.dmy, orderNo: r.orderNo, customer: r.customer });
+  }
+  return [...gaps.values()];
+}
 
-load();
+// ---- purchasing: price moves -----------------------------------------------------------------
+// expenseRows: [{ date, name, unitCost }]  (unitCost = cost per recipe unit). Compares the two newest purchases of each item.
+function priceMoves(expenseRows, threshold = 0.1) {
+  const by = new Map();
+  for (const e of expenseRows) {
+    if (!e.name || !(e.unitCost > 0)) continue;
+    const k = normName(e.name);
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(e);
+  }
+  const moves = [];
+  for (const list of by.values()) {
+    list.sort((a, b) => a.date - b.date);
+    if (list.length < 2) continue;
+    const prev = list[list.length - 2];
+    const last = list[list.length - 1];
+    const change = (last.unitCost - prev.unitCost) / prev.unitCost;
+    if (Math.abs(change) >= threshold) moves.push({ name: last.name, date: last.date, change, from: prev.unitCost, to: last.unitCost });
+  }
+  return moves;
+}
+
+module.exports = { hourOf, dayDetail, periodOf, weekStart, addDays, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps, buildCostTable, lookupCost, lineItemCost, r2 };
