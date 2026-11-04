@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merlin's Dish — Numbers</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .wide { max-width: 1100px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+    .actions button, .actions label.btn {
+      background: var(--ink); color: var(--paper); border: none; border-radius: 8px;
+      padding: 10px 14px; font-size: 14px; font-family: inherit; cursor: pointer;
+    }
+    .actions button.alt { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+    .status { font-size: 14px; color: var(--muted); min-height: 20px; margin-bottom: 12px; white-space: pre-line; }
+    .status.err { color: var(--flag); }
+    .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+    th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); }
+    th { font-weight: 600; color: var(--muted); }
+    .neg { color: var(--flag); }
+    h2 { font-size: 16px; margin: 20px 0 8px; }
+    a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <span class="logo-mark">MD</span>
+        <div>
+          <div class="title">Numbers</div>
+          <div class="subtitle">Grab + LINE + cooking, weekly and monthly. <a class="back" href="/">Back of House</a></div>
+        </div>
+      </div>
+    </header>
+    <main class="main wide">
+      <div class="actions">
+        <label class="btn">Import Grab CSV<input id="csv" type="file" accept=".csv,text/csv" hidden /></label>
+        <button id="sync" class="alt">Sync LINE orders</button>
+        <button id="refresh" class="alt">Update report tabs in the sheet</button>
+      </div>
+      <div id="status" class="status"></div>
+      <h2>Weekly</h2>
+      <div class="tablewrap"><table id="weekly"></table></div>
+      <h2>Monthly</h2>
+      <div class="tablewrap"><table id="monthly"></table></div>
+      <p class="intro-body">Margin is before ads and overheads. Batch food cost lands on the cook date. LINE costs for pasta, bacon and drinks are estimated from the latest Grab recipe cost. Ingredient purchases are a memo and are not added to cost.</p>
+    </main>
+  </div>
+  <script src="reports.js"></script>
+</body>
+</html>
