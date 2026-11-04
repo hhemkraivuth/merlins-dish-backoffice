@@ -172,3 +172,8 @@ Run the tests with `npm test`.
 
 ## All commands on one page
 Open `/commands.html` (linked as Commands in the header) for every command, for both the customer bot and the BOH group.
+
+## Best Prices tab
+Every receipt refreshes the `Best Prices` tab in the Claude Log: the cheapest price per unit ever paid for each ingredient (Price Log plus Expense Log), written like the Price Tracker remark, for example `best price: 105.25/900g`, with the date and shop. Free stock never counts. To see it in the Price Tracker, put `=IFERROR(VLOOKUP(B77, IMPORTRANGE("<Claude Log sheet URL>","Best Prices!A:B"),2,FALSE),"")` in a spare column (column E stays yours).
+
+Spelling slips in typed receipts (one wrong or swapped letter) are matched to the nearest ingredient and listed in the reply.
