@@ -32,12 +32,13 @@ async function getSheetsClient() {
 // NEVER the live Merlin's numbers file (1uyJUnNE9K6No8Vxe0tsTjN6pFguRqc0BI5yHU4oHAA8).
 const CLAUDE_LOG_SHEET_ID = process.env.CLAUDE_LOG_SHEET_ID;
 
-async function appendRows(tabName, rows) {
+// opts.raw = true stores text exactly as given (used by the Ledger so DD/MM/YYYY dates are never reinterpreted).
+async function appendRows(tabName, rows, opts = {}) {
   const sheets = await getSheetsClient();
   return sheets.spreadsheets.values.append({
     spreadsheetId: CLAUDE_LOG_SHEET_ID,
     range: `${tabName}!A:Z`,
-    valueInputOption: 'USER_ENTERED',
+    valueInputOption: opts.raw ? 'RAW' : 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: rows },
   });
@@ -50,6 +51,19 @@ async function readTab(tabName) {
     range: `${tabName}!A:Z`,
   });
   return res.data.values || [];
+}
+
+// Replaces the whole contents of a tab (used for the Weekly Report and Monthly Report tabs, which are rebuilt each time).
+async function writeTab(tabName, rows) {
+  const sheets = await getSheetsClient();
+  await sheets.spreadsheets.values.clear({ spreadsheetId: CLAUDE_LOG_SHEET_ID, range: `${tabName}!A:Z` });
+  if (!rows.length) return;
+  return sheets.spreadsheets.values.update({
+    spreadsheetId: CLAUDE_LOG_SHEET_ID,
+    range: `${tabName}!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: rows },
+  });
 }
 
 async function updateRow(tabName, rowIndex, values) {
@@ -78,4 +92,4 @@ async function deleteRowsWhere(tabName, predicate) {
   return at.length;
 }
 
-module.exports = { deleteRowsWhere, appendRows, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };
+module.exports = { deleteRowsWhere, appendRows, writeTab, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };

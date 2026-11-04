@@ -31,6 +31,9 @@ const HELP = [
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
   '',
   'Stock: send "stock" to list counts, or "stock coke zero zero 5" to set one (full item name).',
+  '',
+  'Numbers: "huddle" for the daily team summary, "week" or "month" for income and costs, "sync" to pull in the latest LINE orders.',
+  'Rider fee: "rider 001 55" logs what you paid the rider for LINE order #001 (add a date for another day, "rider 001,002 80" splits one trip evenly).',
 ].join('\n');
 
 function formatBatchReply(r, status, extraLines = []) {
