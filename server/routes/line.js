@@ -74,6 +74,7 @@ function defaultDeps() {
       loadCatalogue: live.loadCatalogue,
       extractReceipt: extractReceiptWithCatalogue,
       appendExpenseRows: async (rows) => { await appendRows('Expense Log', rows); live.invalidate(); },
+      appendOverheads: async (rows) => { const o = require('../lib/overheads'); await require('../lib/cookLog').ensureTab(o.TAB, o.HEADERS); await appendRows(o.TAB, rows); },
       refreshBestPrices: async () => require('../lib/bestPrices').writeBestPrices(await live.loadPriceBook()),
       addLots: lotDeps.addLots,
       loadUntracked: lotDeps.loadUntracked,
