@@ -49,10 +49,18 @@
         <span class="logo-mark">MD</span>
         <div>
           <div class="title">Numbers</div>
-          <div class="subtitle">Grab + LINE + cooking, monthly, weekly and daily. <a class="back" href="/">Back of House</a> · <a class="back" href="commands.html">Commands</a></div>
+          <div class="subtitle">Grab + LINE + cooking, monthly, weekly and daily.</div>
         </div>
       </div>
     </header>
+
+    <nav class="tab-bar" id="tabBar">
+      <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
+      <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
+      <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
+      <a class="tab-button tab-link active" href="reports.html">Numbers</a>
+      <a class="tab-button tab-link" href="commands.html">Commands</a>
+    </nav>
     <main class="main wide">
       <div class="actions">
         <label class="btn">Import Grab CSV<input id="csv" type="file" accept=".csv,text/csv" hidden /></label>
@@ -85,7 +93,7 @@
       <div class="tablewrap"><table id="weekly" class="clickable"></table></div>
       <h2>Daily <span class="hint">(tap a day)</span></h2>
       <div class="tablewrap"><table id="daily" class="clickable"></table></div>
-      <p class="intro-body">Margin comes off the overheads you bought that period (pots, bags, knives) and the ads you spent (type them in the receipt box). Grab's own fees are already inside Grab net. Batch food cost lands on the cook date. LINE costs for pasta, bacon and drinks are estimated from the latest Grab recipe cost. Ingredient purchases are a memo and are not added to cost.</p>
+      <p class="intro-body">Margin comes off the overheads you bought that period (pots, bags, knives) and the ads you spent (type them in the Weekly Receipts box). Grab's own fees are already inside Grab net. Batch food cost lands on the cook date. LINE costs for pasta, bacon and drinks are estimated from the latest Grab recipe cost. Ingredient purchases are a memo and are not added to cost.</p>
     </main>
   </div>
   <script src="reports.js"></script>
