@@ -334,15 +334,14 @@ test('daily view: one row per day, and the day detail lists rows in order plus c
   assert.strictEqual(det.people.rt, 1);
 });
 
-test('ads are split into Meta and Grab and come off the margin', () => {
+test('Meta ads are counted separately and come off the margin', () => {
   const { summarise } = require('../lib/reports');
   const { ledgerObjects } = require('../lib/ledger');
   const { utc } = require('../lib/dates');
   const ledger = ledgerObjects([['02/11/2026', 'Noir Ragu', 'LINE', 'Order', 'Order', 1, 1000, '', 1000, 'Ann', '#1', '12:00', 'k1', '']]);
-  const buys = [{ date: utc(2026, 11, 2), name: 'meta ads', amount: 300, kind: 'ads', platform: 'meta' }, { date: utc(2026, 11, 2), name: 'foodie picks', amount: 200, kind: 'ads', platform: 'grab' }, { date: utc(2026, 11, 2), name: 'pot', amount: 100, kind: 'overhead' }];
+  const buys = [{ date: utc(2026, 11, 2), name: 'meta ads', amount: 300, kind: 'ads' }, { date: utc(2026, 11, 2), name: 'pot', amount: 100, kind: 'overhead' }];
   const m = summarise(ledger, [], buys, 'month')[0];
-  assert.strictEqual(m.adsMeta, 300);
-  assert.strictEqual(m.adsGrab, 200);
-  assert.strictEqual(m.ads, 500);
-  assert.strictEqual(m.margin, 400);
+  assert.strictEqual(m.ads, 300);
+  assert.strictEqual(m.overheads, 100);
+  assert.strictEqual(m.margin, 600);
 });
