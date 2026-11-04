@@ -24,7 +24,7 @@ function getAuth() {
 
 async function getSheetsClient() {
   const auth = getAuth();
-  return google.sheets({ version: 'v4', auth });
+  return google.sheets({ version: 'v4', auth, retryConfig: require('./sheetsRetry').SHEETS_RETRY });
 }
 
 // CLAUDE_LOG_SHEET_ID = the accounting safety file (1LppBqlumD7H112QyJfORiXSxCprH21mjBYarxlaFzvo)
