@@ -125,7 +125,7 @@ test('a stew with a pasta choice in brackets carries the pasta cost; a size in b
 test('monthly periods', () => {
   const ledger = ledgerFrom(grab, line);
   const months = summarise(ledger, [], [], 'month');
-  assert.deepStrictEqual(months.map((m) => m.label), ['09/2026', '11/2026']);
+  assert.deepStrictEqual(months.map((m) => m.label), ['09/2026', '10/2026', '11/2026']);   // October has no data but is no longer skipped
   assert.strictEqual(periodOf(utc(2026, 2, 10), 'month').to.getUTCDate(), 28);
   // a week that straddles two months (Mon 26/10 to Sun 01/11) and the first day of a month
   assert.strictEqual(periodOf(utc(2026, 11, 1), 'week').label, '26/10/2026 to 01/11/2026');
