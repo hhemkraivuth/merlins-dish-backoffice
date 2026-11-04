@@ -257,7 +257,7 @@ async function processTypedReceipt(text, messageDate, deps) {
   if (!deps.appendOverheads) return ['Overheads are not set up on this server yet.'];
   const replies = [];
   if (oh.items.length) {
-    await deps.appendOverheads(overheadRows(oh.items, receiptId));
+    await deps.appendOverheads(overheadRows(oh.items, receiptId, deps.typedVia));
     const byDate = new Map();
     for (const it of oh.items) {
       const d = `${formatDMY(it.date)}${it.shop ? `, ${it.shop}` : ''}${it.category ? `, ${it.category}` : ''}`;
@@ -364,7 +364,7 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
   const rows = items.map((it) => {
     const date = it.date || messageDate;
     const m = matchIngredient(it.typedName, catalogue);
-    const remarks = ['Typed in LINE', `Receipt ${receiptId}`];
+    const remarks = [deps.typedVia || 'Typed in LINE', `Receipt ${receiptId}`];
     if (m.fuzzy) { it.spelled = `${it.typedName} → ${m.name}`; remarks.push(`read "${it.typedName}" as ${m.name}`); }
     if (!m.name) {
       unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName);
