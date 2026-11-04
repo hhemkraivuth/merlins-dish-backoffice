@@ -183,3 +183,12 @@ Pots, paper bags, knives and other non-ingredients: put an `overhead` line (or `
 
 ## Brands
 Put a brand in brackets after the ingredient name in a typed receipt: `tomato paste (Mica) 560g, 12pcs, 816thb`. Matching ignores it, the Expense Log Remarks column says `Brand: Mica`, and the Best Prices tab shows it, for example `best price: 816/6720g, Mica`.
+
+## Condiments counted in unopened packs
+Condiments on the Untracked Ingredients tab (salt, flour, pepper) are not costed from stock lots. Instead, count the unopened packs: `stock add Salt, pack, 3`. After that, a receipt line adds the packs bought (`salt, 1000g, 18thb` is 1 pack, `flour 1000g, 2pcs, 74thb` is 2). Cook notes never take packs off, because the open bag is not counted. `stock salt 2` sets the real number. A pack count of 1 or less shows RUNNING LOW in `stock` and in the huddle.
+
+## Size then count
+`worcestershire sauce, 290ml, 8bottles, 1168` stores 2320ml. Whether a line is stored as total weight or volume, or as pieces, follows the Unit column of the Price Tracker. The Pack Sizes tab is only needed when a line has no size (`2 bottles` alone).
+
+## Condiments in grams, and low alerts
+To track a condiment (salt, flour, pepper) by grams like any other ingredient, delete it from the `Untracked Ingredients` tab. Receipts then make lots, cook notes take grams off (recipe quantity when a line is left out), and `count salt 400g` corrects it when a bag runs out early or has leftovers. Set an alert with `low salt 500g` (stored in the `Reorder Levels` tab). `low` lists what is below its level, `lots` marks it LOW and the nightly huddle includes it.
