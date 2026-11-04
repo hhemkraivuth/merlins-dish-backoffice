@@ -54,6 +54,22 @@ async function syncLineOrders() {
   return { read: rows.length, added: fresh.length, problems };
 }
 
+// Direct orders typed in by hand (the bot was down). Typing the same order again adds nothing.
+async function addManualOrders(text) {
+  const { parseManualOrders } = require('./manualOrder');
+  const { orders, problems } = parseManualOrders(text, bangkokToday());
+  await ensureTab(LEDGER_TAB, LEDGER_HEADERS);
+  const have = new Set((await readTab(LEDGER_TAB)).filter((r) => String(r[COL.channel]).trim() === 'LINE').map((r) => String(r[COL.key]).trim()));
+  const added = []; const skipped = [];
+  for (const o of orders) {
+    if (o.rows.every((r) => have.has(r[COL.key]))) { skipped.push(o); continue; }
+    added.push(o);
+  }
+  const rows = added.flatMap((o) => o.rows.filter((r) => !have.has(r[COL.key])));
+  if (rows.length) await appendChunks(LEDGER_TAB, rows, { raw: true });
+  return { added: added.map((o) => ({ date: o.dmy, name: o.name, ref: o.ref, total: o.total })), skipped: skipped.map((o) => ({ date: o.dmy, name: o.name, total: o.total })), problems };
+}
+
 // ---- rider fees ------------------------------------------------------------------------------
 // LINE orders on one day, so a typed fee can be matched to a real order (the Ledger is synced first, best effort).
 async function findLineOrders(dmy) {
@@ -192,4 +208,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { deleteLedgerRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { addManualOrders, deleteLedgerRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
