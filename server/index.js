@@ -9,6 +9,8 @@ const batchCookRoute = require('./routes/batchCook');
 const stockCountsRoute = require('./routes/stockCounts');
 const lineRoute = require('./routes/line');
 const cookRoute = require('./routes/cook');
+const ledgerRoute = require('./routes/ledger');
+const { startHuddleTimer } = require('./lib/scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -45,6 +47,13 @@ app.get('/api/stock', stockCountsRoute.listStock);
 app.post('/api/stock/update', stockCountsRoute.updateStock);
 app.post('/api/stock/seed-packaging', stockCountsRoute.seedPackagingRoute);
 
+// Team numbers: Ledger (Grab CSV + LINE orders), weekly and monthly reports, daily huddle
+app.post('/api/ledger/grab-csv', upload.single('csv'), ledgerRoute.importGrab);
+app.post('/api/ledger/sync-line', ledgerRoute.syncLine);
+app.post('/api/reports/refresh', ledgerRoute.refresh);
+app.get('/api/reports/summary', ledgerRoute.summary);
+app.post('/api/huddle/run', ledgerRoute.runHuddle);
+
 // Back of house LINE group (own LINE channel, separate from the customer bot)
 app.post('/webhook/line', lineRoute.webhook);
 
@@ -52,4 +61,5 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => {
   console.log(`Merlin's Dish back-office app running on port ${PORT}`);
+  startHuddleTimer(ledgerRoute.sendHuddle);
 });
