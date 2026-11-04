@@ -16,8 +16,10 @@ function remark(e) {
   const pu = parsePurchaseUnit(e.unitText);
   let unit = e.unitText;
   if (pu && (pu.unit === 'g' || pu.unit === 'ml')) unit = `${rnd(pu.qty, 2)}${pu.unit}`;
-  if (e.price === null || e.price === undefined || !unit) return `best price: ${rnd(e.cost, 4)} per unit`;
-  return `best price: ${fmt(e.price)}/${unit}`;
+  const brand = ((String(e.remarks || '').match(/brand:\s*([^;]+)/i) || [])[1] || '').trim();
+  const tail = brand ? `, ${brand}` : '';
+  if (e.price === null || e.price === undefined || !unit) return `best price: ${rnd(e.cost, 4)} per unit${tail}`;
+  return `best price: ${fmt(e.price)}/${unit}${tail}`;
 }
 
 function bestRows(priceBook) {

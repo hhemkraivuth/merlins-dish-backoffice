@@ -136,6 +136,10 @@ function parseTypedReceipt(text, today) {
     const it = matchItem(line);
     if (!it) return false;
     let name = it.name.replace(/[,\s]+$/, '').trim();
+    // "tomato paste (Mica) 560g 12pcs": the word in brackets is the brand, it is not part of the ingredient name.
+    let brand = '';
+    const br = name.match(/^(.*?)\s*\(([^)]+)\)\s*(.*)$/);
+    if (br && br[1]) { brand = br[2].trim(); name = `${br[1]} ${br[3]}`.trim(); }
     let qtyText = it.qtyText.replace(',', '.');
     let unit = (it.unitText || 'piece').toLowerCase();
     let price = num(it.price);
@@ -179,6 +183,7 @@ function parseTypedReceipt(text, today) {
       unit,
       purchaseUnit: `${qtyText}${unit}`,
       assumed,
+      brand,
       kiloGuess: Boolean(assumed) && !eachWeight && !it.each,
       eachWeight,
       pricesOnly,

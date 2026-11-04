@@ -316,6 +316,7 @@ async function processIngredientReceipt(text, messageDate, deps) {
       unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName);
       remarks.push(`"${it.typedName}" not matched to a known ingredient`);
     }
+    if (it.brand) remarks.push(`Brand: ${it.brand}`);
     if (it.assumed) remarks.push(it.assumed);
     return [formatDMY(date), m.name || it.typedName, it.price, it.purchaseUnit, it.costPerUnit, it.shop || '', remarks.join('; ')];
   });
@@ -350,7 +351,7 @@ async function processIngredientReceipt(text, messageDate, deps) {
   items.forEach((it, i) => {
     const d = `${formatDMY(it.date || messageDate)}${it.shop ? `, ${it.shop}` : ''}`;
     if (!byDate.has(d)) byDate.set(d, []);
-    byDate.get(d).push(`• ${rows[i][1]} ${it.purchaseUnit}${it.pack ? ` (${it.pack})` : ''}, ${baht(it.price)}`);
+    byDate.get(d).push(`• ${rows[i][1]}${it.brand ? ` (${it.brand})` : ''} ${it.purchaseUnit}${it.pack ? ` (${it.pack})` : ''}, ${baht(it.price)}`);
   });
   const total = items.reduce((s, it) => s + it.price, 0);
 

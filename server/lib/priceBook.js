@@ -89,7 +89,7 @@ function buildPriceBook({ priceLogRows = [], expenseRows = [], today } = {}) {
       if (cost === null) { skipped.noCost++; return; }
 
       if (!map.has(name)) map.set(name, []);
-      map.get(name).push({ date, cost, source, rowNumber: i + 1, seq: seq++, display: String(r[1]).trim(), price: toNumber(r[2]), unitText: String(r[3] ?? '').trim(), shop: String(r[5] ?? '').trim() });
+      map.get(name).push({ date, cost, source, rowNumber: i + 1, seq: seq++, display: String(r[1]).trim(), price: toNumber(r[2]), unitText: String(r[3] ?? '').trim(), shop: String(r[5] ?? '').trim(), remarks: String(r[6] ?? '') });
     });
   }
 
