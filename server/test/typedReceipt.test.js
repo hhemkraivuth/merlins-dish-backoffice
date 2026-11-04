@@ -298,3 +298,17 @@ test('her receipt style: prices only per block, "16thb ea" is per can, weight x 
   assert.deepStrictEqual(lots.map((l) => l.name), ['Milk', 'Eden Zero']);       // the Makro block was prices only, the 13/10 block was not
   assert.strictEqual(matchIngredient('eden ziero', ['Eden Zero', 'Milk']).name, 'Eden Zero');
 });
+
+test('brand in brackets: matches the ingredient, is kept in Remarks, and shows on the best price', async () => {
+  const { buildPriceBook } = require('../lib/priceBook');
+  const { bestRows } = require('../lib/bestPrices');
+  const rows = [];
+  const replies = await processTypedReceipt('17/10\nat foodland\nprices only\ntomato paste (Mica) 560g, 12pcs, 816thb', TODAY, {
+    loadCatalogue: async () => ['Tomato Paste'], appendExpenseRows: async (x) => rows.push(...x),
+  });
+  assert.deepStrictEqual([rows[0][1], rows[0][3], rows[0][5]], ['Tomato Paste', '6720g', 'foodland']);
+  assert.match(rows[0][6], /Brand: Mica/);
+  assert.ok(replies[0].includes('Tomato Paste (Mica) 6720g'));
+  const pb = buildPriceBook({ today: TODAY, expenseRows: [['Date', 'Ing', 'P', 'U', 'C', 'S', 'R'], rows[0]] });
+  assert.strictEqual(bestRows(pb)[0][1], 'best price: 816/6720g, Mica');
+});
