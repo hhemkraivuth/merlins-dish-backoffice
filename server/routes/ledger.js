@@ -17,6 +17,16 @@ async function importGrab(req, res) {
   } catch (err) { fail(res, err); }
 }
 
+async function manualOrders(req, res) {
+  try {
+    const text = req.body && req.body.text;
+    if (!String(text || '').trim()) return res.status(400).json({ error: 'Nothing was typed.' });
+    const out = await svc.addManualOrders(text);
+    if (!out.added.length && !out.skipped.length) return res.status(400).json({ error: out.problems[0] || 'No orders could be read.', ...out });
+    res.json(out);
+  } catch (err) { fail(res, err); }
+}
+
 async function syncLine(req, res) {
   try { res.json(await svc.syncLineOrders()); } catch (err) { fail(res, err); }
 }
@@ -85,4 +95,4 @@ async function updateRow(req, res) {
   catch (err) { const bad = /not a number|can't be edited|Nothing to change|No row key/.test(String(err.message)); if (bad) return res.status(400).json({ error: err.message }); fail(res, err); }
 }
 
-module.exports = { deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };
+module.exports = { manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };
