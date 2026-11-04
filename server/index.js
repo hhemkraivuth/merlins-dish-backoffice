@@ -41,6 +41,7 @@ app.post('/api/batch-cook/submit', batchCookRoute.submitBatch);
 app.get('/api/cook/dishes', cookRoute.dishes);
 app.get('/api/cook/recipe', cookRoute.recipe);
 app.post('/api/cook/submit', cookRoute.submit);
+app.post('/api/cook/note', cookRoute.note);
 
 // Mode 4: Stock Counts
 app.get('/api/stock', stockCountsRoute.listStock);
