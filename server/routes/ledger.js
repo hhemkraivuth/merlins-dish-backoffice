@@ -2,7 +2,7 @@
 
 const svc = require('../lib/ledgerService');
 const lineApi = require('../lib/lineApi');
-const { formatDMY } = require('../lib/dates');
+const { formatDMY, parseDate } = require('../lib/dates');
 
 const fail = (res, err) => { console.error(err); res.status(500).json({ error: String((err && err.message) || err) }); };
 
@@ -33,6 +33,15 @@ async function summary(req, res) {
   } catch (err) { fail(res, err); }
 }
 
+// One day, like a Master Log page. Called by the Reports page when a row is clicked: /api/reports/day?date=DD/MM/YYYY
+async function day(req, res) {
+  try {
+    const date = parseDate(req.query && req.query.date);
+    if (!date) return res.status(400).json({ error: 'Send a date like 04/11/2026.' });
+    res.json(await svc.dayDetailFor(date));
+  } catch (err) { fail(res, err); }
+}
+
 // Triggered by the nightly timer, a Railway cron, or a scheduled task. Needs HUDDLE_TOKEN.
 async function runHuddle(req, res) {
   try {
@@ -51,4 +60,4 @@ async function sendHuddle() {
   return { sent: Boolean(to && access), text };
 }
 
-module.exports = { importGrab, syncLine, refresh, summary, runHuddle, sendHuddle };
+module.exports = { importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };
