@@ -76,7 +76,7 @@ function buildPeriodText(periods, type, today) {
   out.push(`Food cost: ${baht(p.foodCost)} (batches ${baht(p.cookCost)}, recipe items ${baht(p.recipeCost + p.lineEstCost)})`);
   out.push(`Rider fees paid: ${baht(p.line.rider)}`);
   out.push(`Overheads bought (pots, bags, knives): ${baht(p.overheads)}`);
-  out.push(`Ads spend (Meta, Grab): ${baht(p.ads)}`);
+  out.push(`Ads spend: Meta ${baht(p.adsMeta)}, Grab ${baht(p.adsGrab)}`);
   out.push(`Margin after overheads and ads: ${baht(p.margin)}${p.marginPct === null ? '' : ` (${p.marginPct}% of gross)`}`);
   out.push(`Ingredient purchases (memo): ${baht(p.purchases)}`);
   if (p.missingCosts.length) out.push(`No cost found for: ${p.missingCosts.slice(0, 5).join(', ')}`);
