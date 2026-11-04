@@ -136,6 +136,11 @@ async function renderBatchCook() {
         <h1 class="intro-title">Batch Cook</h1>
         <p class="intro-body">Pick the dish and date. Ingredients fill in from the recipe in Merlin's numbers. Change any quantity that was different today, and leave the rest. Prices are the latest purchase on or before the cook date. This does the same job as a cook note in the LINE group.</p>
       </div>
+      <label class="label">Paste a cook note or any command</label>
+      <textarea id="noteText" rows="10" placeholder="7/10&#10;Bolo&#10;Meat 1000&#10;O 446&#10;G 60&#10;yield 21" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
+      <button class="primary-button" id="noteSubmit" disabled>Paste a note first</button>
+      <div id="noteResult"></div>
+      <p class="intro-body" style="margin-top:18px">Or fill in one batch by hand:</p>
       <label class="label">Dish</label>
       <select class="select" id="dishSelect">${dishes.map((d) => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('')}</select>
       <label class="label">Date cooked (DD/MM/YYYY)</label>
@@ -144,6 +149,30 @@ async function renderBatchCook() {
     </section>
   `);
   main.appendChild(section);
+
+  const noteInput = section.querySelector('#noteText');
+  const noteBtn = section.querySelector('#noteSubmit');
+  const noteResult = section.querySelector('#noteResult');
+  const noteLabel = () => { const has = noteInput.value.trim().length > 0; noteBtn.disabled = !has; noteBtn.textContent = has ? 'Log cook note' : 'Paste a note first'; };
+  noteInput.addEventListener('input', noteLabel);
+  noteBtn.addEventListener('click', async () => {
+    if (!noteInput.value.trim()) return;
+    noteBtn.disabled = true;
+    noteBtn.textContent = 'Logging…';
+    noteResult.innerHTML = '';
+    try {
+      const res = await fetch('/api/cook/note', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: noteInput.value }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      const html = data.replies.map((r) => `<div class="result-card"><pre style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(r)}</pre></div>`).join('');
+      noteResult.appendChild(el(`<div>${html}</div>`));
+      noteInput.value = '';
+    } catch (err) {
+      noteResult.appendChild(el(`<div class="result-card"><pre class="error-item" style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(err.message)}</pre></div>`));
+    } finally {
+      noteLabel();
+    }
+  });
 
   const dishSelect = section.querySelector('#dishSelect');
   const dateInput = section.querySelector('#cookDate');
