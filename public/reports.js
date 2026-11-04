@@ -45,6 +45,7 @@ function draw(id, periods, clickable) {
 // One row per month, laid out like the Merlin's numbers tab: money in, Grab deductions, ads, costs, profit.
 const PROFIT = [
   ['Month', (m) => m.label, true],
+  ['Money to take out', (m) => baht(m.moneyToTakeOut)],
   ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0],
   ['Costs (approx)', (m) => baht(m.foodCost + m.line.rider + m.overheads)],
   ['Overheads', (m) => baht(m.overheads)],
@@ -70,6 +71,7 @@ function drawProfit(months) {
     line: { net: sumOf((m) => m.line.net), delivery: sumOf((m) => m.line.delivery), rider: sumOf((m) => m.line.rider) },
     grab: { gross: sumOf((m) => m.grab.gross), discount: sumOf((m) => m.grab.discount), commission: sumOf((m) => m.grab.commission), marketing: sumOf((m) => m.grab.marketing), otherFees: sumOf((m) => m.grab.otherFees), net: sumOf((m) => m.grab.net) },
     ads: sumOf((m) => m.ads), foodCost: sumOf((m) => m.foodCost), overheads: sumOf((m) => m.overheads), margin: sumOf((m) => m.margin),
+    moneyToTakeOut: sumOf((m) => m.moneyToTakeOut || 0),
   };
   const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : ''}">${c[1](m)}</td>`).join('');
   t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`;
