@@ -28,7 +28,7 @@ async function refresh(req, res) {
 const shape = (p) => ({ ...p, from: formatDMY(p.from), to: formatDMY(p.to) });
 async function summary(req, res) {
   try {
-        const { daily, weekly, monthly } = await svc.computeReports();
+    const { daily, weekly, monthly } = await svc.computeReports();
     res.json({ daily: (daily || []).map(shape), weekly: weekly.map(shape), monthly: monthly.map(shape) });
   } catch (err) { fail(res, err); }
 }
@@ -60,4 +60,27 @@ async function sendHuddle() {
   return { sent: Boolean(to && access), text };
 }
 
-module.exports = { importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };
+
+// Delete a date range of Ledger rows. Body: { from: "08/09/2026", to: "30/09/2026", channel: "Grab"|"LINE"|"All", dryRun: true|false }
+async function deleteRange(req, res) {
+  try {
+    const b = req.body || {};
+    const from = parseDate(b.from); const to = parseDate(b.to);
+    if (!from || !to) return res.status(400).json({ error: 'Send both dates like 08/09/2026.' });
+    if (to.getTime() < from.getTime()) return res.status(400).json({ error: 'The end date is before the start date.' });
+    const channel = ['all', 'grab', 'line'].includes(String(b.channel || 'all').toLowerCase()) ? b.channel || 'All' : null;
+    if (!channel) return res.status(400).json({ error: 'Channel must be Grab, LINE or All.' });
+    res.json(await svc.deleteLedgerRange({ from, to, channel, dryRun: !!b.dryRun }));
+  } catch (err) { fail(res, err); }
+}
+
+async function deleteRow(req, res) {
+  try { res.json(await svc.deleteLedgerRow(req.body && req.body.key)); } catch (err) { fail(res, err); }
+}
+
+async function updateRow(req, res) {
+  try { res.json(await svc.updateLedgerRow(req.body && req.body.key, req.body && req.body.changes)); }
+  catch (err) { const bad = /not a number|can't be edited|Nothing to change|No row key/.test(String(err.message)); if (bad) return res.status(400).json({ error: err.message }); fail(res, err); }
+}
+
+module.exports = { deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };
