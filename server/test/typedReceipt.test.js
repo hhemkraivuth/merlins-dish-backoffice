@@ -359,3 +359,16 @@ test('prices only receipts do not touch pack counts', async () => {
   });
   assert.strictEqual(called, 0);
 });
+
+test('a spelling slip that fits two ingredients goes to the one with fewer extra words', () => {
+  const cat = ['Chicken - drum+thigh', 'Chicken - thigh', 'Chicken - breast'];
+  assert.deepStrictEqual(matchIngredient('chichen thigh', cat), { name: 'Chicken - thigh', fuzzy: true });
+});
+
+test('the Untracked list ignores hyphens and capitals: "All purpose flour" is All-Purpose Flour', async () => {
+  const lots = [];
+  await processTypedReceipt('21/10\nall purpose flour 1000g, 40', TODAY, {
+    loadCatalogue: async () => ['All-Purpose Flour'], loadUntracked: async () => ['All purpose flour'], appendExpenseRows: async () => {}, addLots: async (x) => lots.push(...x),
+  });
+  assert.strictEqual(lots.length, 0);
+});
