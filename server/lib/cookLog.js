@@ -5,7 +5,7 @@
 //   Shorthand       Lily's editable keyword table (created with the defaults on first use)
 
 const crypto = require('crypto');
-const { appendRows, readTab, getSheetsClient, CLAUDE_LOG_SHEET_ID } = require('./sheets');
+const { appendRows, readTab, getSheetsClient, sortTab, CLAUDE_LOG_SHEET_ID } = require('./sheets');
 const { formatDMY, bangkokNow } = require('./dates');
 const { seedRows } = require('./aliases');
 
@@ -71,4 +71,15 @@ async function readShorthandRows() {
   return readTab(SHORTHAND);
 }
 
-module.exports = { writeBatch, isLogged, batchKey, readShorthandRows, ensureTab, COOK_LOG, COOK_LINES, COOK_SIZES, SHORTHAND };
+// Keeps the three cook tabs in date order (then dish, then batch key), whatever order the batches were logged in.
+// Called once after a note or a web batch, never per batch, so a 25 batch note costs three sort calls, not seventy five.
+// A failed sort never undoes a logged batch.
+async function tidyCookLogs(sort = sortTab) {
+  try {
+    await sort(COOK_LOG, COOK_LOG_HEADERS.length, [{ col: 1 }, { col: 2 }, { col: 0 }]);
+    await sort(COOK_LINES, COOK_LINES_HEADERS.length, [{ col: 1 }, { col: 2 }, { col: 0 }]);
+    await sort(COOK_SIZES, COOK_SIZES_HEADERS.length, [{ col: 1 }, { col: 2 }, { col: 0 }]);
+  } catch (err) { console.error('Could not sort the cook tabs by date:', err.message); }
+}
+
+module.exports = { tidyCookLogs, writeBatch, isLogged, batchKey, readShorthandRows, ensureTab, COOK_LOG, COOK_LINES, COOK_SIZES, SHORTHAND };
