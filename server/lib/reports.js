@@ -5,7 +5,7 @@
 //   Pasta, Bacon Steak, drinks   cost is the Recipe row on a Grab order. LINE orders have no Recipe rows,
 //                  so their cost is ESTIMATED from the most recent Grab Recipe cost for the same item.
 //   Ingredient purchases are shown as a memo line only. They are never added to cost (that would count food twice).
-//   Advertising and fixed overheads are not in the system yet, so "margin" here is before ads and overheads.
+//   Overheads (pots, bags, knives) are the cash spent in the period and come off the margin. Advertising is not in the system yet.
 
 const { formatDMY, daysBetween } = require('./dates');
 const { normName, batchDishOf, pastaOf, NOT_A_PORTION, PASTAS } = require('./dishes');
@@ -86,7 +86,7 @@ function summarise(ledger, cookBatches, purchases, type = 'week') {
         grab: { orders: new Set(), gross: 0, discount: 0, commission: 0, marketing: 0, otherFees: 0, recipeCost: 0 },
         line: { orders: new Set(), gross: 0, discount: 0, delivery: 0, rider: 0, estCost: 0, missing: new Map() },
         cook: { batches: 0, portions: 0, cost: 0 },
-        purchases: 0, flags: new Set(),
+        purchases: 0, overheads: 0, flags: new Set(),
       });
     }
     return periods.get(p.key);
@@ -122,7 +122,7 @@ function summarise(ledger, cookBatches, purchases, type = 'week') {
     const p = get(b.date);
     p.cook.batches += 1; p.cook.portions += b.portions || 0; p.cook.cost += b.cost || 0;
   }
-  for (const x of purchases) get(x.date).purchases += x.amount || 0;
+  for (const x of purchases) { if (x.kind === 'overhead') get(x.date).overheads += x.amount || 0; else get(x.date).purchases += x.amount || 0; }
 
   return [...periods.values()].sort((a, b) => a.from - b.from).map((p) => {
     const grabNet = p.grab.gross - p.grab.discount - p.grab.commission - p.grab.marketing - p.grab.otherFees;
@@ -130,7 +130,8 @@ function summarise(ledger, cookBatches, purchases, type = 'week') {
     const revenue = grabNet + lineNet + p.line.delivery;           // delivery the customer paid is income
     const recipe = p.grab.recipeCost + p.line.estCost;
     const foodCost = recipe + p.cook.cost;
-    const margin = revenue - foodCost - p.line.rider;               // the rider fee you actually paid is a cost
+    const marginBefore = revenue - foodCost - p.line.rider;         // the rider fee you actually paid is a cost
+    const margin = marginBefore - p.overheads;                      // overheads are that period's cash spent
     const gross = p.grab.gross + p.line.gross;
     return {
       key: p.key, label: p.label, from: p.from, to: p.to,
@@ -138,8 +139,8 @@ function summarise(ledger, cookBatches, purchases, type = 'week') {
       line: { orders: p.line.orders.size, gross: r2(p.line.gross), discount: r2(p.line.discount), net: r2(lineNet), delivery: r2(p.line.delivery), rider: r2(p.line.rider) },
       revenue: r2(revenue),
       recipeCost: r2(p.grab.recipeCost), lineEstCost: r2(p.line.estCost), cookCost: r2(p.cook.cost), cookBatches: p.cook.batches, cookPortions: p.cook.portions,
-      foodCost: r2(foodCost), margin: r2(margin), marginPct: gross > 0 ? r2((margin / gross) * 100) : null,
-      purchases: r2(p.purchases),
+      foodCost: r2(foodCost), marginBeforeOverheads: r2(marginBefore), margin: r2(margin), marginPct: gross > 0 ? r2((margin / gross) * 100) : null,
+      purchases: r2(p.purchases), overheads: r2(p.overheads),
       missingCosts: [...p.line.missing].map(([n, q]) => `${n} x${q}`),
       flags: [...p.flags],
     };
@@ -155,7 +156,7 @@ function dayDetail(ledger, cookBatches, purchases, date) {
     orderFrom: r.orderFrom, status: statusOf(r.orderFrom), moneyIn: r.moneyIn, cost: r.cost, net: r.net, flags: r.flags,
   }));
   const cooked = cookBatches.filter((b) => b.date.getTime() === t).map((b) => ({ dish: b.dish, portions: b.portions, cost: r2(b.cost || 0), perPortion: b.portions ? r2((b.cost || 0) / b.portions) : null }));
-  const bought = purchases.filter((x) => x.date.getTime() === t).map((x) => ({ name: x.name || '', amount: r2(x.amount || 0) }));
+  const bought = purchases.filter((x) => x.date.getTime() === t).map((x) => ({ name: x.name || '', amount: r2(x.amount || 0), kind: x.kind === 'overhead' ? 'Overhead' : 'Ingredient' }));
   const summary = summarise(ledger, cookBatches, purchases, 'day').find((d) => d.key === date.toISOString().slice(0, 10)) || null;
   // Who ordered and when: one entry per order, so the peak hours and the repeat customers show up.
   const seen = new Set(); const orders = []; const byHour = {};
@@ -174,13 +175,13 @@ const REPORT_HEADERS = [
   'Period', 'From', 'To', 'Grab orders', 'Grab gross', 'Grab discounts', 'Grab commission', 'Grab marketing fee', 'Grab net',
   'LINE orders', 'LINE gross', 'LINE discounts', 'LINE net', 'LINE delivery charged', 'Net income (all channels)',
   'Recipe costs (Grab)', 'Recipe costs (LINE, estimated)', 'Batch cook costs', 'Total food cost', 'Rider fees paid',
-  'Margin before ads and overheads', 'Margin % of gross sales', 'Ingredient purchases (memo, not in cost)', 'Checks',
+  'Margin before overheads', 'Overheads bought (pots, bags, knives)', 'Margin after overheads (before ads)', 'Margin % of gross sales', 'Ingredient purchases (memo, not in cost)', 'Checks',
 ];
 function reportRows(periods) {
   return periods.map((p) => [
     p.label, formatDMY(p.from), formatDMY(p.to), p.grab.orders, p.grab.gross, p.grab.discount, p.grab.commission, p.grab.marketing, p.grab.net,
     p.line.orders, p.line.gross, p.line.discount, p.line.net, p.line.delivery, p.revenue,
-    p.recipeCost, p.lineEstCost, p.cookCost, p.foodCost, p.line.rider, p.margin, p.marginPct === null ? '' : p.marginPct, p.purchases,
+    p.recipeCost, p.lineEstCost, p.cookCost, p.foodCost, p.line.rider, p.marginBeforeOverheads, p.overheads, p.margin, p.marginPct === null ? '' : p.marginPct, p.purchases,
     [p.missingCosts.length ? `No cost found for: ${p.missingCosts.slice(0, 5).join(', ')}` : '', p.flags.length ? `${p.flags.length} flagged rows` : ''].filter(Boolean).join(' | '),
   ]);
 }

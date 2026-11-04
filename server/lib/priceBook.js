@@ -112,6 +112,7 @@ function buildPriceBook({ priceLogRows = [], expenseRows = [], today } = {}) {
       source: chosen.source,
       rowNumber: chosen.rowNumber,
       staleDays: daysBetween(onDate, chosen.date),
+      unit: (parsePurchaseUnit(chosen.unitText) || {}).unit || '',
     };
     if (result.staleDays > STALE_DAYS) result.stale = true;
     if (prev && prev.cost > 0 && (chosen.cost / prev.cost >= 2 || chosen.cost / prev.cost <= 0.5)) {

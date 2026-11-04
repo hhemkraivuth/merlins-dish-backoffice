@@ -6,6 +6,7 @@ const { costBatch } = require('./costBatch');
 const { parseDate, formatDMY, bangkokToday, bangkokNow } = require('./dates');
 const { parsePurchaseUnit, normName } = require('./priceBook');
 const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
+const { splitOverheads, overheadRows } = require('./overheads');
 const { toBaseQty } = require('./ingredientLots');
 const { applyPackSize, isContainerWord } = require('./packSizes');
 
@@ -219,10 +220,34 @@ async function processReceipt({ buffer, mime }, messageDate, deps) {
 // Receipts typed in the group: a date line, then "name qty price" lines, e.g. "minced pork 1000g 110thb".
 // deps: { loadCatalogue(), appendExpenseRows(rows) }. Returns an array of replies, or null when the text is not a typed receipt.
 async function processTypedReceipt(text, messageDate, deps) {
+  // Overhead lines (pots, bags, knives) go to their own tab. Whatever is left is read as an ingredient receipt.
+  const oh = splitOverheads(text, messageDate);
+  if (!oh.found) return processIngredientReceipt(text, messageDate, deps);
+  if (!deps.appendOverheads) return ['Overheads are not set up on this server yet.'];
+  const replies = [];
+  if (oh.items.length) {
+    await deps.appendOverheads(overheadRows(oh.items));
+    const byDate = new Map();
+    for (const it of oh.items) {
+      const d = `${formatDMY(it.date)}${it.shop ? `, ${it.shop}` : ''}${it.category ? `, ${it.category}` : ''}`;
+      if (!byDate.has(d)) byDate.set(d, []);
+      byDate.get(d).push(`• ${it.name}, ${baht(it.price)}`);
+    }
+    const out = [`Overheads logged: ${oh.items.length} item${oh.items.length === 1 ? '' : 's'}, ${baht(oh.items.reduce((s, it) => s + it.price, 0))}. Counted as spending in the month's margin, not as food cost, and not taken off stock.`];
+    for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
+    if (oh.undated) out.push(`No date line above some items, so I used ${formatDMY(messageDate)}.`);
+    replies.push(out.join('\n'));
+  }
+  if (oh.problems.length) replies.push(`Couldn't use these lines:\n${oh.problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
+  const food = await processIngredientReceipt(oh.rest, messageDate, deps);
+  if (food) replies.push(...food);
+  return replies.length ? replies : ['I saw "overhead" but no item lines. Write it like:\n13/10\nat paragon\noverhead\npot 7lt, 2575thb'];
+}
+
+async function processIngredientReceipt(text, messageDate, deps) {
   if (!looksLikeTypedReceipt(text)) return null;
   // A line saying "prices only" logs the prices (for costing past batches) without adding stock lots.
-  const pricesOnly = /^\s*(prices only|no stock)\s*$/im.test(text);
-  const parsed = parseTypedReceipt(text.replace(/^\s*(prices only|no stock)\s*$/gim, ''), messageDate);
+  const parsed = parseTypedReceipt(text, messageDate);
   const { problems, undated } = parsed;
   let items = parsed.items;
   if (!items.length) return [`I couldn't read any item lines.\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`];
@@ -243,6 +268,15 @@ async function processTypedReceipt(text, messageDate, deps) {
   items = items.filter((it) => {
     const name = matchIngredient(it.typedName, catalogue).name;
     if (!name) return true;
+    if (it.eachWeight && priceBook) {
+      const prev = priceBook.lookup(name, it.date || messageDate);
+      if (prev && prev.unit === 'piece') {
+        const ew = it.eachWeight;
+        it.purchaseUnit = `${ew.count}pcs`;
+        it.costPerUnit = Number((it.price / ew.count).toFixed(5));
+        it.assumed = `counted as ${ew.count} pieces (the ${ew.grams}g is the size of one), because you usually buy it by the piece`;
+      }
+    }
     // A kilo guess ("0.90g" read as 900g) that lands far from the last price is probably a dropped zero (90g). Use the closer reading and say so.
     if (it.kiloGuess && priceBook) {
       const prev = priceBook.lookup(name, it.date || messageDate);
@@ -292,12 +326,13 @@ async function processTypedReceipt(text, messageDate, deps) {
   // Stock lots: every matched, countable ingredient becomes a lot (condiments on the Untracked list do not).
   const lotLines = [];
   const notTracked = [];
-  if (deps.addLots && !pricesOnly) {
+  if (deps.addLots) {
     let untracked = [];
     try { untracked = deps.loadUntracked ? await deps.loadUntracked() : []; } catch (err) { /* treated as none */ }
     const skip = new Set(untracked.map(normName));
     const toAdd = [];
     items.forEach((it, i) => {
+      if (it.pricesOnly) return;
       const name = rows[i][1];
       const matched = matchIngredient(it.typedName, catalogue).name;
       if (!matched) return;
@@ -322,7 +357,8 @@ async function processTypedReceipt(text, messageDate, deps) {
   const out = [`Logged to the Expense Log: ${items.length} item${items.length === 1 ? '' : 's'}, ${baht(total)}.`];
   for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
   const replies = [out.join('\n')];
-  if (pricesOnly) replies.push('Prices only: no stock lots were added.');
+  const po = items.filter((it) => it.pricesOnly).length;
+  if (po) replies.push(`Prices only: no stock lots were added for ${po === items.length ? 'these items' : `${po} of the ${items.length} items`}.`);
   if (lotLines.length) replies.push(`Added to stock lots: ${lotLines.join(', ')}.${notTracked.length ? `\nNot stock tracked (condiments): ${notTracked.join(', ')}.` : ''}`);
   else if (notTracked.length) replies.push(`Not stock tracked (condiments): ${notTracked.join(', ')}.`);
   if (unmatched.length) replies.push(`Not matched to a known ingredient, so cost lookups will skip these until the name matches the Price Tracker:\n${unmatched.slice(0, 8).map((u) => `• ${u}`).join('\n')}`);

@@ -27,6 +27,15 @@ const WITH_COMMA = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?\\s*,\\s*${NUM}$`,
 
 // "minced pork 1000g 110thb" / "pelati, 2550g, 275" -> { name, qtyText, unitText, price } or null
 function matchItem(line) {
+  let t = String(line || '').trim();
+  // "2 cans, 16thb ea" / "16 each": the price is for one, not for the lot
+  let each = false;
+  const ea = t.match(/^(.*?)[\s,]*(?:\/\s*)?(?:ea\.?|each)$/i);
+  if (ea && /\d/.test(ea[1].slice(-12))) { t = ea[1].trim(); each = true; }
+  const m0 = matchItemPlain(t);
+  return m0 ? { ...m0, each } : null;
+}
+function matchItemPlain(line) {
   const t = String(line || '').trim();
   let m = t.match(WITH_MARK);
   if (m) return { name: m[1], qtyText: m[2], unitText: m[3] || '', price: m[4] !== undefined ? m[4] : m[5] };
@@ -94,7 +103,12 @@ function matchIngredient(typed, catalogue = []) {
     return total;
   };
   const scored = catalogue
-    .map((n) => { const have = tokens(n); return { n, c: have.length ? Math.min(cost(want, have), cost(have, want)) : Infinity }; })
+    .map((n) => {
+      const have = tokens(n);
+      // Spaces in the wrong place ("en ziero" for "Eden Zero") are caught by comparing the words run together.
+      const joined = slips(want.join(''), have.join(''));
+      return { n, c: have.length ? Math.min(cost(want, have), cost(have, want), joined) : Infinity };
+    })
     .filter((x) => x.c !== Infinity)
     .sort((a, b) => a.c - b.c);
   if (!scored.length) return {};
@@ -114,6 +128,7 @@ function parseTypedReceipt(text, today) {
   let currentDate = null;
   let currentShop = '';
   let undated = false;
+  let pricesOnly = false;
 
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
@@ -123,8 +138,9 @@ function parseTypedReceipt(text, today) {
     let name = it.name.replace(/[,\s]+$/, '').trim();
     let qtyText = it.qtyText.replace(',', '.');
     let unit = (it.unitText || 'piece').toLowerCase();
-    const price = num(it.price);
+    let price = num(it.price);
     let assumed = '';
+    if (it.each) { const n = num(qtyText); price = Number((price * n).toFixed(2)); assumed = `${it.price} each x ${qtyText} = ${price}`; }
     // A weight with a decimal point under 10 and the letter g ("0.478g", "0.9g") is a kilo weight, not a fraction of a gram.
     const GRAM = /^(g|gm|grams?)$/;
     if (GRAM.test(unit) && /\./.test(qtyText) && Number(qtyText) < 10) {
@@ -140,6 +156,17 @@ function parseTypedReceipt(text, today) {
       qtyText = String(Number(grams.toFixed(3)));
       unit = 'g';
     }
+    // "pecorino 60g 2pcs, 180": a weight in the name followed by a count. Two pieces of 60g is 120g, unless the ingredient is
+    // counted in pieces (Knorr cube 20g 48pcs is 48 pieces). The caller checks the ingredient's usual unit.
+    let eachWeight = null;
+    const plain = name.match(/^(.*?)[\s,]+(\d+)\s*(?:g|gm|grams?)$/i);
+    if (plain && /^(pieces?|pcs?|p)$/.test(unit) && !assumed.startsWith('read')) {
+      eachWeight = { grams: Number(plain[2]), count: Number(qtyText), baseName: plain[1].trim(), fullName: name };
+      name = plain[1].trim();
+      qtyText = String(Number((eachWeight.grams * eachWeight.count).toFixed(3)));
+      unit = 'g';
+      assumed = `read ${eachWeight.grams}g x ${eachWeight.count} as ${qtyText}g`;
+    }
     const qty = num(qtyText);
     const pu = parsePurchaseUnit(`${qtyText}${unit}`);
     if (!pu || !(pu.qty > 0)) { problems.push(`Couldn't read the quantity in "${line}"`); return true; }
@@ -152,7 +179,9 @@ function parseTypedReceipt(text, today) {
       unit,
       purchaseUnit: `${qtyText}${unit}`,
       assumed,
-      kiloGuess: Boolean(assumed),
+      kiloGuess: Boolean(assumed) && !eachWeight && !it.each,
+      eachWeight,
+      pricesOnly,
       price,
       costPerUnit: Number((price / pu.qty).toFixed(5)),
     });
@@ -160,7 +189,9 @@ function parseTypedReceipt(text, today) {
   }
 
   for (const line of lines) {
+    if (/^(prices only|no stock)$/i.test(line)) { pricesOnly = true; continue; }
     if (DATE_LINE.test(line)) {
+      pricesOnly = false;
       const d = parseDate(line, today);
       if (!d) problems.push(`"${line}" doesn't look like a valid date`);
       else { currentDate = d; currentShop = ''; }
@@ -172,6 +203,7 @@ function parseTypedReceipt(text, today) {
       if (!d) { problems.push(`"${line.slice(0, firstSpace)}" doesn't look like a valid date`); continue; }
       currentDate = d;
       currentShop = '';
+      pricesOnly = false;
       const rest = line.slice(firstSpace).trim();
       if (addItem(rest)) continue;
       const sh = rest.match(SHOP_LINE);

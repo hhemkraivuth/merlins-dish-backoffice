@@ -4,7 +4,8 @@
 const { appendRows, readTab, deleteRowsWhere, writeTab, updateRow } = require('./sheets');
 const { ensureTab } = require('./cookLog');
 const { LEDGER_TAB, LEDGER_HEADERS, COL, num, grabCsvToLedger, lineOrdersToLedger, ledgerObjects } = require('./ledger');
-const { summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps } = require('./reports');
+const { overheadsFrom } = require('./overheads');
+const { dayDetail, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps } = require('./reports');
 const { HANDOFF_TAB, HANDOFF_HEADERS, currentHandoffs, reconcile, openHandoffs } = require('./handoffs');
 const { buildHuddle, buildPeriodText } = require('./huddle');
 const { parseDate, formatDMY, bangkokToday } = require('./dates');
@@ -88,14 +89,14 @@ function purchasesFrom(rows) {
 }
 
 async function loadAll() {
-  const [ledgerRows, cookLog, cookSizes, expense, handoffs] = await Promise.all([
-    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB),
+  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows] = await Promise.all([
+    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'),
   ]);
   const purchases = purchasesFrom(expense);
   return {
     ledger: ledgerObjects(ledgerRows),
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
-    purchases: purchases.map((p) => ({ date: p.date, amount: p.amount || 0 })),
+    purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows)],
     expense: purchases.map((p) => ({ date: p.date, name: p.name, unitCost: p.unitCost })),
     handoffRows: handoffs,
   };
@@ -104,7 +105,16 @@ async function loadAll() {
 // ---- reports, handoffs, huddle ----------------------------------------------------------------
 async function computeReports(data) {
   const d = data || await loadAll();
-  return { weekly: summarise(d.ledger, d.cookBatches, d.purchases, 'week'), monthly: summarise(d.ledger, d.cookBatches, d.purchases, 'month') };
+  return {
+    daily: summarise(d.ledger, d.cookBatches, d.purchases, 'day'),
+    weekly: summarise(d.ledger, d.cookBatches, d.purchases, 'week'),
+    monthly: summarise(d.ledger, d.cookBatches, d.purchases, 'month'),
+  };
+}
+
+async function dayDetailFor(date) {
+  const d = await loadAll();
+  return dayDetail(d.ledger, d.cookBatches, d.purchases, date);
 }
 
 async function refreshReports() {
@@ -149,4 +159,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
