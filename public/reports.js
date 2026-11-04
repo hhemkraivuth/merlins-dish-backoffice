@@ -45,8 +45,13 @@ function draw(id, periods, clickable) {
 // One row per month, laid out like the Merlin's numbers tab: money in, Grab deductions, ads, costs, profit.
 const PROFIT = [
   ['Month', (m) => m.label, true],
-  ['Direct sales (LINE)', (m) => baht(m.line.net + m.line.delivery)],
+  ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0],
+  ['Costs (approx)', (m) => baht(m.foodCost + m.line.rider + m.overheads)],
+  ['Overheads', (m) => baht(m.overheads)],
+  ['Rider fees', (m) => baht(m.line.rider)],
+  ['Cooking costs', (m) => baht(m.foodCost)],
   ['Meta ads', (m) => baht(m.ads)],
+  ['Direct sales (LINE)', (m) => baht(m.line.net + m.line.delivery)],
   ['Grab sales', (m) => baht(m.grab.gross)],
   ['Merchant funded (discounts)', (m) => baht(m.grab.discount)],
   ['Service fee (commission)', (m) => baht(m.grab.commission)],
@@ -54,11 +59,6 @@ const PROFIT = [
   ['Other Grab fees', (m) => baht(m.grab.otherFees)],
   ['Net Grab earning', (m) => baht(m.grab.net)],
   ['Total earning', (m) => baht(m.line.net + m.line.delivery + m.grab.net)],
-  ['Cooking costs', (m) => baht(m.foodCost)],
-  ['Rider fees', (m) => baht(m.line.rider)],
-  ['Overheads', (m) => baht(m.overheads)],
-  ['Costs (approx)', (m) => baht(m.foodCost + m.line.rider + m.overheads)],
-  ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0],
 ];
 
 function drawProfit(months) {
