@@ -181,4 +181,33 @@ function ledgerObjects(sheetRows) {
   return out;
 }
 
-module.exports = { LEDGER_TAB, LEDGER_HEADERS, COL, num, grabCsvToLedger, lineOrdersToLedger, parseItems, ledgerObjects, riderRow };
+
+// Does this raw Ledger row fall in the date range (inclusive) for this channel ("All" matches every channel)?
+function rowInRange(row, from, to, channel = 'All') {
+  const d = parseDate(row[COL.date]);
+  if (!d) return false;
+  const t = d.getTime();
+  if (t < from.getTime() || t > to.getTime()) return false;
+  const want = String(channel || 'All').trim().toLowerCase();
+  return want === 'all' || String(row[COL.channel] || '').trim().toLowerCase() === want;
+}
+
+// The edit form sends { desc, qty, moneyIn, cost, net, customer, time }. Returns { cells: [{ col, value }] } or { error }.
+// Numbers are written as numbers, a blank clears the cell, and nothing else in the row is touched.
+function cellsFor(changes) {
+  const map = { desc: [COL.desc, false], qty: [COL.qty, true], moneyIn: [COL.moneyIn, true], cost: [COL.cost, true], net: [COL.net, true], customer: [COL.customer, false], time: [COL.time, false] };
+  const cells = [];
+  for (const [field, raw] of Object.entries(changes || {})) {
+    if (!map[field]) return { error: `"${field}" can't be edited here.` };
+    const [col, numeric] = map[field];
+    const text = String(raw ?? '').trim();
+    if (!numeric) { cells.push({ col, value: text }); continue; }
+    if (text === '') { cells.push({ col, value: '' }); continue; }
+    const n = num(text);
+    if (n === null) return { error: `"${text}" is not a number for ${field}.` };
+    cells.push({ col, value: n });
+  }
+  return cells.length ? { cells } : { error: 'Nothing to change.' };
+}
+
+module.exports = { rowInRange, cellsFor, LEDGER_TAB, LEDGER_HEADERS, COL, num, grabCsvToLedger, lineOrdersToLedger, parseItems, ledgerObjects, riderRow };
