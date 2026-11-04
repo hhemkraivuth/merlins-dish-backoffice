@@ -25,7 +25,7 @@ const COLUMNS = [
   ['Rider fees paid', (p) => baht(p.line.rider)],
   ['Margin before overheads', (p) => baht(p.marginBeforeOverheads)],
   ['Overheads bought', (p) => baht(p.overheads)],
-  ['Ads (Meta, Grab)', (p) => baht(p.ads)],
+  ['Ads (Meta + Grab)', (p) => baht(p.ads)],
   ['Margin after overheads and ads', (p) => baht(p.margin), false, (p) => p.margin < 0],
   ['Margin %', (p) => (p.marginPct === null ? '' : p.marginPct + '%')],
   ['Purchases (memo)', (p) => baht(p.purchases)],
@@ -40,6 +40,40 @@ function draw(id, periods, clickable) {
   const body = periods.map((p, i) => ({ p, i })).reverse().map(({ p, i }) => `<tr class="${clickable ? 'row' : ''}" data-from="${clickable ? p.from : ''}" data-to="${clickable ? p.to : ''}" data-i="${i}" title="${(p.missingCosts.length ? 'No cost found for: ' + p.missingCosts.join(', ') : '')}">${COLUMNS.map((c) => `<td class="${c[3] && c[3](p) ? 'neg' : ''}">${c[1](p)}</td>`).join('')}</tr>`).join('');
   t.innerHTML = head + body;
   if (clickable) t.querySelectorAll('tr.row').forEach((tr) => tr.addEventListener('click', () => showDay(tr.dataset.from, tr.dataset.to, periods[Number(tr.dataset.i)])));
+}
+
+// One row per month, laid out like the Merlin's numbers tab: money in, Grab deductions, ads, costs, profit.
+const PROFIT = [
+  ['Month', (m) => m.label, true],
+  ['Direct sales (LINE)', (m) => baht(m.line.net + m.line.delivery)],
+  ['Meta ads', (m) => baht(m.adsMeta)],
+  ['Grab sales', (m) => baht(m.grab.gross)],
+  ['Merchant funded (discounts)', (m) => baht(m.grab.discount)],
+  ['Service fee (commission)', (m) => baht(m.grab.commission)],
+  ['Marketing fee', (m) => baht(m.grab.marketing)],
+  ['Other Grab fees', (m) => baht(m.grab.otherFees)],
+  ['Grab ads', (m) => baht(m.adsGrab)],
+  ['Net Grab earning', (m) => baht(m.grab.net - m.adsGrab)],
+  ['Total earning', (m) => baht(m.line.net + m.line.delivery + m.grab.net - m.adsGrab)],
+  ['Cooking costs', (m) => baht(m.foodCost)],
+  ['Rider fees', (m) => baht(m.line.rider)],
+  ['Overheads', (m) => baht(m.overheads)],
+  ['Costs (approx)', (m) => baht(m.foodCost + m.line.rider + m.overheads)],
+  ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0],
+];
+
+function drawProfit(months) {
+  const t = $('profit');
+  if (!months.length) { t.innerHTML = '<tr><td>No data yet.</td></tr>'; return; }
+  const sumOf = (f) => months.reduce((s, m) => s + f(m), 0);
+  const total = {
+    label: 'Total',
+    line: { net: sumOf((m) => m.line.net), delivery: sumOf((m) => m.line.delivery), rider: sumOf((m) => m.line.rider) },
+    grab: { gross: sumOf((m) => m.grab.gross), discount: sumOf((m) => m.grab.discount), commission: sumOf((m) => m.grab.commission), marketing: sumOf((m) => m.grab.marketing), otherFees: sumOf((m) => m.grab.otherFees), net: sumOf((m) => m.grab.net) },
+    adsMeta: sumOf((m) => m.adsMeta), adsGrab: sumOf((m) => m.adsGrab), foodCost: sumOf((m) => m.foodCost), overheads: sumOf((m) => m.overheads), margin: sumOf((m) => m.margin),
+  };
+  const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : ''}">${c[1](m)}</td>`).join('');
+  t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`;
 }
 
 function table(headers, rows) {
@@ -129,6 +163,7 @@ async function load() {
     draw('daily', (d.daily || []).slice(-60), true);
     draw('weekly', d.weekly, true);
     draw('monthly', d.monthly, true);
+    drawProfit(d.monthly || []);
   } catch (err) { say(err.message, true); }
 }
 
