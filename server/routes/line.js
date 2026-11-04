@@ -40,7 +40,12 @@ function defaultDeps() {
     loadCatalogue: live.loadCatalogue,
     loadPriceBook: live.loadPriceBook,
     setPackSize: packs.setPackSize,
-    undoBatch: (words, date) => require('../lib/batchUndo').undoBatch(words, date),
+    undoBatch: async (words, date) => {
+      // "undo bolo 29/10": a dish word from the Shorthand tab means the dish's full name in the Cook Log.
+      let tab = null;
+      try { tab = applyShorthandRows(defaultShorthand(), await cookLog.readShorthandRows()).dishes.get(String(words || '').toLowerCase().replace(/\s+/g, '')); } catch (err) { /* fall back to the words as typed */ }
+      return require('../lib/batchUndo').undoBatch(tab || words, date);
+    },
   };
 
   return {
