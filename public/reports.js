@@ -25,7 +25,8 @@ const COLUMNS = [
   ['Rider fees paid', (p) => baht(p.line.rider)],
   ['Margin before overheads', (p) => baht(p.marginBeforeOverheads)],
   ['Overheads bought', (p) => baht(p.overheads)],
-  ['Margin after overheads', (p) => baht(p.margin), false, (p) => p.margin < 0],
+  ['Ads (Meta, Grab)', (p) => baht(p.ads)],
+  ['Margin after overheads and ads', (p) => baht(p.margin), false, (p) => p.margin < 0],
   ['Margin %', (p) => (p.marginPct === null ? '' : p.marginPct + '%')],
   ['Purchases (memo)', (p) => baht(p.purchases)],
 ];
@@ -86,7 +87,7 @@ async function showDay(dmy) {
   try {
     const d = await call('/api/reports/day?date=' + encodeURIComponent(dmy));
     const s = d.summary;
-    const head = s ? `<p class="intro-body">Net income ฿${baht(s.revenue)}, food cost ฿${baht(s.foodCost)}, rider fees ฿${baht(s.line.rider)}, new customers ${d.people.new}, RT customers ${d.people.rt}, overheads ฿${baht(s.overheads)}, margin after overheads ฿${baht(s.margin)}${s.marginPct === null ? '' : ' (' + s.marginPct + '%)'}.</p>` : '';
+    const head = s ? `<p class="intro-body">Net income ฿${baht(s.revenue)}, food cost ฿${baht(s.foodCost)}, rider fees ฿${baht(s.line.rider)}, new customers ${d.people.new}, RT customers ${d.people.rt}, overheads ฿${baht(s.overheads)}, ads ฿${baht(s.ads)}, margin after overheads and ads ฿${baht(s.margin)}${s.marginPct === null ? '' : ' (' + s.marginPct + '%)'}.</p>` : '';
     box.innerHTML = `<h3>${esc(d.date)}</h3>${head}
       <h3>Orders and fees</h3>
       ${table([['Time', 1], ['Order', 1], ['Customer', 1], ['Status', 1], ['Channel', 1], ['Type', 1], ['Description', 1], ['Qty'], ['Money in'], ['Cost'], ['Net'], ['Flags', 1], ['']],
