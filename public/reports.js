@@ -46,6 +46,40 @@ function table(headers, rows) {
   return `<div class="tablewrap"><table><tr>${headers.map((h, i) => `<th class="${i === 0 || h[1] ? 'left' : ''}">${h[0] || h}</th>`).join('')}</tr>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${headers[i][1] ? 'left' : ''}">${c}</td>`).join('')}</tr>`).join('')}</table></div>`;
 }
 
+
+// Edit and Delete for each Ledger row of the open day. Rows are found by their Source Key.
+function wireRows(box, d) {
+  const byKey = new Map(d.rows.filter((r) => r.key).map((r) => [r.key, r]));
+  box.querySelectorAll('span.act').forEach((span) => {
+    const td = span.closest('td'); td.classList.add('act');
+    const tr = span.closest('tr');
+    const key = span.dataset.key;
+    const row = byKey.get(key);
+    const show = () => {
+      td.innerHTML = '<button class="edit">Edit</button><button class="danger del">Delete</button>';
+      td.querySelector('.edit').addEventListener('click', edit);
+      td.querySelector('.del').addEventListener('click', async () => {
+        if (!confirm(`Delete this row?\n${row.channel} ${row.type}: ${row.desc} (${row.orderNo || 'no order number'})`)) return;
+        try { await call('/api/ledger/row/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key }) }); say('Row deleted.'); showDay(d.date); load(); } catch (err) { say(err.message, true); }
+      });
+    };
+    const edit = () => {
+      const cells = tr.querySelectorAll('td');
+      const field = (i, name, val, wide) => { cells[i].innerHTML = `<input class="cell${wide ? ' wide' : ''}" data-f="${name}" value="${esc(val ?? '')}" />`; };
+      field(0, 'time', row.time); field(2, 'customer', row.customer, true); field(6, 'desc', row.desc, true);
+      field(7, 'qty', row.qty); field(8, 'moneyIn', row.moneyIn); field(9, 'cost', row.cost); field(10, 'net', row.net);
+      td.innerHTML = '<button class="save">Save</button><button class="cancel">Cancel</button>';
+      td.querySelector('.cancel').addEventListener('click', () => showDay(d.date));
+      td.querySelector('.save').addEventListener('click', async () => {
+        const changes = {};
+        tr.querySelectorAll('input.cell').forEach((i) => { changes[i.dataset.f] = i.value; });
+        try { await call('/api/ledger/row/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key, changes }) }); say('Row saved. Net income is not recalculated, so edit Net too if you change Money in.'); showDay(d.date); load(); } catch (err) { say(err.message, true); }
+      });
+    };
+    show();
+  });
+}
+
 async function showDay(dmy) {
   const box = $('detail');
   box.innerHTML = '<p class="intro-body">Loading…</p>';
@@ -55,14 +89,15 @@ async function showDay(dmy) {
     const head = s ? `<p class="intro-body">Net income ฿${baht(s.revenue)}, food cost ฿${baht(s.foodCost)}, rider fees ฿${baht(s.line.rider)}, new customers ${d.people.new}, RT customers ${d.people.rt}, overheads ฿${baht(s.overheads)}, margin after overheads ฿${baht(s.margin)}${s.marginPct === null ? '' : ' (' + s.marginPct + '%)'}.</p>` : '';
     box.innerHTML = `<h3>${esc(d.date)}</h3>${head}
       <h3>Orders and fees</h3>
-      ${table([['Time', 1], ['Order', 1], ['Customer', 1], ['Status', 1], ['Channel', 1], ['Type', 1], ['Description', 1], ['Qty'], ['Money in'], ['Cost'], ['Net'], ['Flags', 1]],
-        d.rows.map((r) => [esc(r.time), esc(r.orderNo), esc(r.customer), esc(r.status), esc(r.channel), esc(r.type), esc(r.desc), r.qty ?? '', baht(r.moneyIn), baht(r.cost), baht(r.net), r.flags ? `<span class="flag">${esc(r.flags)}</span>` : '']))}
+      ${table([['Time', 1], ['Order', 1], ['Customer', 1], ['Status', 1], ['Channel', 1], ['Type', 1], ['Description', 1], ['Qty'], ['Money in'], ['Cost'], ['Net'], ['Flags', 1], ['']],
+        d.rows.map((r) => [esc(r.time), esc(r.orderNo), esc(r.customer), esc(r.status), esc(r.channel), esc(r.type), esc(r.desc), r.qty ?? '', baht(r.moneyIn), baht(r.cost), baht(r.net), r.flags ? `<span class="flag">${esc(r.flags)}</span>` : '', r.key ? `<span class="act" data-key="${esc(r.key)}"></span>` : '']))}
       <h3>Orders by hour</h3>
       ${Object.keys(d.byHour).length ? `<p class="intro-body">${Object.keys(d.byHour).sort().map((h) => `${h}:00 → ${d.byHour[h]}`).join(' · ')}</p>` : '<p class="intro-body">No order times logged.</p>'}
       <h3>Cooked</h3>
       ${table([['Dish', 1], ['Portions'], ['Batch cost'], ['Per portion']], d.cooked.map((c) => [esc(c.dish), c.portions, baht(c.cost), c.perPortion === null ? '' : c.perPortion]))}
       <h3>Bought</h3>
       ${table([['Item', 1], ['Type', 1], ['Amount']], d.bought.map((b) => [esc(b.name), esc(b.kind), baht(b.amount)]))}`;
+    wireRows(box, d);
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) { box.innerHTML = ''; say(err.message, true); }
 }
@@ -105,6 +140,20 @@ $('refresh').addEventListener('click', async () => {
   try {
     const r = await call('/api/reports/refresh', { method: 'POST' });
     say(`Weekly Report and Monthly Report tabs updated (${r.weeks} weeks, ${r.months} months).`);
+  } catch (err) { say(err.message, true); }
+});
+
+$('delGo').addEventListener('click', async () => {
+  const body = { from: $('delFrom').value.trim(), to: $('delTo').value.trim(), channel: $('delChannel').value };
+  const post = (extra) => call('/api/ledger/delete-range', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, ...extra }) });
+  try {
+    const peek = await post({ dryRun: true });
+    if (!peek.count) { say('No rows match that range.'); return; }
+    if (!confirm(`Delete ${peek.count} ${body.channel} rows from ${body.from} to ${body.to}? This cannot be undone.`)) { say('Nothing deleted.'); return; }
+    const r = await post({});
+    say(`${r.deleted} rows deleted.`);
+    $('detail').innerHTML = '';
+    load();
   } catch (err) { say(err.message, true); }
 });
 
