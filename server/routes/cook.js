@@ -131,7 +131,9 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       const text = String((req.body && req.body.text) || '').trim();
       if (!text) return res.status(400).json({ error: 'Paste a note or a command first.' });
       const { runCommands } = require('../lib/textCommands');
-      const replies = await runCommands(text, getCommandDeps());
+      const cmdDeps = { ...getCommandDeps() };   // a copy, so LINE keeps its own label
+      if (cmdDeps.receipt) cmdDeps.receipt = { ...cmdDeps.receipt, typedVia: 'Typed on the web' };
+      const replies = await runCommands(text, cmdDeps);
       if (!replies) return res.status(400).json({ error: `I didn't recognise that as a cook note, a stock command or a receipt, so nothing was changed.\nSend "help" to see the formats.` });
       res.json({ replies });
     } catch (err) {
