@@ -1,0 +1,32 @@
+// One place that decides what a typed message means: a receipt, an undo, a swap, a stock command, a rider fee, a report
+// or a cook note. The LINE group and the Batch Cook page both use it, so they always behave the same.
+//
+// deps is the LINE deps object: { receipt, swap, rider, reports, lots, stock, note }.
+// Returns the reply texts, or null when nothing recognised the message.
+
+const { processNote, processTypedReceipt, HELP } = require('./cookService');
+const { processStock } = require('./stockService');
+const { processLots } = require('./lotService');
+const { processReports } = require('./reportCommands');
+const { processRider } = require('./riderCommand');
+const { processReceiptUndo } = require('./receiptUndo');
+const { processAlias } = require('./ingredientAlias');
+const { processSwap } = require('./swapCommand');
+const { bangkokToday } = require('./dates');
+
+async function runCommands(text, deps, nowMs = Date.now()) {
+  const t = String(text || '').trim();
+  if (/^(help|\?)$/i.test(t)) return [HELP];
+  const day = bangkokToday(nowMs);
+  return (deps.receipt && deps.receipt.undo && await processReceiptUndo(t, deps.receipt.undo))
+    || (deps.receipt && deps.receipt.alias && await processAlias(t, deps.receipt.alias))
+    || (deps.swap && await processSwap(t, day, deps.swap))
+    || (deps.rider && await processRider(t, day, deps.rider))
+    || (deps.reports && await processReports(t, deps.reports))
+    || (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(t, day, deps.receipt))
+    || (deps.lots && await processLots(t, day, deps.lots))
+    || (deps.stock && await processStock(t, deps.stock))
+    || await processNote(t, deps.note);
+}
+
+module.exports = { runCommands };
