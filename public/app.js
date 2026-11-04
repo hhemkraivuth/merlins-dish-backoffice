@@ -1,11 +1,11 @@
 const main = document.getElementById('main');
 const tabBar = document.getElementById('tabBar');
 
-const PANELS = { orders: renderOrders, receipts: renderReceipts, batchcook: renderBatchCook, stock: renderStock };
+const PANELS = { receipts: renderReceipts, batchcook: renderBatchCook, stock: renderStock };
 
 tabBar.addEventListener('click', (e) => {
   const btn = e.target.closest('.tab-button');
-  if (!btn) return;
+  if (!btn || !btn.dataset.tab) return;   // Numbers and Commands are plain links
   document.querySelectorAll('.tab-button').forEach((b) => b.classList.remove('active'));
   btn.classList.add('active');
   PANELS[btn.dataset.tab]();
@@ -57,62 +57,6 @@ function escapeHtml(str) {
   const d = document.createElement('div');
   d.textContent = str;
   return d.innerHTML;
-}
-
-// ---- Mode 1: Daily Orders ----
-
-function renderOrders() {
-  main.innerHTML = '';
-  const section = el(`
-    <section class="section">
-      <div class="intro">
-        <h1 class="intro-title">Daily Orders</h1>
-        <p class="intro-body">Drop in every Grab screenshot for the day — detail and payment shots mixed together is fine. The app reads each order's Order ID, pairs the screens itself, and writes rows straight to the Claude Log.</p>
-      </div>
-      <label class="upload-box">
-        <input type="file" id="orderFiles" accept="image/*" multiple style="display:none" />
-        <span class="upload-icon">+</span>
-        <span class="upload-label" id="orderFilesLabel">Select screenshots</span>
-      </label>
-      <button class="primary-button" id="orderSubmit" disabled>Select screenshots first</button>
-      <div id="orderResult"></div>
-    </section>
-  `);
-  main.appendChild(section);
-
-  const input = section.querySelector('#orderFiles');
-  const label = section.querySelector('#orderFilesLabel');
-  const submitBtn = section.querySelector('#orderSubmit');
-  const resultDiv = section.querySelector('#orderResult');
-
-  input.addEventListener('change', () => {
-    const n = input.files.length;
-    label.textContent = n ? `${n} screenshot${n === 1 ? '' : 's'} selected` : 'Select screenshots';
-    submitBtn.disabled = n === 0;
-    submitBtn.textContent = n ? `Process ${n} screenshot${n === 1 ? '' : 's'}` : 'Select screenshots first';
-    resultDiv.innerHTML = '';
-  });
-
-  submitBtn.addEventListener('click', async () => {
-    if (!input.files.length) return;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Processing batch…';
-    resultDiv.innerHTML = '';
-    try {
-      const formData = new FormData();
-      Array.from(input.files).forEach((f) => formData.append('screenshots', f));
-      const res = await fetch('/api/orders/batch', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Request failed');
-      renderResultCard(resultDiv, data, { itemKey: 'orderId', writtenLabel: 'rowsWritten' });
-    } catch (err) {
-      resultDiv.appendChild(el(`<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`));
-    } finally {
-      submitBtn.disabled = false;
-      const n = input.files.length;
-      submitBtn.textContent = `Process ${n} screenshot${n === 1 ? '' : 's'}`;
-    }
-  });
 }
 
 // ---- Mode 2: Weekly Receipts (typed) ----
@@ -409,9 +353,14 @@ async function renderStock() {
     <section class="section">
       <div class="intro">
         <h1 class="intro-title">Stock Counts</h1>
-        <p class="intro-body">Packaging and dry goods — cups, bags, cans, utensils. Counts auto-deduct as Batch Cook and Daily Orders use them. Recount anytime; your number always wins from that point on.</p>
+        <p class="intro-body">Packaging, cans and counted packs. Tap a number to recount; your number wins from that point on.</p>
       </div>
       <div class="stock-list" id="stockList"></div>
+      <div class="intro" style="margin-top:18px">
+        <h1 class="intro-title" style="font-size:18px">Ingredient stock</h1>
+        <p class="intro-body">What is left of each ingredient, built from the receipts and cook notes (oldest purchase first). Read only here. Correct a number from LINE, for example: count minced pork 3000g</p>
+      </div>
+      <div class="stock-list" id="ingredientList"><div class="loading">Loading…</div></div>
       <button class="primary-button" id="addStockBtn" style="margin-top:8px">+ Add item</button>
       <button class="primary-button" id="seedPkgBtn" style="margin-top:8px">Add the 4 packaging items (at 0)</button>
     </section>
@@ -423,6 +372,22 @@ async function renderStock() {
     list.innerHTML = '<div class="empty-state">No stock items yet — add your first one below.</div>';
   }
   stock.forEach((item) => list.appendChild(renderStockRow(item)));
+
+  fetch('/api/stock/ingredients').then((r) => r.json()).then((d) => {
+    const box = section.querySelector('#ingredientList');
+    if (d.error) { box.innerHTML = `<div class="empty-state">${escapeHtml(d.error)}</div>`; return; }
+    const items = d.items || [];
+    if (!items.length) { box.innerHTML = '<div class="empty-state">No ingredient stock yet. It appears after a receipt (without "prices only") or an "opening" count in LINE.</div>'; return; }
+    box.innerHTML = '';
+    items.forEach((i) => box.appendChild(el(`
+      <div class="stock-row">
+        <div>
+          <div class="stock-name">${escapeHtml(i.name)}${i.low ? ' <span style="color:#b3261e;font-weight:600">LOW</span>' : ''}</div>
+          <div class="stock-meta">oldest bought ${escapeHtml(i.oldest)}${i.level ? ' · alert below ' + escapeHtml(i.level) : ''}</div>
+        </div>
+        <div class="stock-count-button" style="cursor:default">${i.left}${escapeHtml(i.unit)}</div>
+      </div>`)));
+  }).catch((err) => { section.querySelector('#ingredientList').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`; });
 
   section.querySelector('#seedPkgBtn').addEventListener('click', async () => {
     try {
@@ -495,4 +460,4 @@ async function saveStock(itemName, newCount, unit) {
 }
 
 // ---- Init ----
-renderOrders();
+renderReceipts();
