@@ -30,6 +30,7 @@ const HELP = [
   '',
   'Stock lots: "lots" shows what is left. "opening 19/10" then lines like "minced pork 2000g 220thb" sets starting stock. "count minced pork 3000g" corrects a quantity. "low salt 500g" flags it when less is left, "low" lists what is low. "free 4/11" then "knorr cube 2 boxes of 6" adds free samples to stock (no purchase is logged).',
   'Bottle and can sizes: "size worcestershire sauce 290ml" so "2 bottles" is stored as 580ml. "undo noir ragu 6/10" takes a logged batch back out so you can send it again.',
+  'Brand change: "swap bolo polpa > pelati" uses a different brand for that recipe line without editing the recipe tab (add "from 29/10" for batches from that date, "swaps" lists them, "unswap bolo polpa" takes one back).',
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
   '',
   'Stock: send "stock" to list counts, or "stock coke zero zero 5" to set one (full item name).',
