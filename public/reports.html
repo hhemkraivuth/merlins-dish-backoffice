@@ -70,6 +70,12 @@
         </div>
         <p class="hint">It shows how many rows will go and asks you first. Importing the Grab CSV again for a day replaces that day's Grab rows, including any edits.</p>
       </details>
+      <details class="tools">
+        <summary>Add direct orders typed by hand (when the bot was down)</summary>
+        <p class="hint">One order per block, a blank line between orders. First line: date, then the customer's name. Then one line per item with the price of one portion, plus "delivery 50" if charged. "total 330" is optional and, if there, must match.</p>
+        <textarea id="manText" rows="9" style="width:100%;font:13px ui-monospace,monospace;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)" placeholder="23/10 Cee&#10;Red Wine Beef Stew (Regular) 285&#10;Noir Ragu + Pasta (Radiatori) 230&#10;delivery 50&#10;total 565"></textarea>
+        <div class="toolrow"><button id="manGo" class="alt">Add these orders</button></div>
+      </details>
       <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span></h2>
       <div class="tablewrap"><table id="profit"></table></div>
       <div id="detail"></div>
