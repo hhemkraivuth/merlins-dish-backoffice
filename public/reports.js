@@ -23,7 +23,9 @@ const COLUMNS = [
   ['Recipe costs', (p) => baht(p.recipeCost + p.lineEstCost)],
   ['Batch cook costs', (p) => baht(p.cookCost)],
   ['Rider fees paid', (p) => baht(p.line.rider)],
-  ['Margin', (p) => baht(p.margin), false, (p) => p.margin < 0],
+  ['Margin before overheads', (p) => baht(p.marginBeforeOverheads)],
+  ['Overheads bought', (p) => baht(p.overheads)],
+  ['Margin after overheads', (p) => baht(p.margin), false, (p) => p.margin < 0],
   ['Margin %', (p) => (p.marginPct === null ? '' : p.marginPct + '%')],
   ['Purchases (memo)', (p) => baht(p.purchases)],
 ];
@@ -50,7 +52,7 @@ async function showDay(dmy) {
   try {
     const d = await call('/api/reports/day?date=' + encodeURIComponent(dmy));
     const s = d.summary;
-    const head = s ? `<p class="intro-body">Net income ฿${baht(s.revenue)}, food cost ฿${baht(s.foodCost)}, rider fees ฿${baht(s.line.rider)}, new customers ${d.people.new}, RT customers ${d.people.rt}, margin ฿${baht(s.margin)}${s.marginPct === null ? '' : ' (' + s.marginPct + '%)'}.</p>` : '';
+    const head = s ? `<p class="intro-body">Net income ฿${baht(s.revenue)}, food cost ฿${baht(s.foodCost)}, rider fees ฿${baht(s.line.rider)}, new customers ${d.people.new}, RT customers ${d.people.rt}, overheads ฿${baht(s.overheads)}, margin after overheads ฿${baht(s.margin)}${s.marginPct === null ? '' : ' (' + s.marginPct + '%)'}.</p>` : '';
     box.innerHTML = `<h3>${esc(d.date)}</h3>${head}
       <h3>Orders and fees</h3>
       ${table([['Time', 1], ['Order', 1], ['Customer', 1], ['Status', 1], ['Channel', 1], ['Type', 1], ['Description', 1], ['Qty'], ['Money in'], ['Cost'], ['Net'], ['Flags', 1]],
@@ -60,7 +62,7 @@ async function showDay(dmy) {
       <h3>Cooked</h3>
       ${table([['Dish', 1], ['Portions'], ['Batch cost'], ['Per portion']], d.cooked.map((c) => [esc(c.dish), c.portions, baht(c.cost), c.perPortion === null ? '' : c.perPortion]))}
       <h3>Bought</h3>
-      ${table([['Item', 1], ['Amount']], d.bought.map((b) => [esc(b.name), baht(b.amount)]))}`;
+      ${table([['Item', 1], ['Type', 1], ['Amount']], d.bought.map((b) => [esc(b.name), esc(b.kind), baht(b.amount)]))}`;
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) { box.innerHTML = ''; say(err.message, true); }
 }
