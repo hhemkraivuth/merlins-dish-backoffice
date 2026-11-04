@@ -26,6 +26,8 @@ function parseDate(value, today = bangkokToday()) {
   if (typeof value === 'number') return value >= 20000 ? fromSerial(value) : null;
 
   const s = String(value).trim().replace(/^~/, '');
+  // A date cell with no date format comes back from Sheets as a plain serial number text, for example "46324" (29/10/2026).
+  if (/^\d{5}(?:\.\d+)?$/.test(s) && Number(s) >= 20000) return fromSerial(Math.floor(Number(s)));
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) return utc(+m[1], +m[2], +m[3]);
 
