@@ -18,8 +18,8 @@ const HEADERS = ['Date', 'Item', 'Category', 'Price', 'Shopped at', 'Remarks'];
 const DATE_LINE = /^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/;
 const SHOP_LINE = /^(?:shopped\s+at|shop|store|at)\s*[:\-]?\s+(\S.*)$/i;
 const MARKER = /^overheads?\b[\s:\-]*(.*)$/i;
-// Ads: "ads", "meta ads", "grab ads" on a line of their own starts an ads block. "meta ads, 1200thb" on one line is a single ad spend.
-const PLATFORM = 'meta|facebook|instagram|grab|google|line';
+// Ads (Meta only; Grab ads are already inside the Grab figures): "ads", "meta ads" on a line of their own starts an ads block. "meta ads, 1200thb" on one line is a single ad spend.
+const PLATFORM = 'meta|facebook|instagram|google';
 const ADS = new RegExp(`^(?:(${PLATFORM})\\s+)?(?:ads?|advertising)(?:\\s+(${PLATFORM})\\b)?[\\s:\\-]*(.*)$`, 'i');
 const adsCategory = (m) => { const w = m[1] || m[2]; return `Ads${w ? ' ' + w[0].toUpperCase() + w.slice(1).toLowerCase() : ''}`; };
 const isAds = (category) => /^ads\b/i.test(String(category || ''));
@@ -82,7 +82,7 @@ function overheadsFrom(rows) {
     const date = parseDate(r[0]);
     const amount = num(r[3]);
     if (!date || !Number.isFinite(amount)) return;
-    out.push({ date, name: String(r[1] || '').trim(), amount, kind: isAds(r[2]) ? 'ads' : 'overhead', platform: /grab/i.test(String(r[2] || '')) ? 'grab' : 'meta' });
+    out.push({ date, name: String(r[1] || '').trim(), amount, kind: isAds(r[2]) ? 'ads' : 'overhead' });
   });
   return out;
 }
