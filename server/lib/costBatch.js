@@ -35,9 +35,29 @@ function findRecipeIngredient(token, recipe, shorthand) {
   return { line: null, target: mapped || token };
 }
 
-function costBatch({ batch, recipe, shorthand, priceBook, lotBook = null, usualYieldRatio = 0.75 }) {
+// "swap bolo polpa > pelati from 29/10" changes the brand used for one recipe line without touching the recipe tab.
+// shorthand.swaps: [{ dish: normalised tab name, old: normalised recipe line name, new: catalogue name, from: 'YYYY-MM-DD' or '' }]
+function applySwaps(recipe, shorthand, batch, notes) {
+  const all = (shorthand && shorthand.swaps) || [];
+  if (!all.length) return recipe;
+  const tab = normName(batch.dishTab || recipe.dish);
+  const day = batch.date instanceof Date ? batch.date.toISOString().slice(0, 10) : null;
+  const mine = all.filter((x) => x.dish === tab && (!x.from || !day || x.from <= day));
+  if (!mine.length) return recipe;
+  const ingredients = recipe.ingredients.map((ing) => {
+    const hits = mine.filter((x) => x.old === normName(ing.name));
+    if (!hits.length) return ing;
+    const pick = hits.sort((a, b) => (a.from || '').localeCompare(b.from || '')).pop();
+    notes.push(`${ing.name} swapped to ${pick.new}`);
+    return { ...ing, name: pick.new, sheetCost: null };
+  });
+  return { ...recipe, ingredients };
+}
+
+function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = null, usualYieldRatio = 0.75 }) {
   const flags = [];
   const notes = [];
+  const recipe = applySwaps(recipeIn, shorthand, batch, notes);
   const date = batch.date;
   // Stews are packed in sizes (Regular / Large). Then the yield is the number of portions packed.
   const sizedIn = Array.isArray(batch.sizes) ? batch.sizes.filter((x) => x.count > 0 && x.weight > 0) : [];
@@ -208,4 +228,4 @@ function costBatch({ batch, recipe, shorthand, priceBook, lotBook = null, usualY
   };
 }
 
-module.exports = { costBatch };
+module.exports = { costBatch, findRecipeIngredient };
