@@ -191,3 +191,17 @@ test('free: containers with no size, condiments and unknown items are reported, 
   assert.match(all, /condiments/);
   assert.match(all, /Not matched/);
 });
+
+test('low levels: set one, "low" lists what is below it, and "lots" marks it LOW', async () => {
+  const { state, deps } = makeStore([lot('A', '13/10/2026', 1000, 300, 18, 'Salt'), lot('B', '13/10/2026', 3000, 2500, 330, 'Pork - minced')]);
+  const levels = new Map();
+  const { parseLevels } = require('../lib/reorderLevels');
+  const rows = [['Ingredient', 'Alert when below', 'Note']];
+  const d = { ...deps, loadCatalogue: async () => ['Salt', 'Pork - minced'], loadLevels: async () => parseLevels(rows), setLevel: async (n, t) => { rows.push([n, t, '']); return 'added'; } };
+  assert.match((await processLots('low', TODAY, d))[0], /No alert levels yet/);
+  assert.match((await processLots('low salt 500g', TODAY, d))[0], /less than 500g is left/);
+  await processLots('low minced pork 1kg', TODAY, d);
+  assert.match((await processLots('low', TODAY, d))[0], /Salt: 300g left, alert below 500g/);
+  assert.doesNotMatch((await processLots('low', TODAY, d))[0], /Pork/);
+  assert.match((await processLots('lots', TODAY, d))[0], /Salt: 300g LOW/);
+});

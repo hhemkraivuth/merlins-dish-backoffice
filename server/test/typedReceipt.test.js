@@ -312,3 +312,50 @@ test('brand in brackets: matches the ingredient, is kept in Remarks, and shows o
   const pb = buildPriceBook({ today: TODAY, expenseRows: [['Date', 'Ing', 'P', 'U', 'C', 'S', 'R'], rows[0]] });
   assert.strictEqual(bestRows(pb)[0][1], 'best price: 816/6720g, Mica');
 });
+
+test('singular and plural are the same word (anchovy finds Anchovies)', () => {
+  assert.strictEqual(matchIngredient('anchovy', ['Anchovies', 'Onion']).name, 'Anchovies');
+  assert.strictEqual(matchIngredient('onions', ['Anchovies', 'Onion']).name, 'Onion');
+  assert.strictEqual(matchIngredient('carrots', ['Carrot']).name, 'Carrot');
+});
+
+test('size then count of bottles: 290ml x 8 is 2320ml, unless the recipe counts the item in pieces', async () => {
+  const run = async (units) => {
+    const rows = [];
+    await processTypedReceipt('27/10\nworcestershire sauce, 290ml, 8bottles, 1168\nbalsamic vinegar (ponti), 500ml, 2bottles, 358thb\nen ziero 330ml 2cans, 32thb', TODAY, {
+      loadCatalogue: async () => ['Worcestershire Sauce', 'Balsamic Vinegar', 'EN Ziero - Golden Apple and Yuzu'], loadUnits: async () => units,
+      appendExpenseRows: async (x) => rows.push(...x),
+    });
+    return rows.map((r) => [r[1], r[3], r[4]]);
+  };
+  const { normName } = require('../lib/priceBook');
+  const out = await run(new Map([['Worcestershire Sauce', 'ml'], ['Balsamic Vinegar', 'ml'], ['EN Ziero - Golden Apple and Yuzu', 'piece']].map(([k, v]) => [normName(k), v])));
+  assert.deepStrictEqual(out, [['Worcestershire Sauce', '2320ml', 0.50345], ['Balsamic Vinegar', '1000ml', 0.358], ['EN Ziero - Golden Apple and Yuzu', '2pcs', 16]]);
+});
+
+test('EN Ziero typed short finds the one flavour, and asks when two flavours fit', () => {
+  assert.strictEqual(matchIngredient('en ziero', ['EN Ziero - Golden Apple and Yuzu', 'Milk']).name, 'EN Ziero - Golden Apple and Yuzu');
+  assert.deepStrictEqual(matchIngredient('en ziero', ['EN Ziero - Golden Apple and Yuzu', 'EN Ziero - Lime and Mint']).ambiguous.length, 2);
+});
+
+test('condiments are counted in unopened packs: a purchase adds packs to an item that is already counted', async () => {
+  const counts = { 'All-Purpose Flour': 3 };
+  const deps = {
+    loadCatalogue: async () => ['Salt', 'All-Purpose Flour'], loadUntracked: async () => ['Salt', 'All-Purpose Flour'],
+    appendExpenseRows: async () => {}, addLots: async () => {},
+    adjustPacks: async (name, d) => (name in counts ? { found: true, now: (counts[name] += d) } : { found: false }),
+  };
+  const out = await processTypedReceipt('21/10\nsalt, 1000g, 18thb\nall purpose flour, 1000g, 2pcs, 74thb', TODAY, deps);
+  assert.strictEqual(counts['All-Purpose Flour'], 5);
+  const packs = out.find((r) => /Unopened packs/.test(r));
+  assert.match(packs, /All-Purpose Flour \+2 \(now 5\)/);
+  assert.match(packs, /Salt is not counted yet.*stock add Salt, pack/);
+});
+
+test('prices only receipts do not touch pack counts', async () => {
+  let called = 0;
+  await processTypedReceipt('21/10\nprices only\nsalt, 1000g, 18thb', TODAY, {
+    loadCatalogue: async () => ['Salt'], loadUntracked: async () => ['Salt'], appendExpenseRows: async () => {}, addLots: async () => {}, adjustPacks: async () => { called++; return { found: true, now: 1 }; },
+  });
+  assert.strictEqual(called, 0);
+});
