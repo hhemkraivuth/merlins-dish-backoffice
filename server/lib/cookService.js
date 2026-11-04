@@ -26,7 +26,7 @@ const HELP = [
   'minced pork 1000g 110thb',
   'They go to the Expense Log and become stock lots. Batches use the oldest lot first.',
   '',
-  'Stock lots: "lots" shows what is left. "opening 19/10" then lines like "minced pork 2000g 220thb" sets starting stock. "count minced pork 3000g" corrects a quantity.',
+  'Stock lots: "lots" shows what is left. "opening 19/10" then lines like "minced pork 2000g 220thb" sets starting stock. "count minced pork 3000g" corrects a quantity. "free 4/11" then "knorr cube 2 boxes of 6" adds free samples to stock (no purchase is logged).',
   'Bottle and can sizes: "size worcestershire sauce 290ml" so "2 bottles" is stored as 580ml. "undo noir ragu 6/10" takes a logged batch back out so you can send it again.',
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
   '',
@@ -243,6 +243,20 @@ async function processTypedReceipt(text, messageDate, deps) {
   items = items.filter((it) => {
     const name = matchIngredient(it.typedName, catalogue).name;
     if (!name) return true;
+    // A kilo guess ("0.90g" read as 900g) that lands far from the last price is probably a dropped zero (90g). Use the closer reading and say so.
+    if (it.kiloGuess && priceBook) {
+      const prev = priceBook.lookup(name, it.date || messageDate);
+      const pu = parsePurchaseUnit(it.purchaseUnit);
+      if (prev && prev.cost > 0 && pu && pu.unit === 'g' && it.costPerUnit / prev.cost <= 0.2) {
+        const altQty = pu.qty / 10;
+        const altCost = it.price / altQty;
+        if (altCost / prev.cost >= 0.5 && altCost / prev.cost <= 2) {   // ten times lighter fits the last price
+          it.assumed = `${it.assumed}. ${pu.qty}g would be ${baht(it.costPerUnit)} per g, far from the last price of ${baht(prev.cost)} per g, so I used ${altQty}g (${baht(altCost)} per g)`;
+          it.purchaseUnit = `${altQty}g`;
+          it.costPerUnit = Number(altCost.toFixed(5));
+        }
+      }
+    }
     const conv = applyPackSize(it, name, sizes);
     if (conv) { it.purchaseUnit = conv.purchaseUnit; it.costPerUnit = conv.costPerUnit; it.pack = conv.pack; return true; }
     // A container with no known size whose price is wildly different from past prices is held back, not logged wrongly.
@@ -263,14 +277,17 @@ async function processTypedReceipt(text, messageDate, deps) {
     const date = it.date || messageDate;
     const m = matchIngredient(it.typedName, catalogue);
     const remarks = ['Typed in LINE'];
+    if (m.fuzzy) { it.spelled = `${it.typedName} → ${m.name}`; remarks.push(`read "${it.typedName}" as ${m.name}`); }
     if (!m.name) {
       unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName);
       remarks.push(`"${it.typedName}" not matched to a known ingredient`);
     }
+    if (it.assumed) remarks.push(it.assumed);
     return [formatDMY(date), m.name || it.typedName, it.price, it.purchaseUnit, it.costPerUnit, it.shop || '', remarks.join('; ')];
   });
 
   await deps.appendExpenseRows(rows);
+  if (deps.refreshBestPrices) { try { await deps.refreshBestPrices(); } catch (err) { flags.push(`The Best Prices tab could not be updated (${err.message}).`); } }
 
   // Stock lots: every matched, countable ingredient becomes a lot (condiments on the Untracked list do not).
   const lotLines = [];
@@ -309,6 +326,10 @@ async function processTypedReceipt(text, messageDate, deps) {
   if (lotLines.length) replies.push(`Added to stock lots: ${lotLines.join(', ')}.${notTracked.length ? `\nNot stock tracked (condiments): ${notTracked.join(', ')}.` : ''}`);
   else if (notTracked.length) replies.push(`Not stock tracked (condiments): ${notTracked.join(', ')}.`);
   if (unmatched.length) replies.push(`Not matched to a known ingredient, so cost lookups will skip these until the name matches the Price Tracker:\n${unmatched.slice(0, 8).map((u) => `• ${u}`).join('\n')}`);
+  const spelled = items.filter((it) => it.spelled);
+  if (spelled.length) replies.push(`I corrected the spelling:\n${spelled.map((it) => `• ${it.spelled}`).join('\n')}\nIf one is wrong, tell me and I will fix the row.`);
+  const assumed = items.filter((it) => it.assumed);
+  if (assumed.length) replies.push(`I made a guess on the weights, please check:\n${assumed.map((it) => `• ${it.typedName}: ${it.assumed}. Now ${baht(it.costPerUnit)} per ${(parsePurchaseUnit(it.purchaseUnit) || {}).unit || 'unit'}.`).join('\n')}\nIf that is wrong, send the line again with the weight in plain grams, for example 90g.`);
   if (flags.length) replies.push(`Check:\n${flags.map((f) => `• ${f}`).join('\n')}`);
   if (problems.length) replies.push(`Couldn't use these lines:\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
   return replies;

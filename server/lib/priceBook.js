@@ -89,7 +89,7 @@ function buildPriceBook({ priceLogRows = [], expenseRows = [], today } = {}) {
       if (cost === null) { skipped.noCost++; return; }
 
       if (!map.has(name)) map.set(name, []);
-      map.get(name).push({ date, cost, source, rowNumber: i + 1, seq: seq++ });
+      map.get(name).push({ date, cost, source, rowNumber: i + 1, seq: seq++, display: String(r[1]).trim(), price: toNumber(r[2]), unitText: String(r[3] ?? '').trim(), shop: String(r[5] ?? '').trim() });
     });
   }
 
@@ -120,7 +120,20 @@ function buildPriceBook({ priceLogRows = [], expenseRows = [], today } = {}) {
     return result;
   }
 
-  return { lookup, skipped, size: map.size, names: () => [...map.keys()] };
+  // The cheapest price per g / ml / piece ever paid for each item, and the latest one, for the Best Prices tab.
+  function best() {
+    const out = [];
+    for (const list of map.values()) {
+      const paid = list.filter((e) => e.cost > 0);
+      if (!paid.length) continue;
+      let low = paid[0];
+      for (const e of paid) if (e.cost < low.cost || (e.cost === low.cost && e.date > low.date)) low = e;
+      out.push({ name: low.display, best: low, latest: paid[paid.length - 1] });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return { lookup, best, skipped, size: map.size, names: () => [...map.keys()] };
 }
 
 // Unit word -> g / ml / piece (anything not recognised comes back lower cased)

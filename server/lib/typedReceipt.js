@@ -40,7 +40,28 @@ const num = (s) => Number(String(s).replace(',', '.'));
 // "minced pork" and "Pork - minced" are the same words in a different order.
 function tokens(s) {
   // Apostrophes are dropped, not turned into a gap, so "Campbell's" and "campbells" are the same word.
-  return String(s || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9฀-๿]+/g, ' ').split(' ').filter((t) => t && t !== 'mutti');
+  return String(s || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9฀-๿]+/g, ' ').split(' ').filter((t) => t && t !== 'mutti').map((t) => t.replace(/([a-z])\1+/g, '$1'));
+}
+
+// Edit distance where swapping two neighbouring letters counts as one slip ("pecroino" -> "pecorino").
+function distance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+// One slip is allowed in a word of 4 to 7 letters, two in a longer one. Short words and numbers must be exact.
+function slips(a, b) {
+  if (a === b) return 0;
+  if (Math.min(a.length, b.length) < 4 || /\d/.test(a + b)) return Infinity;
+  const allowed = Math.max(a.length, b.length) >= 8 ? 2 : 1;
+  const x = distance(a, b);
+  return x <= allowed ? x : Infinity;
 }
 
 // Maps what Lily typed to the exact ingredient name in the Price Tracker, or says why it could not.
@@ -61,7 +82,25 @@ function matchIngredient(typed, catalogue = []) {
   });
   if (near.length === 1) return { name: near[0] };
   if (near.length > 1) return { ambiguous: near.slice(0, 5) };
-  return {};
+
+  // Last resort, a spelling slip. Every typed word must be close to a word of the ingredient (or the other way round).
+  const cost = (a, b) => {
+    let total = 0;
+    for (const t of a) {
+      const best = Math.min(...b.map((u) => slips(t, u)));
+      if (best === Infinity) return Infinity;
+      total += best;
+    }
+    return total;
+  };
+  const scored = catalogue
+    .map((n) => { const have = tokens(n); return { n, c: have.length ? Math.min(cost(want, have), cost(have, want)) : Infinity }; })
+    .filter((x) => x.c !== Infinity)
+    .sort((a, b) => a.c - b.c);
+  if (!scored.length) return {};
+  const top = scored.filter((x) => x.c === scored[0].c);
+  if (top.length === 1) return { name: top[0].n, fuzzy: true };
+  return { ambiguous: top.slice(0, 5).map((x) => x.n) };
 }
 
 // "at Makro", "shop: Makro", "shopped at Tops" -> "Makro". Applies to the items below it until the next shop or date line.
@@ -81,11 +120,28 @@ function parseTypedReceipt(text, today) {
   function addItem(line) {
     const it = matchItem(line);
     if (!it) return false;
-    const name = it.name.replace(/[,\s]+$/, '').trim();
-    const qty = num(it.qtyText);
-    const unit = (it.unitText || 'piece').toLowerCase();
+    let name = it.name.replace(/[,\s]+$/, '').trim();
+    let qtyText = it.qtyText.replace(',', '.');
+    let unit = (it.unitText || 'piece').toLowerCase();
     const price = num(it.price);
-    const pu = parsePurchaseUnit(`${it.qtyText.replace(',', '.')}${unit}`);
+    let assumed = '';
+    // A weight with a decimal point under 10 and the letter g ("0.478g", "0.9g") is a kilo weight, not a fraction of a gram.
+    const GRAM = /^(g|gm|grams?)$/;
+    if (GRAM.test(unit) && /\./.test(qtyText) && Number(qtyText) < 10) {
+      assumed = `read ${qtyText}${unit} as ${qtyText}kg (${Number((Number(qtyText) * 1000).toFixed(3))}g)`;
+      unit = 'kg';
+    }
+    // "pecorino 0.60g 2pcs, 180": a kilo weight in the name followed by a count means that weight each.
+    const each = name.match(/^(.*?)[\s,]+(\d+\.\d+)\s*(?:g|gm|grams?|kg)$/i);
+    if (each && /^(pieces?|pcs?|p)$/.test(unit) && Number(each[2]) < 10) {
+      const grams = Number(each[2]) * 1000 * Number(qtyText);
+      assumed = `read ${each[2]}kg each x ${qtyText} as ${Number(grams.toFixed(3))}g`;
+      name = each[1].trim();
+      qtyText = String(Number(grams.toFixed(3)));
+      unit = 'g';
+    }
+    const qty = num(qtyText);
+    const pu = parsePurchaseUnit(`${qtyText}${unit}`);
     if (!pu || !(pu.qty > 0)) { problems.push(`Couldn't read the quantity in "${line}"`); return true; }
     if (!currentDate) undated = true;
     items.push({
@@ -94,7 +150,9 @@ function parseTypedReceipt(text, today) {
       typedName: name,
       qty,
       unit,
-      purchaseUnit: `${it.qtyText.replace(',', '.')}${unit}`,
+      purchaseUnit: `${qtyText}${unit}`,
+      assumed,
+      kiloGuess: Boolean(assumed),
       price,
       costPerUnit: Number((price / pu.qty).toFixed(5)),
     });
