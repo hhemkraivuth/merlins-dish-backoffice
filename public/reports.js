@@ -169,16 +169,22 @@ async function load() {
 }
 
 $('csv').addEventListener('change', async (e) => {
-  const f = e.target.files[0];
-  if (!f) return;
-  say('Importing…');
-  try {
-    const fd = new FormData();
-    fd.append('csv', f);
-    const r = await call('/api/ledger/grab-csv', { method: 'POST', body: fd });
-    say(`Imported ${r.imported} rows for ${r.days.join(', ')}.\n${r.orders} orders. Replaced ${r.replaced} rows that were already there.${r.flagged ? `\n${r.flagged} rows carry XXXXXX or a missing figure.` : ''}${r.problems.length ? `\nSkipped: ${r.problems.slice(0, 3).join(' ')}` : ''}`);
-    load();
-  } catch (err) { say(err.message, true); }
+  const files = [...e.target.files];
+  if (!files.length) return;
+  const lines = [];
+  let failed = 0;
+  // One file at a time, so a bad file never stops the others. Each CSV replaces only its own Grab days, so re-importing is safe.
+  for (const [i, f] of files.entries()) {
+    say(`Importing ${i + 1} of ${files.length}: ${f.name}…`);
+    try {
+      const fd = new FormData();
+      fd.append('csv', f);
+      const r = await call('/api/ledger/grab-csv', { method: 'POST', body: fd });
+      lines.push(`${f.name}: ${r.imported} rows for ${r.days.length} days, ${r.orders} orders. Replaced ${r.replaced} rows already there.${r.flagged ? ` ${r.flagged} rows carry XXXXXX or a missing figure.` : ''}${r.problems.length ? ` Skipped: ${r.problems.slice(0, 3).join(' ')}` : ''}`);
+    } catch (err) { failed += 1; lines.push(`${f.name}: ${err.message}`); }
+  }
+  say(lines.join('\n'), failed > 0);
+  load();
   e.target.value = '';
 });
 
