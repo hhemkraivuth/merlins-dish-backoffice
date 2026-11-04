@@ -322,7 +322,12 @@ test('daily view: one row per day, and the day detail lists rows in order plus c
   const det = dayDetail(ledger, cook, buys, d2);
   assert.deepStrictEqual(det.rows.map((r) => r.type), ['Order', 'Delivery']);
   assert.strictEqual(det.cooked[0].perPortion, 50);
-  assert.deepStrictEqual(det.bought, [{ name: 'Minced pork', amount: 330, kind: 'Ingredient' }]);
+  assert.deepStrictEqual(det.bought, [{ date: '02/11/2026', name: 'Minced pork', amount: 330, kind: 'Ingredient' }]);
+  const span = dayDetail(ledger, cook, buys, d2, utc(2026, 11, 3));
+  assert.strictEqual(span.rows.length, 3);
+  assert.strictEqual(span.bought.length, 2);
+  assert.strictEqual(span.date, '02/11/2026 to 03/11/2026');
+  assert.strictEqual(span.summary, null);
   assert.strictEqual(det.summary.cookCost, 1000);
   assert.deepStrictEqual(det.orders.map((o) => [o.time, o.status]), [['12:00', 'RT']]);
   assert.deepStrictEqual(det.byHour, { '12': 1 });
