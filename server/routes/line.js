@@ -2,14 +2,8 @@
 // customer bot's). Only messages from BOH_GROUP_ID are acted on.
 
 const { verifySignature, reply, push, getContent } = require('../lib/lineApi');
-const { processNote, processReceipt, processTypedReceipt, HELP } = require('../lib/cookService');
-const { processStock } = require('../lib/stockService');
-const { processLots } = require('../lib/lotService');
-const { processReports } = require('../lib/reportCommands');
-const { processRider } = require('../lib/riderCommand');
-const { processReceiptUndo } = require('../lib/receiptUndo');
-const { processAlias } = require('../lib/ingredientAlias');
-const { processSwap } = require('../lib/swapCommand');
+const { processReceipt, HELP } = require('../lib/cookService');
+const { runCommands } = require('../lib/textCommands');
 const { defaultShorthand, applyShorthandRows } = require('../lib/aliases');
 const { bangkokToday } = require('../lib/dates');
 
@@ -126,15 +120,7 @@ function createHandler(getDeps) {
       let replies;
       try {
         const sent = new Date(ev.timestamp || Date.now());
-        replies = (deps.receipt && deps.receipt.undo && await processReceiptUndo(text, deps.receipt.undo))
-          || (deps.receipt && deps.receipt.alias && await processAlias(text, deps.receipt.alias))
-          || (deps.swap && await processSwap(text, bangkokToday(sent.getTime()), deps.swap))
-          || (deps.rider && await processRider(text, bangkokToday(sent.getTime()), deps.rider))
-          || (deps.reports && await processReports(text, deps.reports))
-          || (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(text, bangkokToday(sent.getTime()), deps.receipt))
-          || (deps.lots && await processLots(text, bangkokToday(sent.getTime()), deps.lots))
-          || (deps.stock && await processStock(text, deps.stock))
-          || await processNote(text, deps.note);
+        replies = await runCommands(text, deps, sent.getTime());
       } catch (err) {
         // Never fail silently in the group: say what went wrong and that nothing was logged.
         console.error('Cook note failed:', err);
@@ -184,4 +170,4 @@ function createHandler(getDeps) {
 let defaults = null;
 const webhook = createHandler(() => (defaults = defaults || defaultDeps()));
 
-module.exports = { webhook, createHandler };
+module.exports = { webhook, createHandler, getDefaultDeps: () => (defaults = defaults || defaultDeps()) };
