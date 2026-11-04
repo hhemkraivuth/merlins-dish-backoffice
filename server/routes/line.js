@@ -5,6 +5,8 @@ const { verifySignature, reply, push, getContent } = require('../lib/lineApi');
 const { processNote, processReceipt, processTypedReceipt, HELP } = require('../lib/cookService');
 const { processStock } = require('../lib/stockService');
 const { processLots } = require('../lib/lotService');
+const { processReports } = require('../lib/reportCommands');
+const { processRider } = require('../lib/riderCommand');
 const { defaultShorthand, applyShorthandRows } = require('../lib/aliases');
 const { bangkokToday } = require('../lib/dates');
 
@@ -55,6 +57,15 @@ function defaultDeps() {
       saveLots: lotDeps.saveLots,
     },
     lots: lotDeps,
+    rider: {
+      findOrders: (dmy) => require('../lib/ledgerService').findLineOrders(dmy),
+      saveRider: (rows, keys) => require('../lib/ledgerService').saveRider(rows, keys),
+    },
+    reports: {
+      huddle: () => require('../lib/ledgerService').huddle(),
+      period: (type) => require('../lib/ledgerService').periodText(type),
+      sync: () => require('../lib/ledgerService').syncLineOrders(),
+    },
     stock: { getAll: getAllStock, setCount: setStockCount },
     // Photo receipts are off unless RECEIPT_PHOTOS=on (they need an Anthropic key). Typed receipts always work.
     receiptPhotos: String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on',
@@ -100,7 +111,9 @@ function createHandler(getDeps) {
       let replies;
       try {
         const sent = new Date(ev.timestamp || Date.now());
-        replies = (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(text, bangkokToday(sent.getTime()), deps.receipt))
+        replies = (deps.rider && await processRider(text, bangkokToday(sent.getTime()), deps.rider))
+          || (deps.reports && await processReports(text, deps.reports))
+          || (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(text, bangkokToday(sent.getTime()), deps.receipt))
           || (deps.lots && await processLots(text, bangkokToday(sent.getTime()), deps.lots))
           || (deps.stock && await processStock(text, deps.stock))
           || await processNote(text, deps.note);
