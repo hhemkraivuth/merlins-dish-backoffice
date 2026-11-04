@@ -25,6 +25,7 @@ function defaultDeps() {
     isLogged: cookLog.isLogged,
     batchKey: cookLog.batchKey,
     writeBatch: cookLog.writeBatch,
+    tidy: cookLog.tidyCookLogs,
     deductStock,
     loadLotBook: () => lots.loadLotBook(bangkokToday()),
     saveLots: lots.saveLots,
@@ -116,6 +117,7 @@ function createCook(getDeps) {
       const shorthand = await deps.loadShorthand();
       const priceBook = await deps.loadPriceBook();
       const out = await runBatch(batch, deps, shorthand, priceBook, { today: bangkokToday(), source: 'Web' });
+      if (out.status === 'logged' && deps.tidy) { try { await deps.tidy(); } catch (err) { console.error('tidy failed:', err.message); } }
       res.json({ status: out.status, text: out.text, result: out.result || null });
     } catch (err) {
       console.error('Batch cook submit failed:', err);
