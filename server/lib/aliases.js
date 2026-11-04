@@ -10,8 +10,8 @@
 const DEFAULT_DISH_ALIASES = {
   'Polished Pork Bolognese': ['bolo', 'bolognese', 'bolog'],
   'Noir Ragu': ['ragu'],
-  'Tuscan Pork Braise': ['tuscan', 'tpb'],
-  'Red Wine Beef Stew': ['rws', 'redwinestew'],
+  'Tuscan Pork Braise': ['tuscan', 'tpb', 'tucan'],
+  'Red Wine Beef Stew': ['rws', 'rsw', 'redwinestew'],
   'Dark beer Stew': ['dbs', 'darkbeerstew'],
   'Creamy Chicken Soup': ['chix', 'cs', 'chicsoup', 'chics'],
   'Pecorino & Broccoli Cream Soup': ['brocs', 'bs'],
