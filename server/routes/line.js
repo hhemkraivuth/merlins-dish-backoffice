@@ -7,6 +7,8 @@ const { processStock } = require('../lib/stockService');
 const { processLots } = require('../lib/lotService');
 const { processReports } = require('../lib/reportCommands');
 const { processRider } = require('../lib/riderCommand');
+const { processReceiptUndo } = require('../lib/receiptUndo');
+const { processAlias } = require('../lib/ingredientAlias');
 const { defaultShorthand, applyShorthandRows } = require('../lib/aliases');
 const { bangkokToday } = require('../lib/dates');
 
@@ -72,27 +74,7 @@ function defaultDeps() {
     stock: { getAll: getAllStock, setCount: setStockCount },
     // Photo receipts are off unless RECEIPT_PHOTOS=on (they need an Anthropic key). Typed receipts always work.
     receiptPhotos: String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on',
-    receipt: {
-      loadCatalogue: live.loadCatalogue,
-      loadUnits: live.loadUnits,
-      adjustPacks: async (name, delta) => {
-        const all = await getAllStock();
-        const norm = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();
-        const item = all.find((i) => norm(i.itemName) === norm(name));
-        if (!item) return { found: false };
-        const now = (Number(item.currentCount) || 0) + delta;
-        await setStockCount(item.itemName, now, item.unit, 'Receipt');
-        return { found: true, now };
-      },
-      extractReceipt: extractReceiptWithCatalogue,
-      appendExpenseRows: async (rows) => { await appendRows('Expense Log', rows); live.invalidate(); },
-      appendOverheads: async (rows) => { const o = require('../lib/overheads'); await require('../lib/cookLog').ensureTab(o.TAB, o.HEADERS); await appendRows(o.TAB, rows); },
-      refreshBestPrices: async () => require('../lib/bestPrices').writeBestPrices(await live.loadPriceBook()),
-      addLots: lotDeps.addLots,
-      loadUntracked: lotDeps.loadUntracked,
-      loadPackSizes: packs.loadPackSizes,
-      loadPriceBook: live.loadPriceBook,
-    },
+    receipt: require('../lib/receiptDeps').buildReceiptDeps(),
   };
 }
 
@@ -126,7 +108,9 @@ function createHandler(getDeps) {
       let replies;
       try {
         const sent = new Date(ev.timestamp || Date.now());
-        replies = (deps.rider && await processRider(text, bangkokToday(sent.getTime()), deps.rider))
+        replies = (deps.receipt && deps.receipt.undo && await processReceiptUndo(text, deps.receipt.undo))
+          || (deps.receipt && deps.receipt.alias && await processAlias(text, deps.receipt.alias))
+          || (deps.rider && await processRider(text, bangkokToday(sent.getTime()), deps.rider))
           || (deps.reports && await processReports(text, deps.reports))
           || (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(text, bangkokToday(sent.getTime()), deps.receipt))
           || (deps.lots && await processLots(text, bangkokToday(sent.getTime()), deps.lots))

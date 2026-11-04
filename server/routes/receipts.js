@@ -69,8 +69,10 @@ function createTyped(getDeps) {
       const text = String((req.body && req.body.text) || '').trim();
       if (!text) return res.status(400).json({ error: 'Type the receipt first.' });
       const { processTypedReceipt } = require('../lib/cookService');
+      const { processReceiptUndo } = require('../lib/receiptUndo');
       const { bangkokToday } = require('../lib/dates');
-      const replies = await processTypedReceipt(text, bangkokToday(), getDeps());
+      const deps = getDeps();
+      const replies = (deps.undo && await processReceiptUndo(text, deps.undo)) || await processTypedReceipt(text, bangkokToday(), deps);
       if (!replies) {
         return res.status(400).json({ error: 'I could not find any item lines. Each line needs a quantity and a price, for example: minced pork 1000g 110thb' });
       }
@@ -83,16 +85,7 @@ function createTyped(getDeps) {
 }
 
 function defaultTypedDeps() {
-  const live = require('../lib/liveData');
-  const lots = require('../lib/ingredientLots');
-  return {
-    loadCatalogue: live.loadCatalogue,
-    appendExpenseRows: async (rows) => { await appendRows(EXPENSE_LOG_TAB, rows); live.invalidate(); },
-    addLots: lots.addLots,
-    loadUntracked: lots.loadUntracked,
-    loadPackSizes: require('../lib/packSizes').loadPackSizes,
-    loadPriceBook: live.loadPriceBook,
-  };
+  return require('../lib/receiptDeps').buildReceiptDeps();
 }
 
 const handleTyped = createTyped(defaultTypedDeps);
