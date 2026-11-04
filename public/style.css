@@ -43,7 +43,7 @@ body {
   font-size: 14px; color: var(--muted); white-space: nowrap; cursor: pointer;
   font-family: inherit;
 }
-.tab-link { text-decoration: none; display: inline-block; color: var(--accent); }
+.tab-link { text-decoration: none; display: inline-block; }
 .tab-button.active { background: var(--ink); color: var(--paper); font-weight: 600; }
 
 .main { padding: 20px 20px 60px; max-width: 520px; margin: 0 auto; }
