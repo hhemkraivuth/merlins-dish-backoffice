@@ -1,9 +1,9 @@
 // Sheets glue for the Ledger, the reports, the Handoffs inbox and the huddle.
 // All the logic lives in the pure modules; this file only reads and writes tabs.
 
-const { appendRows, readTab, deleteRowsWhere, writeTab, updateRow } = require('./sheets');
+const { appendRows, readTab, deleteRowsWhere, writeTab, updateRow, updateCells } = require('./sheets');
 const { ensureTab } = require('./cookLog');
-const { LEDGER_TAB, LEDGER_HEADERS, COL, num, grabCsvToLedger, lineOrdersToLedger, ledgerObjects } = require('./ledger');
+const { LEDGER_TAB, LEDGER_HEADERS, COL, num, grabCsvToLedger, lineOrdersToLedger, ledgerObjects, rowInRange, cellsFor } = require('./ledger');
 const { overheadsFrom } = require('./overheads');
 const { lowItems, parseLevels } = require('./reorderLevels');
 const { LotBook } = require('./ingredientLots');
@@ -74,6 +74,35 @@ async function saveRider(rows, keys) {
   return { replaced };
 }
 
+// ---- delete and edit rows ----------------------------------------------------------------------
+// Delete every Ledger row in a date range, for one channel (Grab, LINE) or all. dryRun only counts.
+async function deleteLedgerRange({ from, to, channel = 'All', dryRun = false }) {
+  const rows = await readOrEmpty(LEDGER_TAB);
+  const count = rows.slice(1).filter((r) => rowInRange(r, from, to, channel)).length;
+  if (dryRun || !count) return { count, deleted: 0 };
+  const deleted = await deleteRowsWhere(LEDGER_TAB, (r) => rowInRange(r, from, to, channel));
+  return { count, deleted };
+}
+
+async function deleteLedgerRow(key) {
+  const k = String(key || '').trim();
+  if (!k) throw new Error('No row key was sent.');
+  const deleted = await deleteRowsWhere(LEDGER_TAB, (r) => String(r[COL.key] || '').trim() === k);
+  return { deleted };
+}
+
+async function updateLedgerRow(key, changes) {
+  const k = String(key || '').trim();
+  if (!k) throw new Error('No row key was sent.');
+  const cells = cellsFor(changes);
+  if (cells.error) throw new Error(cells.error);
+  const rows = await readOrEmpty(LEDGER_TAB);
+  const at = rows.findIndex((r, i) => i > 0 && String(r[COL.key] || '').trim() === k);
+  if (at < 0) throw new Error('That row is no longer in the Ledger. Reload the page.');
+  await updateCells(LEDGER_TAB, at + 1, cells.cells);
+  return { updated: cells.cells.length };
+}
+
 // ---- loading the other teams' data -------------------------------------------------------------
 function cookBatchesFrom(logRows, sizeRows) {
   const sizes = new Map();
@@ -110,9 +139,9 @@ async function loadAll() {
 async function computeReports(data) {
   const d = data || await loadAll();
   return {
-    daily: summarise(d.ledger, d.cookBatches, d.purchases, 'day'),
-    weekly: summarise(d.ledger, d.cookBatches, d.purchases, 'week'),
-    monthly: summarise(d.ledger, d.cookBatches, d.purchases, 'month'),
+    daily: summarise(d.ledger, d.cookBatches, d.purchases, 'day', { through: bangkokToday() }),
+    weekly: summarise(d.ledger, d.cookBatches, d.purchases, 'week', { through: bangkokToday() }),
+    monthly: summarise(d.ledger, d.cookBatches, d.purchases, 'month', { through: bangkokToday() }),
   };
 }
 
@@ -163,4 +192,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { deleteLedgerRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
