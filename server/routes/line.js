@@ -33,6 +33,7 @@ function defaultDeps() {
     addLots: lots.addLots,
     loadUntracked: lots.loadUntracked,
     loadCatalogue: live.loadCatalogue,
+    loadPriceBook: live.loadPriceBook,
     setPackSize: packs.setPackSize,
     undoBatch: (words, date) => require('../lib/batchUndo').undoBatch(words, date),
   };
@@ -73,6 +74,7 @@ function defaultDeps() {
       loadCatalogue: live.loadCatalogue,
       extractReceipt: extractReceiptWithCatalogue,
       appendExpenseRows: async (rows) => { await appendRows('Expense Log', rows); live.invalidate(); },
+      refreshBestPrices: async () => require('../lib/bestPrices').writeBestPrices(await live.loadPriceBook()),
       addLots: lotDeps.addLots,
       loadUntracked: lotDeps.loadUntracked,
       loadPackSizes: packs.loadPackSizes,
