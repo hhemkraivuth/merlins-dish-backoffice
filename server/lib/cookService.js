@@ -9,6 +9,7 @@ const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('.
 const { splitOverheads, overheadRows } = require('./overheads');
 const { toBaseQty } = require('./ingredientLots');
 const { applyPackSize, isContainerWord } = require('./packSizes');
+const { newReceiptId } = require('./receiptUndo');
 
 const baht = (n) => `฿${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -227,13 +228,14 @@ async function processReceipt({ buffer, mime }, messageDate, deps) {
 // Receipts typed in the group: a date line, then "name qty price" lines, e.g. "minced pork 1000g 110thb".
 // deps: { loadCatalogue(), appendExpenseRows(rows) }. Returns an array of replies, or null when the text is not a typed receipt.
 async function processTypedReceipt(text, messageDate, deps) {
+  const receiptId = newReceiptId();
   // Overhead lines (pots, bags, knives) go to their own tab. Whatever is left is read as an ingredient receipt.
   const oh = splitOverheads(text, messageDate);
-  if (!oh.found) return processIngredientReceipt(text, messageDate, deps);
+  if (!oh.found) return processIngredientReceipt(text, messageDate, deps, receiptId);
   if (!deps.appendOverheads) return ['Overheads are not set up on this server yet.'];
   const replies = [];
   if (oh.items.length) {
-    await deps.appendOverheads(overheadRows(oh.items));
+    await deps.appendOverheads(overheadRows(oh.items, receiptId));
     const byDate = new Map();
     for (const it of oh.items) {
       const d = `${formatDMY(it.date)}${it.shop ? `, ${it.shop}` : ''}${it.category ? `, ${it.category}` : ''}`;
@@ -243,15 +245,18 @@ async function processTypedReceipt(text, messageDate, deps) {
     const out = [`Overheads logged: ${oh.items.length} item${oh.items.length === 1 ? '' : 's'}, ${baht(oh.items.reduce((s, it) => s + it.price, 0))}. Counted as spending in the month's margin, not as food cost, and not taken off stock.`];
     for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
     if (oh.undated) out.push(`No date line above some items, so I used ${formatDMY(messageDate)}.`);
+    out.push(`Receipt ${receiptId}. If this was a mistake, send: undo receipt`);
     replies.push(out.join('\n'));
   }
   if (oh.problems.length) replies.push(`Couldn't use these lines:\n${oh.problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
-  const food = await processIngredientReceipt(oh.rest, messageDate, deps);
+  const food = await processIngredientReceipt(oh.rest, messageDate, deps, receiptId);
   if (food) replies.push(...food);
   return replies.length ? replies : ['I saw "overhead" but no item lines. Write it like:\n13/10\nat paragon\noverhead\npot 7lt, 2575thb'];
 }
 
-async function processIngredientReceipt(text, messageDate, deps) {
+async function processIngredientReceipt(text, messageDate, deps, receiptId = newReceiptId()) {
+  // A stray word like "ingredients" or "food" on its own line is a heading, not an item.
+  text = String(text || '').split(/\r?\n/).filter((l) => !/^\s*(ingredients?|food|groceries)\s*:?\s*$/i.test(l)).join('\n');
   if (!looksLikeTypedReceipt(text)) return null;
   // A line saying "prices only" logs the prices (for costing past batches) without adding stock lots.
   const parsed = parseTypedReceipt(text, messageDate);
@@ -261,6 +266,17 @@ async function processIngredientReceipt(text, messageDate, deps) {
 
   let catalogue = [];
   try { catalogue = await deps.loadCatalogue(); } catch (err) { /* names stay as typed, flagged below */ }
+
+  // Short names Lily saved ("alias en ziero = EN Ziero - Golden Apple and Yuzu") turn into the full name before matching.
+  if (deps.loadAliases) {
+    try {
+      const aliases = await deps.loadAliases();
+      for (const it of items) {
+        const full = aliases.get(String(it.typedName || '').toLowerCase().replace(/\s+/g, ''));
+        if (full) { it.aliasOf = it.typedName; it.typedName = full; }
+      }
+    } catch (err) { /* aliases are optional */ }
+  }
 
   const flags = [];
   if (undated) flags.push(`No date line above some items, so I used the day you sent it (${formatDMY(messageDate)})`);
@@ -322,7 +338,7 @@ async function processIngredientReceipt(text, messageDate, deps) {
   const rows = items.map((it) => {
     const date = it.date || messageDate;
     const m = matchIngredient(it.typedName, catalogue);
-    const remarks = ['Typed in LINE'];
+    const remarks = ['Typed in LINE', `Receipt ${receiptId}`];
     if (m.fuzzy) { it.spelled = `${it.typedName} → ${m.name}`; remarks.push(`read "${it.typedName}" as ${m.name}`); }
     if (!m.name) {
       unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName);
@@ -354,7 +370,7 @@ async function processIngredientReceipt(text, messageDate, deps) {
       if (skip.has(looseKey(name))) { notTracked.push(name); packJobs.push({ name, packs: packsOf(it) }); return; }
       const base = toBaseQty(it.purchaseUnit);
       if (!base) return;
-      toAdd.push({ date: it.date || messageDate, name, qty: base.qty, unit: base.unit, price: it.price, source: 'Receipt', note: it.shop || '' });
+      toAdd.push({ date: it.date || messageDate, name, qty: base.qty, unit: base.unit, price: it.price, source: 'Receipt', note: [it.shop, receiptId].filter(Boolean).join(' ') });
       lotLines.push(`${name} ${Math.round(base.qty * 100) / 100}${base.unit}`);
     });
     // Condiments are counted in unopened packs, not grams. A pack bought goes onto the count if that item is already counted.
@@ -380,6 +396,7 @@ async function processIngredientReceipt(text, messageDate, deps) {
 
   const out = [`Logged to the Expense Log: ${items.length} item${items.length === 1 ? '' : 's'}, ${baht(total)}.`];
   for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
+  out.push(`Receipt ${receiptId}. If this was a mistake, send: undo receipt`);
   const replies = [out.join('\n')];
   const po = items.filter((it) => it.pricesOnly).length;
   if (po) replies.push(`Prices only: no stock lots were added for ${po === items.length ? 'these items' : `${po} of the ${items.length} items`}.`);

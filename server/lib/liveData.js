@@ -20,7 +20,11 @@ async function fresh() {
     at: Date.now(),
     priceBook: buildPriceBook({ priceLogRows, expenseRows, today: bangkokToday() }),
     units: new Map(tracker.filter((r) => r[0] && r[2]).map((r) => [normName(String(r[0])), unitKind(r[2])])),
-    catalogue: tracker.map((r) => String(r[0] || '').trim()).filter((n) => n && n.toLowerCase() !== 'ingredient'),
+    // Price Tracker names first, then any other ingredient already in the Price Log, so an item missing from the tracker still matches.
+    catalogue: [...new Set([
+      ...tracker.map((r) => String(r[0] || '').trim()),
+      ...priceLogRows.slice(1).map((r) => String(r[1] || '').trim()),
+    ].filter((n) => n && !/^(ingredient|item)$/i.test(n) && !/^\d/.test(n)))],
   };
   return cache;
 }
