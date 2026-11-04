@@ -124,6 +124,17 @@ async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LI
     return { status: 'error', text: `The "${batch.dishTab}" tab has no ingredient lines I can read. Nothing was logged for it.` };
   }
 
+  // "7r 4l portions": the portion weights for Regular and Large come from the dish tab.
+  if (batch.sizeCounts && batch.sizeCounts.length && !(batch.sizes && batch.sizes.length)) {
+    const pw = recipe.portionWeights || {};
+    const missing = batch.sizeCounts.filter((z) => !(pw[z.name] > 0));
+    if (missing.length) extraFlags.push(`The ${batch.dishTab} tab has no ${missing.map((z) => z.name).join(' or ')} portion weight, so the sizes could not be priced. Send them like: regular 7 @ 380g.`);
+    else {
+      batch.sizes = batch.sizeCounts.map((z) => ({ name: z.name, count: z.count, weight: pw[z.name] }));
+      extraFlags.push(`Portion weights taken from the tab: ${batch.sizes.map((z) => `${z.name} ${z.weight}g x ${z.count}`).join(', ')}.`);
+    }
+  }
+
   let lotBook = null;
   if (deps.loadLotBook) {
     try { lotBook = await deps.loadLotBook(); }
@@ -164,8 +175,15 @@ async function processNote(text, deps) {
   const replies = [];
   const priceBook = await deps.loadPriceBook();
 
+  // A long note repeats dishes, and each recipe read counts against Google's per minute limit. Read each tab once.
+  const recipes = new Map();
+  const cached = { ...deps, loadRecipe: async (tab) => {
+    if (!recipes.has(tab)) recipes.set(tab, await deps.loadRecipe(tab));
+    return recipes.get(tab);
+  } };
+
   for (const batch of batches) {
-    const out = await runBatch(batch, deps, shorthand, priceBook, { today, source: 'LINE' });
+    const out = await runBatch(batch, cached, shorthand, priceBook, { today, source: 'LINE' });
     replies.push(out.text);
   }
 
