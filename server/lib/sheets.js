@@ -92,4 +92,20 @@ async function deleteRowsWhere(tabName, predicate) {
   return at.length;
 }
 
-module.exports = { deleteRowsWhere, appendRows, writeTab, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };
+// Sorts the data rows (never the header) of a tab on the server, so formats are kept. keys: [{ col: 0-based column, asc }]
+async function sortTab(tabName, columnCount, keys) {
+  const sheets = await getSheetsClient();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: CLAUDE_LOG_SHEET_ID, fields: 'sheets.properties(sheetId,title)' });
+  const tab = (meta.data.sheets || []).find((x) => x.properties.title === tabName);
+  if (!tab) return false;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: CLAUDE_LOG_SHEET_ID,
+    requestBody: { requests: [{ sortRange: {
+      range: { sheetId: tab.properties.sheetId, startRowIndex: 1, startColumnIndex: 0, endColumnIndex: columnCount },
+      sortSpecs: keys.map((k) => ({ dimensionIndex: k.col, sortOrder: k.asc === false ? 'DESCENDING' : 'ASCENDING' })),
+    } }] },
+  });
+  return true;
+}
+
+module.exports = { sortTab, deleteRowsWhere, appendRows, writeTab, readTab, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };
