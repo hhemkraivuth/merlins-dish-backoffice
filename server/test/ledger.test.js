@@ -303,3 +303,28 @@ test('missing rider fees are flagged only after the first one is logged, for fin
   assert.strictEqual(h.length, 1);
   assert.match(h[0].message, /no rider fee yet\. Send: rider 001 <fee>/);
 });
+
+test('daily view: one row per day, and the day detail lists rows in order plus cooking and buying', () => {
+  const { dayDetail, summarise } = require('../lib/reports');
+  const { ledgerObjects } = require('../lib/ledger');
+  const { utc } = require('../lib/dates');
+  const row = (dmy, desc, ch, type, qty, money, cost, net, no, time) => [dmy, desc, ch, 'Grab-RT', type, qty, money, cost, net, 'Ann', no, time, `k|${dmy}|${desc}|${no}`, ''];
+  const ledger = ledgerObjects([
+    row('02/11/2026', 'Noir Ragu', 'LINE', 'Order', 2, 400, '', 400, '#001', '12:00'),
+    row('02/11/2026', 'Delivery', 'LINE', 'Delivery', 1, 50, '', 50, '#001', '12:00'),
+    row('03/11/2026', 'Noir Ragu', 'LINE', 'Order', 1, 200, '', 200, '#002', '13:00'),
+  ]);
+  const d2 = utc(2026, 11, 2);
+  const cook = [{ key: 'c1', date: d2, dish: 'Noir Ragu', portions: 20, cost: 1000 }];
+  const buys = [{ date: d2, name: 'Minced pork', amount: 330 }, { date: utc(2026, 11, 3), name: 'Onion', amount: 90 }];
+  const days = summarise(ledger, cook, buys, 'day');
+  assert.deepStrictEqual(days.map((d) => d.label), ['02/11/2026', '03/11/2026']);
+  const det = dayDetail(ledger, cook, buys, d2);
+  assert.deepStrictEqual(det.rows.map((r) => r.type), ['Order', 'Delivery']);
+  assert.strictEqual(det.cooked[0].perPortion, 50);
+  assert.deepStrictEqual(det.bought, [{ name: 'Minced pork', amount: 330 }]);
+  assert.strictEqual(det.summary.cookCost, 1000);
+  assert.deepStrictEqual(det.orders.map((o) => [o.time, o.status]), [['12:00', 'RT']]);
+  assert.deepStrictEqual(det.byHour, { '12': 1 });
+  assert.strictEqual(det.people.rt, 1);
+});

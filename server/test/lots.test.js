@@ -157,3 +157,37 @@ test('missing yield: nothing is logged and no stock is taken', async () => {
   assert.strictEqual(state.usage.length, 0);
   assert.strictEqual(state.rows[1][6], 3000);
 });
+
+// ---- free samples ----
+const freeDeps = (deps) => ({ ...deps, loadCatalogue: async () => ['Pork - minced', 'Knorr cube - pork full', 'Black pepper'], loadPriceBook: async () => priceBook });
+
+test('free: "2 boxes of 6" becomes 12 pieces, costed at 0, and never touches the Expense Log', async () => {
+  const { state, deps } = makeStore();
+  let expenseWrites = 0;
+  const d = { ...freeDeps(deps), appendExpenseRows: async () => { expenseWrites++; } };
+  const out = await processLots('free 14/10\nknorr cube pork 2 boxes of 6', TODAY, d);
+  assert.strictEqual(expenseWrites, 0);
+  assert.strictEqual(state.added.length, 1);
+  assert.strictEqual(state.added[0].qty, 12);
+  assert.strictEqual(state.added[0].unit, 'piece');
+  assert.strictEqual(state.added[0].source, 'Free sample');
+  assert.strictEqual(state.added[0].price, 0);
+  assert.match(out[0], /Free stock added \(14\/10\/2026\)/);
+});
+
+test('free: FREE_STOCK_VALUE=last values the lot at the last price', async () => {
+  const { state, deps } = makeStore();
+  process.env.FREE_STOCK_VALUE = 'last';
+  try { await processLots('free 14/10\nknorr cube pork 12 pieces', TODAY, freeDeps(deps)); } finally { delete process.env.FREE_STOCK_VALUE; }
+  assert.strictEqual(state.added[0].price, 24);
+});
+
+test('free: containers with no size, condiments and unknown items are reported, not added', async () => {
+  const { state, deps } = makeStore();
+  const out = await processLots('free\nknorr cube pork 2 boxes\nblack pepper 100g\nmystery thing 3pcs', TODAY, freeDeps(deps));
+  assert.strictEqual(state.added.length, 0);
+  const all = out.join('\n');
+  assert.match(all, /need the amount in each container/);
+  assert.match(all, /condiments/);
+  assert.match(all, /Not matched/);
+});
