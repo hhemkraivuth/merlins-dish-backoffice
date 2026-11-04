@@ -3,6 +3,7 @@
 const svc = require('../lib/ledgerService');
 const lineApi = require('../lib/lineApi');
 const { formatDMY, parseDate } = require('../lib/dates');
+const { withHistory } = require('../lib/history');
 
 const fail = (res, err) => { console.error(err); res.status(500).json({ error: String((err && err.message) || err) }); };
 
@@ -39,7 +40,7 @@ const shape = (p) => ({ ...p, from: formatDMY(p.from), to: formatDMY(p.to) });
 async function summary(req, res) {
   try {
     const { daily, weekly, monthly } = await svc.computeReports();
-    res.json({ daily: (daily || []).map(shape), weekly: weekly.map(shape), monthly: monthly.map(shape) });
+    res.json({ daily: (daily || []).map(shape), weekly: weekly.map(shape), monthly: monthly.map(shape), profit: withHistory(monthly).map(shape) });
   } catch (err) { fail(res, err); }
 }
 
