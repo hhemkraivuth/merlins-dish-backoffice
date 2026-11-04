@@ -70,8 +70,8 @@ function splitOverheads(text, today) {
   return { found: true, rest: rest.join('\n'), items, problems, undated };
 }
 
-function overheadRows(items, receiptId = '') {
-  return items.map((it) => [formatDMY(it.date), it.name, it.category, it.price, it.shop, receiptId ? `Typed in LINE; Receipt ${receiptId}` : 'Typed in LINE']);
+function overheadRows(items, receiptId = '', via = 'Typed in LINE') {
+  return items.map((it) => [formatDMY(it.date), it.name, it.category, it.price, it.shop, receiptId ? `${via}; Receipt ${receiptId}` : via]);
 }
 
 // The Overheads tab as read (header first) -> [{ date, name, amount, kind }] for the reports
