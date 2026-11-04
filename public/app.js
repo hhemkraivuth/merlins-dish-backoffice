@@ -489,4 +489,11 @@ async function saveStock(itemName, newCount, unit) {
 }
 
 // ---- Init ----
-renderReceipts();
+// Numbers and Commands link back here with /#receipts, /#batchcook or /#stock.
+const startTab = (location.hash || '').replace('#', '');
+if (PANELS[startTab] && startTab !== 'receipts') {
+  document.querySelectorAll('.tab-button').forEach((b) => b.classList.toggle('active', b.dataset.tab === startTab));
+  PANELS[startTab]();
+} else {
+  renderReceipts();
+}
