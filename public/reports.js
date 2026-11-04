@@ -68,7 +68,8 @@ async function showDay(dmy) {
 async function load() {
   try {
     const d = await call('/api/reports/summary');
-    draw('daily', d.daily.slice(-60), true);
+    if (!d.daily) say('The server is still on an older version, so the Daily table is empty. Wait for the Railway deploy to finish, then refresh.', true);
+    draw('daily', (d.daily || []).slice(-60), true);
     draw('weekly', d.weekly);
     draw('monthly', d.monthly);
   } catch (err) { say(err.message, true); }
