@@ -12,18 +12,94 @@ const { matchIngredient } = require('./typedReceipt');
 const { toBaseQty } = require('./ingredientLots');
 const { parseDate, formatDMY } = require('./dates');
 const { normName } = require('./priceBook');
+const { isContainerWord } = require('./packSizes');
 
 const baht = (n) => `฿${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const qtyText = (n, unit) => `${Number(n.toFixed(2)).toLocaleString('en-AU')}${unit}`;
 
 const COUNT = /^count\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?)?$/i;
 
-const USAGE = 'Stock lot commands:\nlots (what is left)\nopening 19/10 then lines like: minced pork 2000g 220thb\ncount minced pork 3000g (set the real quantity)\nsize worcestershire sauce 290ml (how much is in one bottle or can)\nundo noir ragu 6/10 (take a logged batch back out)';
+const USAGE = 'Stock lot commands:\nlots (what is left)\nfree 4/11 then lines like: knorr cube 2 boxes of 6 (free samples and gifts)\nopening 19/10 then lines like: minced pork 2000g 220thb\ncount minced pork 3000g (set the real quantity)\nsize worcestershire sauce 290ml (how much is in one bottle or can)\nundo noir ragu 6/10 (take a logged batch back out)';
 
 const SIZE = /^size\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr)$/i;
 const UNDO = /^undo\s+(.*?)\s*(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?)$/i;
 
-// deps: { loadLotBook(), saveLots(book, usage), addLots(items), loadCatalogue(), loadUntracked() }
+// ---- free samples and gifts ------------------------------------------------------------------------------
+//   free 4/11                       (the date is optional, it defaults to the day you send it)
+//   knorr cube 2 boxes of 6         "2 boxes of 6" is worked out as 12 pieces
+//   minced pork 500g
+// One line works too: "free 4/11 knorr cube 12 pieces".
+// The stock goes straight into the stock lots. It is NEVER written to the Expense Log, so it can never become "the latest
+// price" of an ingredient. What the lot is worth is set by FREE_STOCK_VALUE in Railway:
+//   last (default)  valued at the last price you paid, so margins are not flattered by free stock
+//   zero            valued at ฿0, because it cost you nothing
+const DATE_ONLY = /^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/;
+const OF = /(\d+(?:[.,]\d+)?)\s*(?:boxes|box|packs?|bags?|sets?|bottles?|cans?|tins?|jars?|sachets?|cartons?)\s+of\s+(\d+(?:[.,]\d+)?)\s*(kg|gm|grams?|g|ml|ltr|l|pieces?|pcs?|p)?(?![a-z])/i;
+
+function expandOf(line) {
+  const m = OF.exec(line);
+  if (!m) return line;
+  const total = Number(m[1].replace(',', '.')) * Number(m[2].replace(',', '.'));
+  return line.replace(OF, `${Number(total.toFixed(3))}${m[3] || 'pieces'}`);
+}
+
+async function processFree(raw, messageDate, deps) {
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  let rest = lines[0].replace(/^free\b[\s:]*/i, '').trim();
+  let date = messageDate;
+  const firstTok = rest.split(/\s+/)[0] || '';
+  if (DATE_ONLY.test(firstTok)) {
+    date = parseDate(firstTok, messageDate);
+    if (!date) return [`"${firstTok}" doesn't look like a valid date. Nothing was added.`];
+    rest = rest.slice(firstTok.length).trim();
+  }
+  const itemLines = [...(rest ? [rest] : []), ...lines.slice(1)].map(expandOf);
+  if (!itemLines.length) return [USAGE];
+
+  const { items, problems } = parseTypedReceipt(`${formatDMY(date)}\n${itemLines.map((l) => `${l}, 0`).join('\n')}`, messageDate);
+  if (!items.length) return [`I couldn't read any item lines. Each line needs a name and a quantity, for example:\nfree ${formatDMY(date)}\nknorr cube 2 boxes of 6`];
+
+  const book = await deps.loadLotBook();
+  let catalogue = [];
+  try { catalogue = await deps.loadCatalogue(); } catch (err) { /* names stay as typed */ }
+  const skip = new Set((deps.loadUntracked ? await deps.loadUntracked().catch(() => []) : []).map(normName));
+  let priceBook = null;
+  if (deps.loadPriceBook) { try { priceBook = await deps.loadPriceBook(); } catch (err) { /* valued at 0 below, and said so */ } }
+  const zero = String(process.env.FREE_STOCK_VALUE || '').toLowerCase() !== 'last';   // free means ฿0 unless FREE_STOCK_VALUE=last
+
+  const toAdd = []; const added = []; const unmatched = []; const condiments = []; const noSize = []; const noPrice = []; const firstLots = [];
+  for (const it of items) {
+    const m = matchIngredient(it.typedName, catalogue);
+    if (!m.name) { unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName); continue; }
+    if (skip.has(normName(m.name))) { condiments.push(m.name); continue; }
+    if (isContainerWord(it.unit)) { noSize.push(`${it.typedName} ${it.qty} ${it.unit}`); continue; }  // "2 boxes" alone has no size, say "2 boxes of 6"
+    const base = toBaseQty(it.purchaseUnit);
+    if (!base) { unmatched.push(it.typedName); continue; }
+    let unitCost = 0;
+    let how = 'valued at ฿0';
+    if (!zero) {
+      const last = priceBook ? priceBook.lookup(m.name, date) : null;
+      if (last && last.cost > 0) { unitCost = last.cost; how = `valued at the last price, ${baht(last.cost * (base.unit === 'piece' ? 1 : 1000))} per ${base.unit === 'piece' ? 'piece' : base.unit === 'ml' ? 'litre' : 'kg'}`; }
+      else { noPrice.push(m.name); how = 'no price on record, so valued at ฿0'; }
+    }
+    if (!book.hasLots(m.name)) firstLots.push(m.name);
+    toAdd.push({ date, name: m.name, qty: base.qty, unit: base.unit, price: Number((unitCost * base.qty).toFixed(2)), source: 'Free sample', note: 'free' });
+    added.push(`${m.name} ${qtyText(base.qty, base.unit)}, ${how}`);
+  }
+  if (toAdd.length) await deps.addLots(toAdd);
+
+  const out = [];
+  if (added.length) out.push(`Free stock added (${formatDMY(date)}):\n${added.map((a) => `• ${a}`).join('\n')}\nNot in the Expense Log, so the price book is untouched. Batches that use this stock are costed at ฿0 for it.`);
+  if (firstLots.length) out.push(`${[...new Set(firstLots)].join(', ')} had no stock lots before, so this is now the only lot. Send an "opening" count for any other stock you hold.`);
+  if (noPrice.length) out.push(`No price on record for ${[...new Set(noPrice)].join(', ')}.`);
+  if (noSize.length) out.push(`Not added, I need the amount in each container. Say "2 boxes of 6" or "12 pieces":\n${noSize.map((a) => `• ${a}`).join('\n')}`);
+  if (condiments.length) out.push(`Not stock tracked (condiments): ${condiments.join(', ')}.`);
+  if (unmatched.length) out.push(`Not matched to a known ingredient, nothing added for:\n${unmatched.map((a) => `• ${a}`).join('\n')}`);
+  if (problems.length) out.push(`Couldn't use these lines:\n${problems.slice(0, 6).map((a) => `• ${a}`).join('\n')}`);
+  return out.length ? out : ['Nothing was added.'];
+}
+
+// deps: { loadLotBook(), saveLots(book, usage), addLots(items), loadCatalogue(), loadUntracked(), loadPriceBook() }
 // Returns an array of replies, or null when the text is not a lot command.
 async function processLots(text, messageDate, deps) {
   const raw = String(text || '').trim();
@@ -118,7 +194,9 @@ async function processLots(text, messageDate, deps) {
     return [(await deps.undoBatch(un[1], date)).text];
   }
 
-  if (/^(count|opening|size|undo)\b/i.test(first)) return [USAGE];
+  if (/^free\b/i.test(first)) return processFree(raw, messageDate, deps);
+
+  if (/^(count|opening|size|undo|free)\b/i.test(first)) return [USAGE];
   return null;
 }
 

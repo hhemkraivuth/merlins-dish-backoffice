@@ -21,6 +21,9 @@ function weekStart(d) {
 }
 
 function periodOf(date, type) {
+  if (type === 'day') {
+    return { key: date.toISOString().slice(0, 10), label: formatDMY(date), from: date, to: date };
+  }
   if (type === 'month') {
     const from = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
     const to = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
@@ -143,6 +146,30 @@ function summarise(ledger, cookBatches, purchases, type = 'week') {
   });
 }
 
+// Everything that happened on one day, like a Master Log page: the ledger rows in sheet order, the batches cooked and the things bought.
+const statusOf = (orderFrom) => (/-n$/i.test(orderFrom) ? 'New' : /-rt$/i.test(orderFrom) ? 'RT' : '');
+function dayDetail(ledger, cookBatches, purchases, date) {
+  const t = date.getTime();
+  const rows = ledger.filter((r) => r.date.getTime() === t).map((r) => ({
+    time: r.time, channel: r.channel, type: r.type, desc: r.desc, qty: r.qty, orderNo: r.orderNo, customer: r.customer,
+    orderFrom: r.orderFrom, status: statusOf(r.orderFrom), moneyIn: r.moneyIn, cost: r.cost, net: r.net, flags: r.flags,
+  }));
+  const cooked = cookBatches.filter((b) => b.date.getTime() === t).map((b) => ({ dish: b.dish, portions: b.portions, cost: r2(b.cost || 0), perPortion: b.portions ? r2((b.cost || 0) / b.portions) : null }));
+  const bought = purchases.filter((x) => x.date.getTime() === t).map((x) => ({ name: x.name || '', amount: r2(x.amount || 0) }));
+  const summary = summarise(ledger, cookBatches, purchases, 'day').find((d) => d.key === date.toISOString().slice(0, 10)) || null;
+  // Who ordered and when: one entry per order, so the peak hours and the repeat customers show up.
+  const seen = new Set(); const orders = []; const byHour = {};
+  for (const r of rows) {
+    if (r.type !== 'Order' || !r.orderNo || seen.has(r.channel + r.orderNo)) continue;
+    seen.add(r.channel + r.orderNo);
+    orders.push({ time: r.time, channel: r.channel, orderNo: r.orderNo, customer: r.customer, status: r.status });
+    const h = /^(\d{1,2})[:.]/.exec(r.time || '');
+    if (h) byHour[h[1].padStart(2, '0')] = (byHour[h[1].padStart(2, '0')] || 0) + 1;
+  }
+  const people = { new: orders.filter((o) => o.status === 'New').length, rt: orders.filter((o) => o.status === 'RT').length };
+  return { date: formatDMY(date), summary, rows, cooked, bought, orders, byHour, people };
+}
+
 const REPORT_HEADERS = [
   'Period', 'From', 'To', 'Grab orders', 'Grab gross', 'Grab discounts', 'Grab commission', 'Grab marketing fee', 'Grab net',
   'LINE orders', 'LINE gross', 'LINE discounts', 'LINE net', 'LINE delivery charged', 'Net income (all channels)',
@@ -254,4 +281,4 @@ function priceMoves(expenseRows, threshold = 0.1) {
   return moves;
 }
 
-module.exports = { periodOf, weekStart, addDays, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps, buildCostTable, lookupCost, lineItemCost, r2 };
+module.exports = { dayDetail, periodOf, weekStart, addDays, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps, buildCostTable, lookupCost, lineItemCost, r2 };
