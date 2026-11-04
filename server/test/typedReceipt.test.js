@@ -201,9 +201,9 @@ test('where you shopped: a shop line applies until the next shop or date line', 
 
 test('kilo weights typed with a g: 0.478g is 478g, "0.60g 2pcs" is 0.6kg each, and the guess is said out loud', async () => {
   const r = parseTypedReceipt('9/10\nbroccoli 0.478g, 28.25\npecorino 0.60g 2pcs, 180\nknorr cube - beef 20g 48pcs, 280\nonion 450g, 20', TODAY);
-  assert.deepStrictEqual(r.items.map((i) => i.purchaseUnit), ['0.478kg', '1200g', '48pcs', '450g']);
+  assert.deepStrictEqual(r.items.map((i) => i.purchaseUnit), ['0.478kg', '1200g', '960g', '450g']);
   assert.match(r.items[0].assumed, /478g/);
-  assert.strictEqual(r.items[2].assumed, '');
+  assert.match(r.items[2].assumed, /20g x 48/);   // the caller turns this back into 48 pieces for items counted in pieces
   assert.strictEqual(r.items[3].assumed, '');
 });
 
@@ -251,4 +251,50 @@ test('a kilo guess far from the last price is read as the dropped zero (0.90g is
   });
   assert.deepStrictEqual(rows.map((r) => r[3]), ['90g', '0.108kg', '120g', '0.478kg']);   // 0.108kg (108g) already fits the last price, so it stays
   assert.ok(replies.some((r) => /guess on the weights/.test(r) && /would be/.test(r)));
+});
+
+test('overhead lines go to the Overheads tab only, and ingredient lines in the same message still work', async () => {
+  const oh = []; const expense = [];
+  const deps = { loadCatalogue: async () => ['Onion'], appendExpenseRows: async (x) => expense.push(...x), appendOverheads: async (x) => oh.push(...x) };
+  const out = await processTypedReceipt('13/10\nat paragon\noverhead equipment\npot 7lt, 2575thb\nknife 8 inch 450 baht\ningredients\nonion 2kg, 90\n14/10\noverhead\npaper bag 100pcs, 120', TODAY, deps);
+  assert.deepStrictEqual(oh.map((r) => [r[0], r[1], r[2], r[3], r[4]]), [
+    ['13/10/2026', 'pot 7lt', 'equipment', 2575, 'paragon'],
+    ['13/10/2026', 'knife 8 inch', 'equipment', 450, 'paragon'],
+    ['14/10/2026', 'paper bag 100pcs', '', 120, ''],
+  ]);
+  assert.deepStrictEqual(expense.map((r) => r[1]), ['Onion']);                 // only the ingredient reached the Expense Log
+  assert.ok(out.some((r) => /Overheads logged: 3 items, ฿3,145.00/.test(r)));
+});
+
+test('overhead-only message and unreadable overhead lines', async () => {
+  const oh = [];
+  const deps = { loadCatalogue: async () => [], appendExpenseRows: async () => { throw new Error('should not be called'); }, appendOverheads: async (x) => oh.push(...x) };
+  const out = await processTypedReceipt('13/10\noverhead\npot 7lt, 2575thb\nsomething with no price', TODAY, deps);
+  assert.strictEqual(oh.length, 1);
+  assert.ok(out.some((r) => /Couldn't use these lines/.test(r) && /something with no price/.test(r)));
+});
+
+test('reports keep overheads apart from ingredient purchases and take them off the margin', () => {
+  const { summarise } = require('../lib/reports');
+  const { utc } = require('../lib/dates');
+  const d = utc(2026, 10, 13);
+  const w = summarise([], [], [{ date: d, name: 'Onion', amount: 90 }, { date: d, name: 'pot', amount: 2575, kind: 'overhead' }], 'week')[0];
+  assert.strictEqual(w.purchases, 90);
+  assert.strictEqual(w.overheads, 2575);
+  assert.strictEqual(w.marginBeforeOverheads, 0);
+  assert.strictEqual(w.margin, -2575);          // the cash spent on overheads comes off that week's margin
+});
+
+test('her receipt style: prices only per block, "16thb ea" is per can, weight x count unless counted in pieces', async () => {
+  const { buildPriceBook } = require('../lib/priceBook');
+  const pb = buildPriceBook({ today: TODAY, priceLogRows: [['Date', 'Ing', 'P', 'U', 'C', 'S', 'R'], ['05/07/2026', 'Knorr cube - beef', 96, '48pcs', 2, '', ''], ['01/10/2026', 'Pecorino', 117, '100g', 1.17, '', '']] });
+  const rows = []; const lots = [];
+  const msg = '9/10\nat Makro\nprices only\nknorr cube - beef 20g 48pcs, 280\npeccorino 60g 2pcs, 180\n\n13/10\nat paragon\nmilk 5ltr, 225.5\neden zero 2 cans, 16thb ea';
+  await processTypedReceipt(msg, TODAY, {
+    loadCatalogue: async () => ['Knorr cube - beef', 'Pecorino', 'Milk', 'Eden Zero'], loadPriceBook: async () => pb,
+    appendExpenseRows: async (x) => rows.push(...x), addLots: async (x) => lots.push(...x), loadUntracked: async () => [],
+  });
+  assert.deepStrictEqual(rows.map((r) => [r[1], r[2], r[3]]), [['Knorr cube - beef', 280, '48pcs'], ['Pecorino', 180, '120g'], ['Milk', 225.5, '5ltr'], ['Eden Zero', 32, '2cans']]);
+  assert.deepStrictEqual(lots.map((l) => l.name), ['Milk', 'Eden Zero']);       // the Makro block was prices only, the 13/10 block was not
+  assert.strictEqual(matchIngredient('eden ziero', ['Eden Zero', 'Milk']).name, 'Eden Zero');
 });

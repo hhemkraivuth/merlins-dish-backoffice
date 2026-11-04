@@ -204,7 +204,7 @@ test('huddle text states how far each channel runs', () => {
   assert.match(text, /Yesterday \(02\/11\/2026\): .*LINE 2 orders/);
   assert.match(text, /Grab data runs to 09\/09\/2026 \(import the latest CSV\)/);
   assert.match(text, /Open handoffs \(1\)/);
-  assert.match(buildPeriodText(summarise(ledger, [], [], 'week'), 'week', utc(2026, 11, 3)), /Margin before ads and overheads/);
+  assert.match(buildPeriodText(summarise(ledger, [], [], 'week'), 'week', utc(2026, 11, 3)), /Margin after overheads, before ads/);
 });
 
 test('huddle timer runs once per Bangkok day after the set time, and only when switched on', async () => {
@@ -322,7 +322,7 @@ test('daily view: one row per day, and the day detail lists rows in order plus c
   const det = dayDetail(ledger, cook, buys, d2);
   assert.deepStrictEqual(det.rows.map((r) => r.type), ['Order', 'Delivery']);
   assert.strictEqual(det.cooked[0].perPortion, 50);
-  assert.deepStrictEqual(det.bought, [{ name: 'Minced pork', amount: 330 }]);
+  assert.deepStrictEqual(det.bought, [{ name: 'Minced pork', amount: 330, kind: 'Ingredient' }]);
   assert.strictEqual(det.summary.cookCost, 1000);
   assert.deepStrictEqual(det.orders.map((o) => [o.time, o.status]), [['12:00', 'RT']]);
   assert.deepStrictEqual(det.byHour, { '12': 1 });
