@@ -63,6 +63,7 @@ function defaultDeps() {
       isLogged: cookLog.isLogged,
       batchKey: cookLog.batchKey,
       writeBatch: cookLog.writeBatch,
+      tidy: cookLog.tidyCookLogs,
       deductStock,
       loadLotBook: lotDeps.loadLotBook,
       saveLots: lotDeps.saveLots,
