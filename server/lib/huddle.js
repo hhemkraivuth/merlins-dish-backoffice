@@ -27,7 +27,7 @@ function weekLine(periods, today) {
   const wk = periodOf(today, 'week');
   const p = periods.find((x) => x.key === wk.key);
   if (!p) return null;
-  return `This week so far: ${baht(p.revenue)} net income, ${baht(p.foodCost)} food cost, ${baht(p.margin)} margin after overheads${p.marginPct === null ? '' : ` (${p.marginPct}% of gross)`}.`;
+  return `This week so far: ${baht(p.revenue)} net income, ${baht(p.foodCost)} food cost, ${baht(p.margin)} margin after overheads and ads${p.marginPct === null ? '' : ` (${p.marginPct}% of gross)`}.`;
 }
 
 // { today, ledger, cookBatches, purchases, stock, open }
@@ -76,7 +76,8 @@ function buildPeriodText(periods, type, today) {
   out.push(`Food cost: ${baht(p.foodCost)} (batches ${baht(p.cookCost)}, recipe items ${baht(p.recipeCost + p.lineEstCost)})`);
   out.push(`Rider fees paid: ${baht(p.line.rider)}`);
   out.push(`Overheads bought (pots, bags, knives): ${baht(p.overheads)}`);
-  out.push(`Margin after overheads, before ads: ${baht(p.margin)}${p.marginPct === null ? '' : ` (${p.marginPct}% of gross)`}`);
+  out.push(`Ads spend (Meta, Grab): ${baht(p.ads)}`);
+  out.push(`Margin after overheads and ads: ${baht(p.margin)}${p.marginPct === null ? '' : ` (${p.marginPct}% of gross)`}`);
   out.push(`Ingredient purchases (memo): ${baht(p.purchases)}`);
   if (p.missingCosts.length) out.push(`No cost found for: ${p.missingCosts.slice(0, 5).join(', ')}`);
   return out.join('\n');
