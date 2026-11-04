@@ -28,6 +28,16 @@
     #detail h3 { font-size: 15px; margin: 14px 0 6px; }
     #detail td.left, #detail th.left { text-align: left; }
     .flag { color: var(--flag); }
+    details.tools { margin: 0 0 14px; }
+    details.tools summary { cursor: pointer; font-size: 14px; color: var(--accent); }
+    .toolrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 10px 0 6px; }
+    .toolrow label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+    .toolrow input, .toolrow select { font: inherit; font-size: 14px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); }
+    .toolrow button { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+    td.act button { font: inherit; font-size: 12px; padding: 3px 8px; margin-left: 4px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink); cursor: pointer; }
+    td.act button.danger { color: var(--flag); }
+    td input.cell { font: inherit; font-size: 13px; padding: 3px 5px; width: 74px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink); text-align: right; }
+    td input.cell.wide { width: 150px; text-align: left; }
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
   </style>
 </head>
@@ -49,6 +59,16 @@
         <button id="refresh" class="alt">Update report tabs in the sheet</button>
       </div>
       <div id="status" class="status"></div>
+      <details class="tools">
+        <summary>Delete rows by date</summary>
+        <div class="toolrow">
+          <label>From <input id="delFrom" placeholder="DD/MM/YYYY" size="12" /></label>
+          <label>To <input id="delTo" placeholder="DD/MM/YYYY" size="12" /></label>
+          <label>Channel <select id="delChannel"><option>Grab</option><option>LINE</option><option>All</option></select></label>
+          <button id="delGo" class="alt">Delete rows</button>
+        </div>
+        <p class="hint">It shows how many rows will go and asks you first. Importing the Grab CSV again for a day replaces that day's Grab rows, including any edits.</p>
+      </details>
       <h2>Daily <span class="hint">(tap a day to see every order, batch and purchase)</span></h2>
       <div class="tablewrap"><table id="daily" class="clickable"></table></div>
       <div id="detail"></div>
