@@ -103,6 +103,7 @@ two lots is costed as the blend of the two prices. When a lot is used up, the ne
 
 - **New purchases:** typed receipts create lots automatically.
 - **Starting stock (one off):** `opening 19/10` then lines like `minced pork 2000g 220thb` (total price paid for that quantity). An ingredient that already has lots is skipped.
+- **Free samples:** `free 4/11` then lines like `knorr cube 2 boxes of 6` (boxes are turned into pieces: 12). The lot is added to stock but nothing goes in the Expense Log, so prices do not move. Free stock is costed at ฿0, so batches that use it come out cheaper. Set `FREE_STOCK_VALUE=last` in Railway if you ever want free stock valued at the last price paid instead. The Numbers page day view shows time, customer and New / RT status for every order, plus orders by hour.
 - **Check:** send `lots` to see what is left, oldest first.
 - **Correct the quantity:** `count minced pork 3000g`. Lower than the books reduces the oldest lots. Higher adds an adjustment lot at the newest price.
 - **Condiments:** names in the `Untracked Ingredients` tab (starts with Black pepper, Salt, All purpose flour) never get lots and keep using the latest price. Add more rows there any time.
@@ -168,3 +169,6 @@ optionally `HUDDLE_AUTO`, `HUDDLE_TIME`, `HUDDLE_TOKEN`. Nothing changes in merl
 5. Send `groupid` in the new group, then set the id it replies with as `BOH_GROUP_ID` and redeploy.
 
 Run the tests with `npm test`.
+
+## All commands on one page
+Open `/commands.html` (linked as Commands in the header) for every command, for both the customer bot and the BOH group.
