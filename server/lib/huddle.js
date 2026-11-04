@@ -31,7 +31,7 @@ function weekLine(periods, today) {
 }
 
 // { today, ledger, cookBatches, purchases, stock, open }
-function buildHuddle({ today, ledger, cookBatches, purchases, stock, open }) {
+function buildHuddle({ today, ledger, cookBatches, purchases, stock, open, lowPacks = [] }) {
   const yesterday = addDays(today, -1);
   const out = [`Daily huddle, ${formatDMY(today)}`, ''];
   out.push(`Yesterday (${formatDMY(yesterday)}): ${dayLine(ledger, yesterday)}.`);
@@ -54,6 +54,8 @@ function buildHuddle({ today, ledger, cookBatches, purchases, stock, open }) {
       out.push(`• ${s.dish}: ${s.remaining}${age}${s.oversold ? ` (${s.oversold} sold beyond cook notes)` : ''}`);
     }
   }
+
+  if (lowPacks.length) out.push('', `Running low: ${lowPacks.join(', ')}`);
 
   if (open.length) {
     out.push('', `Open handoffs (${open.length}):`);

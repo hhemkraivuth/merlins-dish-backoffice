@@ -16,6 +16,7 @@
 
 const { parseDate } = require('./dates');
 const { parsePurchaseUnit } = require('./priceBook');
+const { isContainerWord } = require('./packSizes');
 
 const DATE_LINE = /^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/;
 const NUM = '(\\d+(?:[.,]\\d+)?)';
@@ -49,7 +50,9 @@ const num = (s) => Number(String(s).replace(',', '.'));
 // "minced pork" and "Pork - minced" are the same words in a different order.
 function tokens(s) {
   // Apostrophes are dropped, not turned into a gap, so "Campbell's" and "campbells" are the same word.
-  return String(s || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9฀-๿]+/g, ' ').split(' ').filter((t) => t && t !== 'mutti').map((t) => t.replace(/([a-z])\1+/g, '$1'));
+  return String(s || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9฀-๿]+/g, ' ').split(' ').filter((t) => t && t !== 'mutti').map((t) => t.replace(/([a-z])\1+/g, '$1'))
+    // anchovy and anchovies, onion and onions: the plural is the same word
+    .map((t) => (t.length > 3 && /ies$/.test(t) ? `${t.slice(0, -3)}y` : t.length > 3 && /s$/.test(t) && !/ss$/.test(t) ? t.slice(0, -1) : t));
 }
 
 // Edit distance where swapping two neighbouring letters counts as one slip ("pecroino" -> "pecorino").
@@ -163,13 +166,16 @@ function parseTypedReceipt(text, today) {
     // "pecorino 60g 2pcs, 180": a weight in the name followed by a count. Two pieces of 60g is 120g, unless the ingredient is
     // counted in pieces (Knorr cube 20g 48pcs is 48 pieces). The caller checks the ingredient's usual unit.
     let eachWeight = null;
-    const plain = name.match(/^(.*?)[\s,]+(\d+)\s*(?:g|gm|grams?)$/i);
-    if (plain && /^(pieces?|pcs?|p)$/.test(unit) && !assumed.startsWith('read')) {
-      eachWeight = { grams: Number(plain[2]), count: Number(qtyText), baseName: plain[1].trim(), fullName: name };
+    const plain = name.match(/^(.*?)[\s,]+(\d+(?:\.\d+)?)\s*(g|gm|grams?|ml|ltr|l)$/i);
+    const isCount = /^(pieces?|pcs?|p)$/.test(unit) || isContainerWord(unit);
+    const sizeUnit = plain ? (/^(ml|ltr|l)$/i.test(plain[3]) ? 'ml' : 'g') : '';
+    const sizeNum = plain ? Number(plain[2]) * (/^(ltr|l)$/i.test(plain[3]) ? 1000 : 1) : 0;
+    if (plain && isCount && !assumed.startsWith('read') && (sizeUnit === 'ml' || Number.isInteger(Number(plain[2])))) {
+      eachWeight = { size: sizeNum, unit: sizeUnit, count: Number(qtyText), containerWord: unit, text: `${plain[2]}${plain[3]}` };
       name = plain[1].trim();
-      qtyText = String(Number((eachWeight.grams * eachWeight.count).toFixed(3)));
-      unit = 'g';
-      assumed = `read ${eachWeight.grams}g x ${eachWeight.count} as ${qtyText}g`;
+      qtyText = String(Number((sizeNum * eachWeight.count).toFixed(3)));
+      unit = sizeUnit;
+      assumed = `read ${eachWeight.text} x ${eachWeight.count} as ${qtyText}${sizeUnit}`;
     }
     const qty = num(qtyText);
     const pu = parsePurchaseUnit(`${qtyText}${unit}`);

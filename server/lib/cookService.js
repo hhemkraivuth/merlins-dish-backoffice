@@ -27,7 +27,7 @@ const HELP = [
   'minced pork 1000g 110thb',
   'They go to the Expense Log and become stock lots. Batches use the oldest lot first.',
   '',
-  'Stock lots: "lots" shows what is left. "opening 19/10" then lines like "minced pork 2000g 220thb" sets starting stock. "count minced pork 3000g" corrects a quantity. "free 4/11" then "knorr cube 2 boxes of 6" adds free samples to stock (no purchase is logged).',
+  'Stock lots: "lots" shows what is left. "opening 19/10" then lines like "minced pork 2000g 220thb" sets starting stock. "count minced pork 3000g" corrects a quantity. "low salt 500g" flags it when less is left, "low" lists what is low. "free 4/11" then "knorr cube 2 boxes of 6" adds free samples to stock (no purchase is logged).',
   'Bottle and can sizes: "size worcestershire sauce 290ml" so "2 bottles" is stored as 580ml. "undo noir ragu 6/10" takes a logged batch back out so you can send it again.',
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
   '',
@@ -36,6 +36,13 @@ const HELP = [
   'Numbers: "huddle" for the daily team summary, "week" or "month" for income and costs, "sync" to pull in the latest LINE orders.',
   'Rider fee: "rider 001 55" logs what you paid the rider for LINE order #001 (add a date for another day, "rider 001,002 80" splits one trip evenly).',
 ].join('\n');
+
+// How many packs a receipt line adds: "2pcs" or "3 bags" is that many, a weight alone ("salt 1000g") is one pack.
+function packsOf(it) {
+  if (it.eachWeight) return it.eachWeight.count;
+  if (/^(pieces?|pcs?|p)$/.test(it.unit) || isContainerWord(it.unit)) return it.qty;
+  return 1;
+}
 
 function formatBatchReply(r, status, extraLines = []) {
   const out = [];
@@ -263,18 +270,23 @@ async function processIngredientReceipt(text, messageDate, deps) {
   if (deps.loadPackSizes) { try { sizes = await deps.loadPackSizes(); } catch (err) { flags.push(`The Pack Sizes tab could not be read (${err.message}), so bottle and can sizes were not applied.`); } }
   let priceBook = null;
   if (deps.loadPriceBook) { try { priceBook = await deps.loadPriceBook(); } catch (err) { /* the guard below is skipped */ } }
+  let units = null;   // recipe unit per ingredient (g, ml or piece) from the Price Tracker
+  if (deps.loadUnits) { try { units = await deps.loadUnits(); } catch (err) { /* falls back to the price book */ } }
 
   const held = [];
   items = items.filter((it) => {
     const name = matchIngredient(it.typedName, catalogue).name;
     if (!name) return true;
-    if (it.eachWeight && priceBook) {
-      const prev = priceBook.lookup(name, it.date || messageDate);
-      if (prev && prev.unit === 'piece') {
+    if (it.eachWeight) {
+      // The size in the line is the size of ONE container. Count the pieces when the recipe counts that item in pieces
+      // (Knorr cube 20g x 48), otherwise use the total weight or volume (pecorino 60g x 2, worcestershire 290ml x 8).
+      let recipeUnit = units && units.get(normName(name));
+      if (!recipeUnit && priceBook) { const prev = priceBook.lookup(name, it.date || messageDate); recipeUnit = prev && prev.unit; }
+      if (recipeUnit === 'piece') {
         const ew = it.eachWeight;
         it.purchaseUnit = `${ew.count}pcs`;
         it.costPerUnit = Number((it.price / ew.count).toFixed(5));
-        it.assumed = `counted as ${ew.count} pieces (the ${ew.grams}g is the size of one), because you usually buy it by the piece`;
+        it.assumed = `counted as ${ew.count} pieces (the ${ew.text} is the size of one), because the recipe counts it in pieces`;
       }
     }
     // A kilo guess ("0.90g" read as 900g) that lands far from the last price is probably a dropped zero (90g). Use the closer reading and say so.
@@ -327,6 +339,8 @@ async function processIngredientReceipt(text, messageDate, deps) {
   // Stock lots: every matched, countable ingredient becomes a lot (condiments on the Untracked list do not).
   const lotLines = [];
   const notTracked = [];
+  const packJobs = [];
+  const packLines = [];
   if (deps.addLots) {
     let untracked = [];
     try { untracked = deps.loadUntracked ? await deps.loadUntracked() : []; } catch (err) { /* treated as none */ }
@@ -337,12 +351,21 @@ async function processIngredientReceipt(text, messageDate, deps) {
       const name = rows[i][1];
       const matched = matchIngredient(it.typedName, catalogue).name;
       if (!matched) return;
-      if (skip.has(normName(name))) { notTracked.push(name); return; }
+      if (skip.has(normName(name))) { notTracked.push(name); packJobs.push({ name, packs: packsOf(it) }); return; }
       const base = toBaseQty(it.purchaseUnit);
       if (!base) return;
       toAdd.push({ date: it.date || messageDate, name, qty: base.qty, unit: base.unit, price: it.price, source: 'Receipt', note: it.shop || '' });
       lotLines.push(`${name} ${Math.round(base.qty * 100) / 100}${base.unit}`);
     });
+    // Condiments are counted in unopened packs, not grams. A pack bought goes onto the count if that item is already counted.
+    if (deps.adjustPacks) {
+      for (const job of packJobs) {
+        try {
+          const r = await deps.adjustPacks(job.name, job.packs);
+          packLines.push(r.found ? `${job.name} +${job.packs} (now ${r.now})` : `${job.name} is not counted yet. To start, send: stock add ${job.name}, pack, <unopened packs you have>`);
+        } catch (err) { flags.push(`Pack count for ${job.name} could not be updated (${err.message}).`); }
+      }
+    }
     try { await deps.addLots(toAdd); }
     catch (err) { lotLines.length = 0; flags.push(`The receipt is in the Expense Log, but the stock lots could not be added (${err.message}).`); }
   }
@@ -363,6 +386,7 @@ async function processIngredientReceipt(text, messageDate, deps) {
   if (lotLines.length) replies.push(`Added to stock lots: ${lotLines.join(', ')}.${notTracked.length ? `\nNot stock tracked (condiments): ${notTracked.join(', ')}.` : ''}`);
   else if (notTracked.length) replies.push(`Not stock tracked (condiments): ${notTracked.join(', ')}.`);
   if (unmatched.length) replies.push(`Not matched to a known ingredient, so cost lookups will skip these until the name matches the Price Tracker:\n${unmatched.slice(0, 8).map((u) => `• ${u}`).join('\n')}`);
+  if (packLines.length) replies.push(`Unopened packs:\n${packLines.map((l) => `• ${l}`).join('\n')}`);
   const spelled = items.filter((it) => it.spelled);
   if (spelled.length) replies.push(`I corrected the spelling:\n${spelled.map((it) => `• ${it.spelled}`).join('\n')}\nIf one is wrong, tell me and I will fix the row.`);
   const assumed = items.filter((it) => it.assumed);

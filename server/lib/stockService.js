@@ -41,7 +41,8 @@ async function seedPackaging(deps) {
   return { added, skipped: PACKAGING_ITEMS.filter((n) => !added.includes(n)) };
 }
 
-const line = (i) => `• ${i.itemName}: ${i.currentCount}${i.unit ? ' ' + i.unit : ''} (updated ${formatBangkokStamp(i.lastUpdated) || 'never'}${i.lastUpdatedBy ? ', ' + i.lastUpdatedBy : ''})`;
+const low = (i) => String(i.unit).toLowerCase() === 'pack' && i.currentCount <= 1;
+const line = (i) => `• ${i.itemName}: ${i.currentCount}${i.unit ? ' ' + i.unit : ''}${low(i) ? ' RUNNING LOW' : ''} (updated ${formatBangkokStamp(i.lastUpdated) || 'never'}${i.lastUpdatedBy ? ', ' + i.lastUpdatedBy : ''})`;
 
 const USAGE = 'Stock commands:\nstock (list everything)\nstock coke zero zero 5 (set a count)\nstock add Cup 12oz, set, 40 (add an item: name, unit, count)';
 

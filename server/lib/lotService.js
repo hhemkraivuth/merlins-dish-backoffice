@@ -13,14 +13,16 @@ const { toBaseQty } = require('./ingredientLots');
 const { parseDate, formatDMY } = require('./dates');
 const { normName } = require('./priceBook');
 const { isContainerWord } = require('./packSizes');
+const { lowItems, parseLevels } = require('./reorderLevels');
 
 const baht = (n) => `฿${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const qtyText = (n, unit) => `${Number(n.toFixed(2)).toLocaleString('en-AU')}${unit}`;
 
 const COUNT = /^count\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?)?$/i;
 
-const USAGE = 'Stock lot commands:\nlots (what is left)\nfree 4/11 then lines like: knorr cube 2 boxes of 6 (free samples and gifts)\nopening 19/10 then lines like: minced pork 2000g 220thb\ncount minced pork 3000g (set the real quantity)\nsize worcestershire sauce 290ml (how much is in one bottle or can)\nundo noir ragu 6/10 (take a logged batch back out)';
+const USAGE = 'Stock lot commands:\nlots (what is left)\nfree 4/11 then lines like: knorr cube 2 boxes of 6 (free samples and gifts)\nopening 19/10 then lines like: minced pork 2000g 220thb\ncount minced pork 3000g (set the real quantity)\nlow (what is running low) and low salt 500g (alert me when it drops below that)\nsize worcestershire sauce 290ml (how much is in one bottle or can)\nundo noir ragu 6/10 (take a logged batch back out)';
 
+const LOW_SET = /^low\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?)$/i;
 const SIZE = /^size\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr)$/i;
 const UNDO = /^undo\s+(.*?)\s*(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?)$/i;
 
@@ -110,9 +112,11 @@ async function processLots(text, messageDate, deps) {
     const names = book.names().filter((n) => book.totalRemaining(n) > 0).sort();
     if (!names.length) return ['No stock lots yet. Send "opening" with what you hold today, or a typed receipt.'];
     const out = ['Stock lots (oldest first):'];
+    let lowSet = new Set();
+    if (deps.loadLevels) { try { lowSet = new Set(lowItems(book, await deps.loadLevels()).map((x) => x.name)); } catch (err) { /* no alerts */ } }
     for (const n of names) {
       const live = book.lotsFor(n).filter((l) => l.remaining > 1e-6);
-      out.push(`${n}: ${qtyText(book.totalRemaining(n), live[0].unit)}`);
+      out.push(`${n}: ${qtyText(book.totalRemaining(n), live[0].unit)}${lowSet.has(n) ? ' LOW' : ''}`);
       for (const l of live.slice(0, 4)) out.push(`  ${formatDMY(l.date)}  ${qtyText(l.remaining, l.unit)} left @ ${baht(l.unitCost * (l.unit === 'piece' ? 1 : 1000))} per ${l.unit === 'piece' ? 'piece' : l.unit === 'ml' ? 'litre' : 'kg'}`);
       if (live.length > 4) out.push(`  plus ${live.length - 4} more lots`);
     }
@@ -152,6 +156,31 @@ async function processLots(text, messageDate, deps) {
     if (unmatched.length) out.push(`Not matched to a known ingredient, nothing added for:\n${unmatched.map((a) => `• ${a}`).join('\n')}`);
     if (problems.length) out.push(`Couldn't use these lines:\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
     return out.length ? out : ['Nothing was added.'];
+  }
+
+  if (/^low$/i.test(first) && raw === first && deps.loadLevels) {
+    const book = await deps.loadLotBook();
+    const levels = await deps.loadLevels();
+    if (!levels.size) return ['No alert levels yet. Set one like this: low salt 500g'];
+    const low = lowItems(book, levels);
+    if (!low.length) return ['Nothing is below its alert level.'];
+    return [`Running low:\n${low.map((x) => `• ${x.name}: ${qtyText(x.left, x.unit)} left, alert below ${qtyText(x.level, x.unit)}`).join('\n')}`];
+  }
+
+  const lw = first.match(LOW_SET);
+  if (lw && raw === first && deps.setLevel) {
+    const book = await deps.loadLotBook();
+    const m = matchIngredient(lw[1], book.names());
+    if (!m.name) {
+      return [m.ambiguous
+        ? `Nothing changed. "${lw[1]}" could be:\n${m.ambiguous.map((n) => `• ${n}`).join('\n')}\nSend the full name.`
+        : `Nothing changed. "${lw[1]}" has no stock lots yet. Send an "opening" count first.`];
+    }
+    const text = `${lw[2].replace(',', '.')}${lw[3].toLowerCase()}`;
+    const base = toBaseQty(text);
+    if (!base || base.unit !== book.lotsFor(m.name)[0].unit) return [`Nothing changed. ${m.name} is counted in ${book.lotsFor(m.name)[0].unit}.`];
+    const done = await deps.setLevel(m.name, text);
+    return [`${m.name}: I will flag it when less than ${qtyText(base.qty, base.unit)} is left (${done}). It shows as LOW in "lots", "low" and the huddle.`];
   }
 
   const ct = first.match(COUNT);
@@ -196,7 +225,7 @@ async function processLots(text, messageDate, deps) {
 
   if (/^free\b/i.test(first)) return processFree(raw, messageDate, deps);
 
-  if (/^(count|opening|size|undo|free)\b/i.test(first)) return [USAGE];
+  if (/^(count|opening|size|undo|free|low)\b/i.test(first)) return [USAGE];
   return null;
 }
 

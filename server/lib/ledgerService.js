@@ -5,6 +5,8 @@ const { appendRows, readTab, deleteRowsWhere, writeTab, updateRow } = require('.
 const { ensureTab } = require('./cookLog');
 const { LEDGER_TAB, LEDGER_HEADERS, COL, num, grabCsvToLedger, lineOrdersToLedger, ledgerObjects } = require('./ledger');
 const { overheadsFrom } = require('./overheads');
+const { lowItems, parseLevels } = require('./reorderLevels');
+const { LotBook } = require('./ingredientLots');
 const { dayDetail, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps } = require('./reports');
 const { HANDOFF_TAB, HANDOFF_HEADERS, currentHandoffs, reconcile, openHandoffs } = require('./handoffs');
 const { buildHuddle, buildPeriodText } = require('./huddle');
@@ -89,8 +91,8 @@ function purchasesFrom(rows) {
 }
 
 async function loadAll() {
-  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows] = await Promise.all([
-    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'),
+  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows] = await Promise.all([
+    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'),
   ]);
   const purchases = purchasesFrom(expense);
   return {
@@ -99,6 +101,8 @@ async function loadAll() {
     purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows)],
     expense: purchases.map((p) => ({ date: p.date, name: p.name, unitCost: p.unitCost })),
     handoffRows: handoffs,
+    lowIngredients: lowItems(new LotBook(lotRows, [], bangkokToday()), parseLevels(levelRows)).map((x) => `${x.name}: ${Math.round(x.left)}${x.unit} left`),
+    lowPacks: (stockCounts || []).slice(1).filter((r) => String(r[1] || '').toLowerCase() === 'pack' && Number(r[2]) <= 1).map((r) => `${r[0]}: ${Number(r[2])}`),
   };
 }
 
@@ -150,7 +154,7 @@ async function huddle({ sync = true } = {}) {
   await refreshReports().catch((err) => notes.push(`Report tabs not updated (${err.message})`));
   const h = await refreshHandoffs(data, today);
   const after = await readOrEmpty(HANDOFF_TAB);
-  const text = buildHuddle({ today, ledger: data.ledger, cookBatches: data.cookBatches, purchases: data.purchases, stock: h.stock, open: openHandoffs(after) });
+  const text = buildHuddle({ today, ledger: data.ledger, cookBatches: data.cookBatches, purchases: data.purchases, lowPacks: [...data.lowPacks, ...data.lowIngredients], stock: h.stock, open: openHandoffs(after) });
   return { text: notes.length ? `${text}\n\n${notes.join('. ')}.` : text, notes };
 }
 
