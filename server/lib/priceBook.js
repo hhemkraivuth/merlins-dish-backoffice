@@ -143,4 +143,7 @@ function unitKind(u) {
   return UNIT_FACTORS[k] ? UNIT_FACTORS[k][0] : k;
 }
 
-module.exports = { unitKind, UNIT_FACTORS, buildPriceBook, normName, toNumber, parsePurchaseUnit, STALE_DAYS };
+// Letters and digits only: "All purpose flour" and "All-Purpose Flour" are the same item.
+const looseKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9฀-๿]+/g, '');
+
+module.exports = { looseKey, unitKind, UNIT_FACTORS, buildPriceBook, normName, toNumber, parsePurchaseUnit, STALE_DAYS };

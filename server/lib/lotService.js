@@ -11,7 +11,7 @@ const { parseTypedReceipt } = require('./typedReceipt');
 const { matchIngredient } = require('./typedReceipt');
 const { toBaseQty } = require('./ingredientLots');
 const { parseDate, formatDMY } = require('./dates');
-const { normName } = require('./priceBook');
+const { normName, looseKey } = require('./priceBook');
 const { isContainerWord } = require('./packSizes');
 const { lowItems, parseLevels } = require('./reorderLevels');
 
@@ -64,7 +64,7 @@ async function processFree(raw, messageDate, deps) {
   const book = await deps.loadLotBook();
   let catalogue = [];
   try { catalogue = await deps.loadCatalogue(); } catch (err) { /* names stay as typed */ }
-  const skip = new Set((deps.loadUntracked ? await deps.loadUntracked().catch(() => []) : []).map(normName));
+  const skip = new Set((deps.loadUntracked ? await deps.loadUntracked().catch(() => []) : []).map(looseKey));
   let priceBook = null;
   if (deps.loadPriceBook) { try { priceBook = await deps.loadPriceBook(); } catch (err) { /* valued at 0 below, and said so */ } }
   const zero = String(process.env.FREE_STOCK_VALUE || '').toLowerCase() !== 'last';   // free means ฿0 unless FREE_STOCK_VALUE=last
@@ -73,7 +73,7 @@ async function processFree(raw, messageDate, deps) {
   for (const it of items) {
     const m = matchIngredient(it.typedName, catalogue);
     if (!m.name) { unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName); continue; }
-    if (skip.has(normName(m.name))) { condiments.push(m.name); continue; }
+    if (skip.has(looseKey(m.name))) { condiments.push(m.name); continue; }
     if (isContainerWord(it.unit)) { noSize.push(`${it.typedName} ${it.qty} ${it.unit}`); continue; }  // "2 boxes" alone has no size, say "2 boxes of 6"
     const base = toBaseQty(it.purchaseUnit);
     if (!base) { unmatched.push(it.typedName); continue; }
@@ -134,13 +134,13 @@ async function processLots(text, messageDate, deps) {
     const book = await deps.loadLotBook();
     let catalogue = [];
     try { catalogue = await deps.loadCatalogue(); } catch (err) { /* names stay as typed */ }
-    const skip = new Set((deps.loadUntracked ? await deps.loadUntracked().catch(() => []) : []).map(normName));
+    const skip = new Set((deps.loadUntracked ? await deps.loadUntracked().catch(() => []) : []).map(looseKey));
 
     const toAdd = []; const added = []; const unmatched = []; const condiments = []; const already = [];
     for (const it of items) {
       const m = matchIngredient(it.typedName, catalogue);
       if (!m.name) { unmatched.push(m.ambiguous ? `${it.typedName} (could be ${m.ambiguous.join(' or ')})` : it.typedName); continue; }
-      if (skip.has(normName(m.name))) { condiments.push(m.name); continue; }
+      if (skip.has(looseKey(m.name))) { condiments.push(m.name); continue; }
       if (book.hasLots(m.name)) { already.push(`${m.name} (${qtyText(book.totalRemaining(m.name), book.lotsFor(m.name)[0].unit)} on the books)`); continue; }
       const base = toBaseQty(it.purchaseUnit);
       if (!base) { unmatched.push(it.typedName); continue; }

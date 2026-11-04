@@ -13,7 +13,7 @@
 //   Lot Usage            audit trail, one row per batch line per lot it took from
 //   Untracked Ingredients  names to leave out of lot tracking (Lily can edit)
 
-const { normName, toNumber, parsePurchaseUnit, unitKind } = require('./priceBook');
+const { normName, looseKey, toNumber, parsePurchaseUnit, unitKind } = require('./priceBook');
 const { parseDate, formatDMY, bangkokNow } = require('./dates');
 
 const LOTS_TAB = 'Ingredient Lots';
@@ -42,7 +42,7 @@ function newLotId(date, now = Date.now()) {
 class LotBook {
   // rows: the Ingredient Lots tab as read (header first). untracked: array of names.
   constructor(rows = [], untracked = [], today) {
-    this.untracked = new Set(untracked.map(normName).filter(Boolean));
+    this.untracked = new Set(untracked.map(looseKey).filter(Boolean));
     this.lots = new Map(); // normalised name -> [lot], oldest first
     this.byId = new Map();
     this.consumed = new Map(); // lot id -> qty taken during this run
@@ -66,7 +66,7 @@ class LotBook {
     for (const list of this.lots.values()) list.sort((a, b) => a.date - b.date || a.seq - b.seq);
   }
 
-  isUntracked(name) { return this.untracked.has(normName(name)); }
+  isUntracked(name) { return this.untracked.has(looseKey(name)); }
   hasLots(name) { return this.lots.has(normName(name)); }
   names() { return [...this.lots.values()].map((l) => l[0].name); }
   lotsFor(name) { return this.lots.get(normName(name)) || []; }

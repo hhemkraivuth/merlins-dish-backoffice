@@ -4,7 +4,7 @@
 const { parseNote, looksLikeAttempt } = require('./noteParser');
 const { costBatch } = require('./costBatch');
 const { parseDate, formatDMY, bangkokToday, bangkokNow } = require('./dates');
-const { parsePurchaseUnit, normName } = require('./priceBook');
+const { parsePurchaseUnit, normName, looseKey } = require('./priceBook');
 const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
 const { splitOverheads, overheadRows } = require('./overheads');
 const { toBaseQty } = require('./ingredientLots');
@@ -344,14 +344,14 @@ async function processIngredientReceipt(text, messageDate, deps) {
   if (deps.addLots) {
     let untracked = [];
     try { untracked = deps.loadUntracked ? await deps.loadUntracked() : []; } catch (err) { /* treated as none */ }
-    const skip = new Set(untracked.map(normName));
+    const skip = new Set(untracked.map(looseKey));
     const toAdd = [];
     items.forEach((it, i) => {
       if (it.pricesOnly) return;
       const name = rows[i][1];
       const matched = matchIngredient(it.typedName, catalogue).name;
       if (!matched) return;
-      if (skip.has(normName(name))) { notTracked.push(name); packJobs.push({ name, packs: packsOf(it) }); return; }
+      if (skip.has(looseKey(name))) { notTracked.push(name); packJobs.push({ name, packs: packsOf(it) }); return; }
       const base = toBaseQty(it.purchaseUnit);
       if (!base) return;
       toAdd.push({ date: it.date || messageDate, name, qty: base.qty, unit: base.unit, price: it.price, source: 'Receipt', note: it.shop || '' });

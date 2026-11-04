@@ -110,7 +110,9 @@ function matchIngredient(typed, catalogue = []) {
       const have = tokens(n);
       // Spaces in the wrong place ("en ziero" for "Eden Zero") are caught by comparing the words run together.
       const joined = slips(want.join(''), have.join(''));
-      return { n, c: have.length ? Math.min(cost(want, have), cost(have, want), joined) : Infinity };
+      // A tie goes to the ingredient with the fewest words that were not typed: "chichen thigh" is Chicken - thigh, not Chicken - drum+thigh.
+      const extra = have.filter((t) => !want.some((w) => slips(w, t) !== Infinity)).length;
+      return { n, c: have.length ? Math.min(cost(want, have), cost(have, want), joined) + extra * 0.1 : Infinity };
     })
     .filter((x) => x.c !== Infinity)
     .sort((a, b) => a.c - b.c);
