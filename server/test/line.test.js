@@ -378,3 +378,22 @@ test('webhook: unrecognised group text gets a reply instead of silence', async (
     assert.match(replies[0], /didn't recognise/);
   });
 });
+
+test('stew sizes typed as "7r 4l portions" take their weights from the recipe tab, and each tab is read once per note', async () => {
+  const deps = makeNoteDeps();
+  let reads = 0;
+  deps.loadRecipe = async (tab) => {
+    reads += 1;
+    const r = parseDishTab(bologneseRows);
+    r.portionWeights = { Regular: 380, Large: 525 };
+    return r;
+  };
+  const shorthand = defaultShorthand();
+  shorthand.dishes.set('rws', 'Polished Pork Bolognese');   // the fake recipe stands in for a stew tab
+  deps.loadShorthand = async () => shorthand;
+  const replies = await processNote('7/10\nrws\nMeat 1000\n7r 4l portions\n8/10\nrws\nMeat 1000\n3r 2l portions', deps);
+  assert.strictEqual(reads, 1);
+  assert.strictEqual(deps.written.length, 2);
+  assert.deepStrictEqual(deps.written[0].r.sizes.map((z) => `${z.name} ${z.weight}g x ${z.count}`), ['Regular 380g x 7', 'Large 525g x 4']);
+  assert.ok(replies.join('\n').includes('Portion weights taken from the tab'));
+});
