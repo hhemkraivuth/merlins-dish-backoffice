@@ -180,3 +180,6 @@ Spelling slips in typed receipts (one wrong or swapped letter) are matched to th
 
 ## Overheads
 Pots, paper bags, knives and other non-ingredients: put an `overhead` line (or `overhead equipment`, `overhead packaging` to tag it) under the date in a typed receipt, then `pot 7lt, 2575thb` lines. They are written to the `Overheads` tab in the Claude Log and nowhere else. The Numbers page and Weekly and Monthly Report tabs show them in an `Overheads bought` column. They count as that period's spending: the Numbers page shows Margin before overheads, Overheads bought and Margin after overheads. They are never counted as food cost and never taken off stock (paper bags are not tracked per order).
+
+## Brands
+Put a brand in brackets after the ingredient name in a typed receipt: `tomato paste (Mica) 560g, 12pcs, 816thb`. Matching ignores it, the Expense Log Remarks column says `Brand: Mica`, and the Best Prices tab shows it, for example `best price: 816/6720g, Mica`.
