@@ -56,6 +56,7 @@ app.post('/api/reports/refresh', ledgerRoute.refresh);
 app.get('/api/reports/summary', ledgerRoute.summary);
 app.get('/api/reports/day', ledgerRoute.day);
 app.post('/api/ledger/delete-range', ledgerRoute.deleteRange);
+app.post('/api/borrowed', ledgerRoute.saveBorrowed);
 app.post('/api/ledger/manual-orders', ledgerRoute.manualOrders);
 app.post('/api/ledger/row/delete', ledgerRoute.deleteRow);
 app.post('/api/ledger/row/update', ledgerRoute.updateRow);
