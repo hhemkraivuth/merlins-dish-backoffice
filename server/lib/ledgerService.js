@@ -5,6 +5,7 @@ const { appendRows, readTab, deleteRowsWhere, writeTab, updateRow, updateCells }
 const { ensureTab } = require('./cookLog');
 const { LEDGER_TAB, LEDGER_HEADERS, COL, num, grabCsvToLedger, lineOrdersToLedger, ledgerObjects, rowInRange, cellsFor } = require('./ledger');
 const { overheadsFrom } = require('./overheads');
+const { grabAdsFrom } = require('./grabAds');
 const { lowItems, parseLevels } = require('./reorderLevels');
 const { LotBook } = require('./ingredientLots');
 const { dayDetail, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps } = require('./reports');
@@ -136,14 +137,14 @@ function purchasesFrom(rows) {
 }
 
 async function loadAll() {
-  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows] = await Promise.all([
-    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'),
+  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows] = await Promise.all([
+    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'),
   ]);
   const purchases = purchasesFrom(expense);
   return {
     ledger: ledgerObjects(ledgerRows),
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
-    purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows)],
+    purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows)],
     expense: purchases.map((p) => ({ date: p.date, name: p.name, unitCost: p.unitCost })),
     handoffRows: handoffs,
     lowIngredients: lowItems(new LotBook(lotRows, [], bangkokToday()), parseLevels(levelRows)).map((x) => `${x.name}: ${Math.round(x.left)}${x.unit} left`),

@@ -122,7 +122,7 @@ function summarise(ledger, cookBatches, purchases, type = 'week', { through = nu
     const p = get(b.date);
     p.cook.batches += 1; p.cook.portions += b.portions || 0; p.cook.cost += b.cost || 0;
   }
-  for (const x of purchases) { if (x.kind === 'overhead') get(x.date).overheads += x.amount || 0; else if (x.kind === 'ads') get(x.date).ads += x.amount || 0; else get(x.date).purchases += x.amount || 0; }
+  for (const x of purchases) { if (x.kind === 'grabads') get(x.date).grab.otherFees += x.amount || 0; else if (x.kind === 'overhead') get(x.date).overheads += x.amount || 0; else if (x.kind === 'ads') get(x.date).ads += x.amount || 0; else get(x.date).purchases += x.amount || 0; }
 
   // Every day (or week, or month) between the first and the last one appears, even with nothing in it, so no date is skipped.
   // "through" (usually today) extends the end, so quiet days since the last order show too.
@@ -180,7 +180,7 @@ function dayDetail(ledger, cookBatches, purchases, date, toDate = null) {
     orderFrom: r.orderFrom, status: statusOf(r.orderFrom), moneyIn: r.moneyIn, cost: r.cost, net: r.net, flags: r.flags, key: r.key,
   }));
   const cooked = cookBatches.filter((b) => inRange(b.date)).map((b) => ({ date: formatDMY(b.date), dish: b.dish, portions: b.portions, cost: r2(b.cost || 0), perPortion: b.portions ? r2((b.cost || 0) / b.portions) : null }));
-  const bought = purchases.filter((x) => inRange(x.date)).map((x) => ({ date: formatDMY(x.date), name: x.name || '', amount: r2(x.amount || 0), kind: x.kind === 'overhead' ? 'Overhead' : x.kind === 'ads' ? 'Ads' : 'Ingredient' }));
+  const bought = purchases.filter((x) => inRange(x.date)).map((x) => ({ date: formatDMY(x.date), name: x.name || '', amount: r2(x.amount || 0), kind: x.kind === 'overhead' ? 'Overhead' : x.kind === 'ads' ? 'Ads' : x.kind === 'grabads' ? 'Grab ads' : 'Ingredient' }));
   const summary = range ? null : (summarise(ledger, cookBatches, purchases, 'day').find((d) => d.key === date.toISOString().slice(0, 10)) || null);
   // Who ordered and when: one entry per order, so the peak hours and the repeat customers show up.
   const seen = new Set(); const orders = []; const byHour = {};
