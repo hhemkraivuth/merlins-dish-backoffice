@@ -72,7 +72,7 @@ function buildMarketing({ today, ledger = [], noteRows = [] }) {
     kinds: KINDS,
     dates: upcomingDates(today),
     auditDue: audit === null || audit >= 9,
-    auditNote: audit === null ? 'First weekly check is pending.' : `Last check ${last.date}, ${audit === 0 ? 'today' : `${audit} day${audit === 1 ? '' : 's'} ago`}.`,
+    auditNote: audit === null ? 'First Sunday check is pending.' : `Last check ${last.date}, ${audit === 0 ? 'today' : `${audit} day${audit === 1 ? '' : 's'} ago`}.`,
   };
 }
 
