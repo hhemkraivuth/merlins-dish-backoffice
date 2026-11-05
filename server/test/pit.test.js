@@ -18,7 +18,7 @@ test('pit has the five teams and says how far each one runs', () => {
     ['04/11/2026', 'Operations', 'App sales, Direct sales', 'Noir Ragu is sold out.', 'Open', '', 'k'],
     ['03/11/2026', 'Purchasing', 'Operations', 'Pork is up 12%.', 'Done', '', 'k2']];
   const pit = buildPit({ today, ledger, cookBatches, purchases, handoffRows, stock: [{ dish: 'Noir Ragu', remaining: 4, oldestAgeDays: 2 }] });
-  assert.deepStrictEqual(pit.teams.map((t) => t.name), ['App sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing']);
+  assert.deepStrictEqual(pit.teams.map((t) => t.name), ['Grab sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing']);
   const [app, direct, ops, buy] = pit.teams;
   assert.strictEqual(app.asOf, '04/11/2026');
   assert.match(app.updates[0], /1 order, ฿300 gross, ฿210 after fees/);

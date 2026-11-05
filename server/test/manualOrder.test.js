@@ -37,3 +37,12 @@ test('quantity prefix and the same order twice give the same keys', () => {
   assert.strictEqual(a.rows[0][5], 2);
   assert.deepStrictEqual(a.rows.map((r) => r[12]), b.rows.map((r) => r[12]));
 });
+
+test('ig after the date marks the order as Instagram', () => {
+  const { parseManualOrders } = require('../lib/manualOrder');
+  const r = parseManualOrders('23/10 ig Cee\nCreamy Chicken Soup 165\n', new Date(Date.UTC(2026, 9, 25)));
+  assert.strictEqual(r.problems.length, 0);
+  assert.strictEqual(r.orders[0].name, 'Cee');
+  assert.strictEqual(r.orders[0].rows[0][2], 'LINE');
+  assert.strictEqual(r.orders[0].rows[0][3], 'Instagram');
+});

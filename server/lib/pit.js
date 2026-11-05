@@ -42,6 +42,7 @@ function openRows(rows) {
 }
 
 const involves = (team) => (h) => h.from.includes(team) || h.to.includes(team);
+const staleLine = (today, last, what) => (last ? `${what} data to ${formatDMY(last)}` : `No ${what} data yet`);
 
 // { today, ledger, cookBatches, purchases, expense, stock, handoffRows, lowIngredients, lowPacks }
 function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expense = [], stock = [], handoffRows = [], lowIngredients = [], lowPacks = [], noteRows = [] }) {
@@ -51,7 +52,7 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
 
   // App sales (Grab)
   const grabLast = lastDateOf(ledger, 'Grab');
-  const app = { name: 'App sales', channel: 'Grab', asOf: grabLast ? formatDMY(grabLast) : null, updates: [] };
+  const app = { name: 'Grab sales', key: 'App sales', channel: 'Grab', asOf: grabLast ? formatDMY(grabLast) : null, updates: [] };
   if (grabLast) {
     const d = dayOf(ledger, 'Grab', grabLast);
     const stale = daysBetween(today, grabLast) > 2;
@@ -62,6 +63,9 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
     if (stale) app.updates.push('Grab data is behind. Import the latest CSV on the Numbers page.');
     if (wk) app.updates.push(`This week: ${plural(wk.grab.orders, 'order')}, ${baht(wk.grab.gross)} gross.`);
   } else { app.headline = 'No data yet'; app.updates.push('No Grab data imported yet.'); }
+  app.top = wk ? plural(wk.grab.orders, 'order') : '0 orders';
+  app.line = wk ? baht(wk.grab.gross) : baht(0);
+  app.note = staleLine(today, grabLast, 'Grab'); app.stale = Boolean(grabLast && daysBetween(today, grabLast) > 2);
 
   // Direct sales (LINE)
   const lineLast = lastDateOf(ledger, 'LINE');
@@ -76,6 +80,8 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
     const gaps = riderGaps(ledger, today);
     if (gaps.length) direct.updates.push(`${plural(gaps.length, 'LINE order')} still need a rider fee.`);
   } else { direct.headline = 'No data yet'; direct.updates.push('No LINE orders in the Ledger yet.'); }
+  direct.top = wk ? plural(wk.line.orders, 'order') : '0 orders';
+  direct.line = wk ? baht(wk.line.net) : baht(0);
 
   // Operations (cooking and stock)
   const batches = [...cookBatches].sort((a, b) => b.date - a.date);
@@ -91,6 +97,8 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
     const lowYield = batches.filter((b) => daysBetween(today, b.date) <= 7 && b.portions > 0 && b.portions <= 3);
     if (lowYield.length) ops.updates.push(`Low yield this week: ${lowYield.map((b) => `${b.dish} ${b.portions}`).join(', ')}. Check the margin.`);
   } else { ops.headline = 'No data yet'; ops.updates.push('No batches logged yet.'); }
+  ops.top = wk ? plural(wk.cookBatches, 'batch', 'batches') : '0 batches';
+  ops.line = wk ? plural(wk.cookPortions, 'portion') : '0 portions';
   const left = stock.filter((s) => s.remaining > 0);
   if (left.length) ops.updates.push(`Stock left: ${left.map((s) => `${s.dish} ${s.remaining}${s.oldestAgeDays ? ` (oldest ${s.oldestAgeDays}d)` : ''}`).join(', ')}.`);
 
@@ -106,6 +114,8 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
     buy.updates.push(`Last receipt ${formatDMY(lastBuy.date)} (${ago(today, lastBuy.date)}): ${plural(day.length, 'item')}, ${baht(day.reduce((s, p) => s + (p.amount || 0), 0))}.`);
     if (wk) buy.updates.push(`This week: ${baht(wk.purchases)} on ingredients, ${baht(wk.overheads)} on overheads.`);
   } else { buy.headline = 'No data yet'; buy.updates.push('No receipts logged yet.'); }
+  buy.top = wk ? baht(wk.purchases + wk.overheads) : baht(0);
+  buy.line = 'spent this week';
   const moves = priceMoves(expense).filter((m) => daysBetween(today, m.date) <= 14);
   if (moves.length) buy.updates.push(`Price moves: ${moves.map((m) => `${m.name} ${m.change > 0 ? 'up' : 'down'} ${Math.round(Math.abs(m.change) * 100)}%`).join(', ')}.`);
   const low = [...lowPacks, ...lowIngredients];
@@ -120,6 +130,8 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
     mk.sub = `Grab ${wk.grab.orders}, LINE ${wk.line.orders}`;
     mk.updates.push(`This week: ${plural(orders, 'order')} across Grab and LINE.`);
   } else { mk.headline = 'No sales this week yet'; }
+  mk.top = wk ? plural(wk.grab.orders + wk.line.orders, 'order') : '0 orders';
+  mk.line = 'this week, all channels';
   if (notes[0]) {
     mk.when = notes[0].date;
     mk.updates.push(`Latest note (${notes[0].kind}): ${notes[0].title}.`);
@@ -128,7 +140,7 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   if (drafts.length) mk.updates.push(`${plural(drafts.length, 'ad draft')} waiting for approval.`);
 
   const teams = [app, direct, ops, buy, mk];
-  for (const t of teams) t.open = open.filter(involves(t.name));
+  for (const t of teams) t.open = open.filter(involves(t.key || t.name));
   return { today: formatDMY(today), teams, openTotal: open.length };
 }
 

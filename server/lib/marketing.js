@@ -38,10 +38,23 @@ function upcomingDates(today, within = 60) {
   return out.sort((a, b) => a.away - b.away);
 }
 
-function line(p) {
-  if (!p) return { orders: 0, gross: 0, text: 'No orders yet' };
+// Orders marked "Instagram" in the Order from column (channel stays LINE). One order is one order number.
+function igIn(ledger, per) {
+  const orders = new Set(); let net = 0;
+  for (const r of ledger) {
+    if (r.channel !== 'LINE' || !/^instagram$/i.test(r.orderFrom) || r.date < per.from || r.date > per.to) continue;
+    net += r.net || 0;
+    if (r.type === 'Order') orders.add(r.orderNo || `${r.dmy}|${r.customer}`);
+  }
+  return { orders: orders.size, net };
+}
+
+function line(p, ig) {
+  if (!p) return { orders: 0, text: '0 orders', grabText: '0 orders, ฿0', lineText: '0 orders, ฿0', igText: '0 orders, ฿0' };
+  const lineOrders = Math.max(p.line.orders - ig.orders, 0);
+  const lineNet = p.line.net - ig.net;
   const orders = p.grab.orders + p.line.orders;
-  return { orders, grab: p.grab.orders, line: p.line.orders, text: plural(orders, 'order'), grabText: `${plural(p.grab.orders, 'order')}, ${baht(p.grab.gross)}`, lineText: `${plural(p.line.orders, 'order')}, ${baht(p.line.net)}` };
+  return { orders, grab: p.grab.orders, line: lineOrders, ig: ig.orders, text: plural(orders, 'order'), grabText: `${plural(p.grab.orders, 'order')}, ${baht(p.grab.gross)}`, lineText: `${plural(lineOrders, 'order')}, ${baht(lineNet)}`, igText: `${plural(ig.orders, 'order')}, ${baht(ig.net)}` };
 }
 
 function buildMarketing({ today, ledger = [], noteRows = [] }) {
@@ -53,13 +66,13 @@ function buildMarketing({ today, ledger = [], noteRows = [] }) {
   const audit = last ? daysBetween(today, parseNoteDate(last.date)) : null;
   return {
     today: formatDMY(today),
-    week: line(find('week')),
-    month: line(find('month')),
+    week: line(find('week'), igIn(ledger, periodOf(today, 'week'))),
+    month: line(find('month'), igIn(ledger, periodOf(today, 'month'))),
     notes: byKind,
     kinds: KINDS,
     dates: upcomingDates(today),
-    auditDue: audit === null || audit >= 14,
-    auditNote: audit === null ? 'No competitor check logged yet.' : `Last competitor check ${audit} day${audit === 1 ? '' : 's'} ago.`,
+    auditDue: audit === null || audit >= 9,
+    auditNote: audit === null ? 'First weekly check is pending.' : `Last check ${last.date}, ${audit === 0 ? 'today' : `${audit} day${audit === 1 ? '' : 's'} ago`}.`,
   };
 }
 

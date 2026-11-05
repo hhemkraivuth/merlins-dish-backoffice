@@ -51,7 +51,11 @@ async function loadPackSizes() {
   const cookLog = require('./cookLog');
   const { readTab } = require('./sheets');
   await cookLog.ensureTab(TAB, HEADERS, DEFAULT_SIZES);
-  return parseSizes(await readTab(TAB));
+  const map = parseSizes(await readTab(TAB));
+  // Sizes Lily has told us, used until the sheet says otherwise.
+  const fallback = parseSizes([['Ingredient', 'Size per container', 'Note'], ['Stout', '490ml', 'one can']]);
+  for (const [k, v] of fallback) if (!map.has(k)) map.set(k, v);
+  return map;
 }
 
 // Adds or changes one ingredient's size. `word` (can, bottle, bag) is kept in the Note column as "one can". Returns 'added' or 'changed'.

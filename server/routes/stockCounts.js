@@ -53,7 +53,7 @@ async function listIngredientStock(req, res) {
       const left = book.totalRemaining(name);
       return { name, left: Math.round(left * 100) / 100, unit: live[0].unit, oldest: live[0].date, low: Boolean(lv && lv.unit === live[0].unit && left < lv.qty), level: lv ? lv.text : '', pack: packView(left, live[0].unit, sizes.get(normName(name))) };
     }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
-    res.json({ items: items.map((i) => ({ ...i, oldest: i.oldest instanceof Date ? i.oldest.toISOString().slice(0, 10) : String(i.oldest || '') })) });
+    res.json({ items: items.map((i) => ({ ...i, oldest: (() => { const t = i.oldest instanceof Date ? i.oldest.toISOString().slice(0, 10) : String(i.oldest || ''); const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : t; })() })) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
