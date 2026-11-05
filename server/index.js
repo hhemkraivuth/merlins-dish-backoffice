@@ -20,7 +20,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // rawBody is kept so the LINE webhook can verify LINE's signature
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Phones (and the LINE in-app browser) keep old pages and styles after a deploy, so make them re-check every time.
+app.use(express.static(path.join(__dirname, '..', 'public'), { etag: true, lastModified: true, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
 // Mode 1: Daily Orders (Grab screenshots)
 app.post('/api/orders/batch', upload.array('screenshots', 60), ordersRoute.handleBatch);
