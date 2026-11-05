@@ -4,6 +4,7 @@ const svc = require('../lib/ledgerService');
 const lineApi = require('../lib/lineApi');
 const { formatDMY, parseDate } = require('../lib/dates');
 const { withHistory } = require('../lib/history');
+const borrowedLib = require('../lib/borrowed');
 
 const fail = (res, err) => { console.error(err); res.status(500).json({ error: String((err && err.message) || err) }); };
 
@@ -40,7 +41,8 @@ const shape = (p) => ({ ...p, from: formatDMY(p.from), to: formatDMY(p.to) });
 async function summary(req, res) {
   try {
     const { daily, weekly, monthly } = await svc.computeReports();
-    res.json({ daily: (daily || []).map(shape), weekly: weekly.map(shape), monthly: monthly.map(shape), profit: withHistory(monthly).map(shape) });
+    const borrowed = await borrowedLib.loadBorrowed();
+    res.json({ daily: (daily || []).map(shape), weekly: weekly.map(shape), monthly: monthly.map(shape), profit: withHistory(monthly).map((m) => shape({ ...m, borrowed: borrowed.get(m.key) ?? null })) });
   } catch (err) { fail(res, err); }
 }
 
@@ -81,6 +83,8 @@ async function deleteRange(req, res) {
     const from = parseDate(b.from); const to = parseDate(b.to);
     if (!from || !to) return res.status(400).json({ error: 'Send both dates like 08/09/2026.' });
     if (to.getTime() < from.getTime()) return res.status(400).json({ error: 'The end date is before the start date.' });
+    const target = String(b.target || 'ledger').toLowerCase();
+    if (target !== 'ledger') return res.json(await svc.deleteTabRange({ target, from, to, dryRun: !!b.dryRun }));
     const channel = ['all', 'grab', 'line'].includes(String(b.channel || 'all').toLowerCase()) ? b.channel || 'All' : null;
     if (!channel) return res.status(400).json({ error: 'Channel must be Grab, LINE or All.' });
     res.json(await svc.deleteLedgerRange({ from, to, channel, dryRun: !!b.dryRun }));
@@ -96,4 +100,9 @@ async function updateRow(req, res) {
   catch (err) { const bad = /not a number|can't be edited|Nothing to change|No row key/.test(String(err.message)); if (bad) return res.status(400).json({ error: err.message }); fail(res, err); }
 }
 
-module.exports = { manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };
+async function saveBorrowed(req, res) {
+  try { res.json(await borrowedLib.saveBorrowed(req.body && req.body.month, req.body && req.body.amount)); }
+  catch (err) { if (/must (look|be)/.test(String(err.message))) return res.status(400).json({ error: err.message }); fail(res, err); }
+}
+
+module.exports = { saveBorrowed, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };
