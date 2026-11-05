@@ -1,12 +1,14 @@
 :root {
-  --ink: #2A2622;
-  --paper: #F7F4EE;
-  --line: #DDD6C9;
-  --accent: #7C5C3E;
-  --flag: #9A4B32;
-  --ok: #4C6B4F;
-  --card: #FFFEFC;
-  --muted: #7A7368;
+  /* Merlin's Dish brand. Primary: red, blue, white. Secondary (sticker sheet): yellow, teal, cream. */
+  --red: #E63D23; --blue: #294BD4; --yellow: #F8CC1A; --teal: #63CBC6; --cream: #FFEEDE; --navy: #1B2559;
+  --ink: #1B2559;
+  --paper: #FFF7EE;
+  --line: #F3DCC8;
+  --accent: #294BD4;
+  --flag: #E63D23;
+  --ok: #2E8B6E;
+  --card: #FFFFFF;
+  --muted: #6C6A7A;
 }
 
 * { box-sizing: border-box; }
@@ -21,13 +23,14 @@ body {
 .app { min-height: 100vh; padding-bottom: 40px; }
 
 .header {
-  border-bottom: 1px solid var(--line);
+  background: var(--red); color: #fff;
   padding: 20px 20px 16px;
 }
+.header .subtitle { color: #FFE3DC; }
 .header-inner { display: flex; align-items: center; gap: 12px; }
 .logo-mark {
   width: 36px; height: 36px; border-radius: 8px;
-  background: var(--accent); color: var(--paper);
+  background: #fff; color: var(--red);
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 13px; letter-spacing: 0.5px;
 }
@@ -44,7 +47,7 @@ body {
   font-family: inherit;
 }
 .tab-link { text-decoration: none; display: inline-block; }
-.tab-button.active { background: var(--ink); color: var(--paper); font-weight: 600; }
+.tab-button.active { background: var(--blue); color: #fff; font-weight: 600; }
 
 .main { padding: 20px 20px 60px; max-width: 520px; margin: 0 auto; }
 .section { display: flex; flex-direction: column; gap: 14px; }

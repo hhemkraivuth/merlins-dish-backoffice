@@ -62,8 +62,8 @@
   }
 
   function drawRoom(ctx) {
-    ctx.fillStyle = '#efe6d6'; ctx.fillRect(0, 0, W, H);
-    for (let y = 12; y < H; y += 8) for (let x = ((y / 8) % 2) * 8; x < W; x += 16) { ctx.fillStyle = '#e6dac6'; ctx.fillRect(x, y, 8, 8); }
+    ctx.fillStyle = '#bfe6e3'; ctx.fillRect(0, 0, W, H);
+    for (let y = 12; y < H; y += 8) for (let x = ((y / 8) % 2) * 8; x < W; x += 16) { ctx.fillStyle = '#9fd6d2'; ctx.fillRect(x, y, 8, 8); }
     ctx.fillStyle = '#e63d23'; ctx.fillRect(0, 0, W, 12);
     ctx.fillStyle = '#f8cc1a'; ctx.fillRect(0, 10, W, 2);
     // windows

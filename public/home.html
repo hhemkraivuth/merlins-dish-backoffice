@@ -6,23 +6,13 @@
   <title>Merlin's Dish — The Pit</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    /* Merlin's Dish look, Home only until Lily approves it for every page.
-       Primary: red #E63D23, blue #294BD4, white. Secondary: yellow #F8CC1A, teal #63CBC6, cream #FFEEDE (from the sticker sheet). */
-    :root { --ink: #1B2559; --paper: #FFF7EE; --card: #FFFFFF; --line: #F3DCC8; --accent: #294BD4; --muted: #6C6A7A; --flag: #E63D23; --red: #E63D23; --blue: #294BD4; --yellow: #F8CC1A; --teal: #63CBC6; --cream: #FFEEDE; }
-    body { background: var(--paper); }
-    .header { background: var(--red); border-bottom: 0; }
-    .header .title { color: #fff; }
-    .header .subtitle { color: #FFE3DC; }
-    .logo-mark { background: #fff; color: var(--red); }
-    .tab-bar { background: var(--paper); }
-    .tab-button.active { background: var(--blue); color: #fff; }
     .wide { max-width: 1000px; }
     .status { font-size: 14px; color: var(--muted); min-height: 20px; margin-bottom: 8px; }
     .status.err { color: var(--flag); }
     .topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; }
     .topline h2 { font-size: 18px; margin: 0; }
     .topline button { font: inherit; font-size: 14px; font-weight: 600; padding: 8px 16px; border: 0; border-radius: 999px; background: var(--blue); color: #fff; cursor: pointer; }
-    .office { position: relative; width: 100%; max-width: 760px; margin: 0 auto 18px; border: 3px solid var(--blue); border-radius: 12px; overflow: hidden; background: #efe6d6; }
+    .office { position: relative; width: 100%; max-width: 760px; margin: 0 auto 18px; border: 3px solid var(--blue); border-radius: 12px; overflow: hidden; background: #bfe6e3; }
     .office canvas { display: block; width: 100%; aspect-ratio: 192 / 120; image-rendering: pixelated; }
     .office .plate { position: absolute; transform: translate(-50%, -100%); font: inherit; font-size: 11px; font-weight: 700; line-height: 1; padding: 4px 8px; border: 0; border-radius: 6px; background: var(--yellow); color: var(--blue); cursor: pointer; white-space: nowrap; }
     @media (min-width: 600px) { .office .plate { font-size: 13px; padding: 5px 10px; } }
