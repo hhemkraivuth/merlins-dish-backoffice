@@ -84,15 +84,15 @@
         <textarea id="manText" rows="9" style="width:100%;font:13px ui-monospace,monospace;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)" placeholder="23/10 Cee&#10;Red Wine Beef Stew (Regular) 285&#10;Noir Ragu + Pasta (Radiatori) 230&#10;delivery 50&#10;total 565"></textarea>
         <div class="toolrow"><button id="manGo" class="alt">Add these orders</button></div>
       </details>
-      <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span></h2>
+      <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span> <button class="alt" data-csv="profit" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <div class="tablewrap"><table id="profit"></table></div>
       <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only.</p>
       <div id="detail"></div>
-      <h2>Monthly <span class="hint">(tap a month, week or day to see its orders, batches and purchases, then edit or delete)</span></h2>
+      <h2>Monthly <span class="hint">(tap a month, week or day to see its orders, batches and purchases, then edit or delete)</span> <button class="alt" data-csv="monthly" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <div class="tablewrap"><table id="monthly" class="clickable"></table></div>
-      <h2>Weekly</h2>
+      <h2>Weekly <button class="alt" data-csv="weekly" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <div class="tablewrap"><table id="weekly" class="clickable"></table></div>
-      <h2>Daily <span class="hint">(tap a day)</span></h2>
+      <h2>Daily <span class="hint">(tap a day)</span> <button class="alt" data-csv="daily" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <div class="tablewrap"><table id="daily" class="clickable"></table></div>
       <p class="intro-body">Margin comes off the overheads you bought that period (pots, bags, knives) and the ads you spent (type them in the Weekly Receipts box). Grab's own fees are already inside Grab net. Batch food cost lands on the cook date. LINE costs for pasta, bacon and drinks are estimated from the latest Grab recipe cost. Ingredient purchases are a memo and are not added to cost.</p>
     </main>

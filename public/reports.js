@@ -1,5 +1,6 @@
 const $ = (id) => document.getElementById(id);
-const baht = (n) => (n === '' || n === null || n === undefined ? '' : Number(n).toLocaleString('en-AU', { maximumFractionDigits: 0 }));
+let RAW = false; // true while building a CSV: plain numbers to 2 decimals, no thousands commas, so Excel reads them as numbers
+const baht = (n) => (n === '' || n === null || n === undefined ? '' : RAW ? Math.round(Number(n) * 100) / 100 : Number(n).toLocaleString('en-AU', { maximumFractionDigits: 0 }));
 
 function say(msg, err) { const s = $('status'); s.textContent = msg; s.className = 'status' + (err ? ' err' : ''); }
 
@@ -43,15 +44,15 @@ function draw(id, periods, clickable) {
 }
 
 // One row per month, laid out like the Merlin's numbers tab: money in, Grab deductions, ads, costs, profit.
-const DASH = '–'; // months from before the app only have a total cost
+const dash = () => (RAW ? '' : '–'); // months from before the app only have a total cost
 const PROFIT = [
   ['Month', (m) => m.label, true],
-  ['Money to take out', (m) => (m.history ? DASH : baht(m.moneyToTakeOut))],
+  ['Money to take out', (m) => (m.history ? dash() : baht(m.moneyToTakeOut))],
   ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0],
   ['Costs (approx)', (m) => baht(m.costs !== undefined ? m.costs : m.foodCost + m.line.rider + m.overheads)],
-  ['Overheads', (m) => (m.history ? DASH : baht(m.overheads))],
-  ['Rider fees', (m) => (m.history ? DASH : baht(m.line.rider))],
-  ['Cooking costs', (m) => (m.history ? DASH : baht(m.foodCost))],
+  ['Overheads', (m) => (m.history ? dash() : baht(m.overheads))],
+  ['Rider fees', (m) => (m.history ? dash() : baht(m.line.rider))],
+  ['Cooking costs', (m) => (m.history ? dash() : baht(m.foodCost))],
   ['Meta ads', (m) => baht(m.ads)],
   ['Direct sales (LINE)', (m) => baht(m.line.net + m.line.delivery)],
   ['Grab sales', (m) => baht(m.grab.gross)],
@@ -159,6 +160,31 @@ async function showDay(from, to, p) {
   } catch (err) { box.innerHTML = ''; say(err.message, true); }
 }
 
+// ---- CSV downloads (open in Excel). Same columns as the tables on this page, but every period, not just what is shown. ----
+let DATA = { daily: [], weekly: [], monthly: [], profit: [] };
+const csvCell = (v) => { const t = String(v ?? '').replace(/<[^>]*>/g, ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+function downloadCsv(name, columns, rows) {
+  RAW = true;
+  let lines;
+  try {
+    lines = [columns.map((c) => csvCell(c[0])).join(','), ...rows.map((r) => columns.map((c) => csvCell(c[1](r))).join(','))];
+  } finally { RAW = false; }
+  const today = new Date().toISOString().slice(0, 10);
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `merlins-dish-${name}-${today}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const CSV_SETS = { profit: () => [PROFIT, DATA.profit], monthly: () => [COLUMNS, DATA.monthly], weekly: () => [COLUMNS, DATA.weekly], daily: () => [COLUMNS, DATA.daily] };
+document.querySelectorAll('[data-csv]').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.csv; const [cols, rows] = CSV_SETS[k]();
+  if (!rows.length) { say('Nothing to download yet.', true); return; }
+  downloadCsv(k === 'profit' ? 'summary' : k, cols, rows);
+  say(`Downloaded ${rows.length} rows.`);
+}));
+
 async function load() {
   try {
     const d = await call('/api/reports/summary');
@@ -167,6 +193,7 @@ async function load() {
     draw('weekly', d.weekly, true);
     draw('monthly', d.monthly, true);
     drawProfit(d.profit || d.monthly || []);
+    DATA = { daily: d.daily || [], weekly: d.weekly || [], monthly: d.monthly || [], profit: d.profit || d.monthly || [] };
   } catch (err) { say(err.message, true); }
 }
 
