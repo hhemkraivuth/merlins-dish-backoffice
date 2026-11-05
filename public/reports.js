@@ -47,8 +47,9 @@ function draw(id, periods, clickable) {
 const dash = () => (RAW ? '' : '–'); // months from before the app only have a total cost
 const PROFIT = [
   ['Month', (m) => m.label, true],
+  ['Borrowed', (m) => (m.key ? (RAW ? (m.borrowed ?? '') : `<input class="borrow" data-key="${m.key}" inputmode="decimal" value="${m.borrowed ? Math.round(m.borrowed * 100) / 100 : ''}" placeholder="0" aria-label="Borrowed in ${m.label}" />`) : baht(m.borrowed))],
   ['Money to take out', (m) => (m.history ? dash() : baht(m.moneyToTakeOut))],
-  ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0],
+  ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0, (m) => m.margin >= 0],
   ['Costs (approx)', (m) => baht(m.costs !== undefined ? m.costs : m.foodCost + m.line.rider + m.overheads)],
   ['Overheads', (m) => (m.history ? dash() : baht(m.overheads))],
   ['Rider fees', (m) => (m.history ? dash() : baht(m.line.rider))],
@@ -74,9 +75,10 @@ function drawProfit(months) {
     grab: { gross: sumOf((m) => m.grab.gross), discount: sumOf((m) => m.grab.discount), commission: sumOf((m) => m.grab.commission), marketing: sumOf((m) => m.grab.marketing), otherFees: sumOf((m) => m.grab.otherFees), net: sumOf((m) => m.grab.net) },
     ads: sumOf((m) => m.ads), foodCost: sumOf((m) => m.foodCost), overheads: sumOf((m) => m.overheads), margin: sumOf((m) => m.margin),
     moneyToTakeOut: sumOf((m) => m.moneyToTakeOut || 0),
+    borrowed: sumOf((m) => m.borrowed || 0),
     costs: sumOf((m) => (m.history ? m.costs : m.foodCost + m.line.rider + m.overheads)),
   };
-  const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : ''}">${c[1](m)}</td>`).join('');
+  const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : c[4] && c[4](m) ? 'pos' : ''}">${c[1](m)}</td>`).join('');
   t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`;
 }
 
@@ -158,6 +160,13 @@ async function showDay(from, to, p) {
     });
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) { box.innerHTML = ''; say(err.message, true); }
+  t.querySelectorAll('input.borrow').forEach((inp) => inp.addEventListener('change', async () => {
+    try {
+      await call('/api/borrowed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ month: inp.dataset.key, amount: inp.value }) });
+      say(`Saved. Borrowed for ${inp.getAttribute('aria-label').replace('Borrowed in ', '')}: ฿${baht(inp.value || 0)}.`);
+      load();
+    } catch (err) { say(err.message, true); }
+  }));
 }
 
 // ---- CSV downloads (open in Excel). Same columns as the tables on this page, but every period, not just what is shown. ----
@@ -244,12 +253,15 @@ $('manGo').addEventListener('click', async () => {
 });
 
 $('delGo').addEventListener('click', async () => {
-  const body = { from: $('delFrom').value.trim(), to: $('delTo').value.trim(), channel: $('delChannel').value };
+  const where = $('delWhere').value; // ledger-Grab, ledger-LINE, ledger-All, expense, overheads
+  const isLedger = where.startsWith('ledger-');
+  const label = isLedger ? `${where.slice(7)} rows of the Ledger` : where === 'expense' ? 'rows of the Expense Log' : 'rows of the Overheads tab';
+  const body = { from: $('delFrom').value.trim(), to: $('delTo').value.trim() || $('delFrom').value.trim(), target: isLedger ? 'ledger' : where, channel: isLedger ? where.slice(7) : 'All' };
   const post = (extra) => call('/api/ledger/delete-range', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, ...extra }) });
   try {
     const peek = await post({ dryRun: true });
     if (!peek.count) { say('No rows match that range.'); return; }
-    if (!confirm(`Delete ${peek.count} ${body.channel} rows from ${body.from} to ${body.to}? This cannot be undone.`)) { say('Nothing deleted.'); return; }
+    if (!confirm(`Delete ${peek.count} ${label} from ${body.from} to ${body.to}? This cannot be undone.${isLedger ? '' : ' Stock lots are not changed.'}`)) { say('Nothing deleted.'); return; }
     const r = await post({});
     say(`${r.deleted} rows deleted.`);
     $('detail').innerHTML = '';

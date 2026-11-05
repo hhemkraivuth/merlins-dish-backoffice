@@ -21,6 +21,8 @@
     th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); }
     th { font-weight: 600; color: var(--muted); }
     .neg { color: var(--flag); }
+    .pos { color: #14532d; font-weight: 600; }
+    td input.borrow { font: inherit; font-size: 13px; width: 86px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink); text-align: right; }
     h2 { font-size: 16px; margin: 20px 0 8px; }
     .hint { font-size: 12px; font-weight: 400; color: var(--muted); }
     table.clickable tr.row { cursor: pointer; }
@@ -28,6 +30,8 @@
     #detail h3 { font-size: 15px; margin: 14px 0 6px; }
     #detail td.left, #detail th.left { text-align: left; }
     .flag { color: var(--flag); }
+    .swipe { display: none; margin: 0 0 6px; }
+    @media (max-width: 640px) { .swipe { display: block; } }
     details.tools { margin: 0 0 14px; }
     details.tools summary { cursor: pointer; font-size: 14px; color: var(--accent); }
     .toolrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 10px 0 6px; }
@@ -39,6 +43,22 @@
     td input.cell { font: inherit; font-size: 13px; padding: 3px 5px; width: 74px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink); text-align: right; }
     td input.cell.wide { width: 150px; text-align: left; }
     button.alt-btn { font: inherit; font-size: 12px; margin-left: 10px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--flag); cursor: pointer; }
+    @media (max-width: 640px) {
+      .main.wide { padding: 12px 10px 48px; }
+      .header-inner .subtitle { display: none; }
+      .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+      .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; }
+      .actions { gap: 8px; }
+      .actions button, .actions label.btn { flex: 1 1 100%; text-align: center; padding: 12px 14px; }
+      .toolrow > label, .toolrow select, .toolrow input, .toolrow button { flex: 1 1 100%; width: 100%; box-sizing: border-box; }
+      h2 { font-size: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+      h2 .hint { flex: 1 1 100%; order: 3; }
+      table { font-size: 12px; }
+      th, td { padding: 7px 8px; }
+      .tablewrap { -webkit-overflow-scrolling: touch; margin-left: -4px; margin-right: -4px; }
+      td input.borrow { width: 96px; font-size: 16px; }
+      #detail { overflow-x: auto; }
+    }
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
   </style>
 </head>
@@ -71,12 +91,12 @@
       <details class="tools">
         <summary>Delete rows by date</summary>
         <div class="toolrow">
-          <label>From <input id="delFrom" placeholder="DD/MM/YYYY" size="12" /></label>
-          <label>To <input id="delTo" placeholder="DD/MM/YYYY" size="12" /></label>
-          <label>Channel <select id="delChannel"><option>Grab</option><option>LINE</option><option>All</option></select></label>
+          <label>Delete from <select id="delWhere"><option value="ledger-Grab">Ledger: Grab orders</option><option value="ledger-LINE">Ledger: LINE orders</option><option value="ledger-All">Ledger: Grab and LINE</option><option value="expense">Expense Log (ingredient receipts)</option><option value="overheads">Overheads tab</option></select></label>
+          <label>From date <input id="delFrom" type="date" /></label>
+          <label>To date <input id="delTo" type="date" /></label>
           <button id="delGo" class="alt">Delete rows</button>
         </div>
-        <p class="hint">It shows how many rows will go and asks you first. Importing the Grab CSV again for a day replaces that day's Grab rows, including any edits.</p>
+        <p class="hint">Pick where to delete from and the dates. Leave To empty for a single day. It shows how many rows will go and asks you first. The Expense Log and Overheads only lose the rows; stock lots stay as they are. Importing the Grab CSV again for a day replaces that day's Grab rows, including any edits.</p>
       </details>
       <details class="tools">
         <summary>Add direct orders typed by hand (when the bot was down)</summary>
@@ -85,8 +105,9 @@
         <div class="toolrow"><button id="manGo" class="alt">Add these orders</button></div>
       </details>
       <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span> <button class="alt" data-csv="profit" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
+      <p class="hint swipe">Swipe the table sideways to see every column. The month stays in place.</p>
       <div class="tablewrap"><table id="profit"></table></div>
-      <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only.</p>
+      <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only. Type the amount you borrowed from Merlin's Dish in the Borrowed column and press Enter or tap away to save it.</p>
       <div id="detail"></div>
       <h2>Monthly <span class="hint">(tap a month, week or day to see its orders, batches and purchases, then edit or delete)</span> <button class="alt" data-csv="monthly" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <div class="tablewrap"><table id="monthly" class="clickable"></table></div>
