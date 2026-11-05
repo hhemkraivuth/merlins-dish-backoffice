@@ -4,6 +4,7 @@
   const W = 192, H = 120, LANE = 54;
   const DESKS = [[16, 16], [82, 16], [148, 16], [48, 72], [116, 72]]; // top-left of each desk, 28 x 12
   const TOP_ROW = 3;
+  const KITCHEN = 2; // Operations
 
   const SPRITE = [
     '....hhhh....',
@@ -62,8 +63,8 @@
   }
 
   function drawRoom(ctx) {
-    ctx.fillStyle = '#bfe6e3'; ctx.fillRect(0, 0, W, H);
-    for (let y = 12; y < H; y += 8) for (let x = ((y / 8) % 2) * 8; x < W; x += 16) { ctx.fillStyle = '#9fd6d2'; ctx.fillRect(x, y, 8, 8); }
+    ctx.fillStyle = '#e3e4e8'; ctx.fillRect(0, 0, W, H);
+    for (let y = 12; y < H; y += 8) for (let x = ((y / 8) % 2) * 8; x < W; x += 16) { ctx.fillStyle = '#cfd1d8'; ctx.fillRect(x, y, 8, 8); }
     ctx.fillStyle = '#e63d23'; ctx.fillRect(0, 0, W, 12);
     ctx.fillStyle = '#f8cc1a'; ctx.fillRect(0, 10, W, 2);
     // windows
@@ -74,8 +75,21 @@
     ctx.fillStyle = '#294bd4'; ctx.globalAlpha = 0.18; ctx.fillRect(70, 100, 52, 14); ctx.globalAlpha = 1;
   }
 
+  // Operations is the cooking corner: steel counter, hob with a red pot, steam and a hanging ladle.
+  function drawKitchen(ctx, x, y) {
+    ctx.fillStyle = '#8d939e'; ctx.fillRect(x, y + 12, 28, 2);
+    ctx.fillStyle = '#c4c9d2'; ctx.fillRect(x, y, 28, 12);
+    ctx.fillStyle = '#e8ebf0'; ctx.fillRect(x, y, 28, 2);
+    ctx.fillStyle = '#3a3f4a'; ctx.fillRect(x + 2, y + 4, 11, 7); ctx.fillRect(x + 15, y + 4, 11, 7); // two burners
+    ctx.fillStyle = '#e63d23'; ctx.fillRect(x + 3, y + 1, 9, 7); ctx.fillStyle = '#a82a2a'; ctx.fillRect(x + 3, y + 1, 9, 1); // red pot
+    ctx.fillStyle = '#f8cc1a'; ctx.fillRect(x + 16, y + 9, 2, 2); ctx.fillRect(x + 20, y + 9, 2, 2); ctx.fillRect(x + 24, y + 9, 1, 2); // flames
+    ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 0.8; ctx.fillRect(x + 6, y - 4, 2, 2); ctx.fillRect(x + 8, y - 7, 2, 2); ctx.globalAlpha = 1; // steam
+    ctx.fillStyle = '#6b7080'; ctx.fillRect(x + 19, y - 5, 1, 5); ctx.fillRect(x + 18, y - 5, 3, 1); // ladle
+  }
+
   function drawDesks(ctx) {
     DESKS.forEach(([x, y], i) => {
+      if (i === KITCHEN) { drawKitchen(ctx, x, y); return; }
       ctx.fillStyle = '#5c3f28'; ctx.fillRect(x, y + 12, 28, 2); // shadow edge
       ctx.fillStyle = '#8a5a3b'; ctx.fillRect(x, y, 28, 12);
       ctx.fillStyle = '#a06c47'; ctx.fillRect(x, y, 28, 2);
