@@ -141,3 +141,17 @@ body {
 .recipe-row .qty { width: 80px; }
 .recipe-row { flex-wrap: wrap; gap: 6px; }
 .recipe-row .line-cost { margin-left: auto; font-weight: 600; }
+
+/* Summary cards above the Weekly Receipts and Batch Cook boxes */
+.sum-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 640px) { .sum-grid { grid-template-columns: 1fr 1fr; } }
+.sum-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.sum-label { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.sum-range { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.sum-big { font-size: 26px; font-weight: 700; line-height: 1.15; }
+.sum-sub { font-size: 14px; line-height: 1.45; color: var(--muted); margin-top: 4px; }
+.sum-warn { font-size: 14px; line-height: 1.45; color: var(--flag); margin-top: 6px; }
+.sum-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.sum-more summary { font-size: 14px; color: var(--accent); cursor: pointer; margin-bottom: 6px; }
+.sum-row { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; padding: 5px 0; }
+.sum-row small { display: block; font-size: 12px; color: var(--muted); }

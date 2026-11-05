@@ -1,25 +1,20 @@
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const SHOW = 3; // handoffs shown before "show the rest"
 
 function handoff(h) {
-  return `<p class="ho"><span class="who">${esc(h.from)} to ${esc(h.to)}${h.raised ? `, raised ${esc(h.raised)}` : ''}</span>${esc(h.message)}</p>`;
+  return `<p class="ho"><span class="who">${esc(h.from)} to ${esc(h.to)}</span>${esc(h.message)}</p>`;
 }
 
+// Short on purpose: one headline, one line for the week, and a count. Everything else is one tap away.
 function card(t) {
-  const [first, ...rest] = t.updates;
-  const head = `${esc(t.name)}`;
-  const asof = t.asOf ? `Data to ${esc(t.asOf)}` : 'No data yet';
   const open = t.open || [];
-  const shown = open.slice(0, SHOW).map(handoff).join('');
-  const more = open.length > SHOW ? `<details class="rest"><summary>Show the other ${open.length - SHOW}</summary>${open.slice(SHOW).map(handoff).join('')}</details>` : '';
+  const details = (t.updates || []).slice(1);
   return `<section class="team">
-    <h3>${head}</h3>
-    <div class="asof">${asof}</div>
-    <p class="latest">${esc(first)}</p>
-    ${rest.length ? `<ul class="more">${rest.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}
-    <div class="open-head">Open handoffs <span class="n ${open.length ? '' : 'zero'}">${open.length}</span></div>
-    ${open.length ? shown + more : '<p class="none">Nothing waiting on this team.</p>'}
+    <div class="teamtop"><h3>${esc(t.name)}</h3><span class="when">${esc(t.when || 'No data yet')}</span></div>
+    <p class="latest">${esc(t.headline || (t.updates || [])[0] || '')}</p>
+    ${t.sub ? `<p class="sub">${esc(t.sub)}</p>` : ''}
+    ${open.length ? `<details class="rest"><summary><span class="n">${open.length}</span> waiting</summary>${open.map(handoff).join('')}</details>` : '<p class="clear">Nothing waiting</p>'}
+    ${details.length ? `<details class="rest"><summary>More</summary><ul class="more">${details.map((u) => `<li>${esc(u)}</li>`).join('')}</ul></details>` : ''}
   </section>`;
 }
 
@@ -31,7 +26,7 @@ async function load() {
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
     $('today').textContent = `Today, ${d.today}`;
-    $('openTotal').textContent = d.openTotal ? `${d.openTotal} open handoff${d.openTotal === 1 ? '' : 's'} across the teams` : 'No open handoffs';
+    $('openTotal').textContent = d.openTotal ? `${d.openTotal} handoff${d.openTotal === 1 ? '' : 's'} waiting` : 'Nothing waiting';
     $('teams').innerHTML = d.teams.map(card).join('');
     s.textContent = '';
   } catch (err) { s.className = 'status err'; s.textContent = err.message; }

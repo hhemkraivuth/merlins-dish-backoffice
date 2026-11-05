@@ -10,24 +10,25 @@
     .status { font-size: 14px; color: var(--muted); min-height: 20px; margin-bottom: 8px; }
     .status.err { color: var(--flag); }
     .topline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 4px 0 14px; flex-wrap: wrap; }
-    .topline h2 { font-size: 20px; margin: 0; }
+    .topline h2 { font-size: 18px; margin: 0; }
     .topline .meta { font-size: 14px; color: var(--muted); }
     .topline button { font: inherit; font-size: 14px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); cursor: pointer; }
     .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
     @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; } }
-    .team { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-    .team h3 { margin: 0 0 2px; font-size: 18px; }
-    .team .asof { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
-    .team .latest { font-size: 17px; line-height: 1.4; font-weight: 600; margin: 0 0 8px; }
-    .team ul.more { margin: 0 0 12px; padding-left: 18px; font-size: 15px; line-height: 1.45; }
-    .team ul.more li { margin-bottom: 4px; }
-    .open-head { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 6px; border-top: 1px solid var(--line); padding-top: 10px; }
-    .open-head .n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--flag); color: var(--card); text-align: center; margin-left: 4px; }
-    .open-head .n.zero { background: var(--line); color: var(--muted); }
-    .ho { font-size: 15px; line-height: 1.4; margin: 0 0 8px; }
+    .team { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+    .teamtop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .team h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--muted); }
+    .team .when { font-size: 12px; color: var(--muted); text-align: right; }
+    .team .latest { font-size: 22px; font-weight: 700; line-height: 1.2; margin: 6px 0 2px; }
+    .team .sub { font-size: 14px; color: var(--muted); margin: 0 0 8px; }
+    .team .clear { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+    details.rest { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+    details.rest summary { font-size: 14px; color: var(--accent); cursor: pointer; }
+    details.rest .n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--flag); color: var(--card); text-align: center; font-weight: 600; }
+    .ho { font-size: 14px; line-height: 1.4; margin: 8px 0 0; }
     .ho .who { display: block; font-size: 12px; color: var(--muted); }
-    .none { font-size: 15px; color: var(--muted); margin: 0; }
-    details.rest summary { font-size: 14px; color: var(--accent); cursor: pointer; margin-bottom: 8px; }
+    ul.more { margin: 8px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.45; }
+    ul.more li { margin-bottom: 4px; }
     @media (max-width: 600px) { .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; } }
   </style>
 </head>

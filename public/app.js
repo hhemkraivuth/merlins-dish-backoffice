@@ -59,6 +59,49 @@ function escapeHtml(str) {
   return d.innerHTML;
 }
 
+// ---- Summary cards above the Weekly Receipts and Batch Cook boxes (this week and this month) ----
+
+const money = (n) => '฿' + Math.round(Number(n || 0)).toLocaleString('en-AU');
+const money2 = (n) => '฿' + Number(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function spendCard(p) {
+  const parts = [`Ingredients ${money(p.ingredients)}`, `Overheads ${money(p.overheads)}`, `Meta ads ${money(p.ads)}`].join(' · ');
+  const shops = p.byShop.length
+    ? `<details class="sum-more"><summary>Where it went</summary>${p.byShop.map((x) => `<div class="sum-row"><span>${escapeHtml(x.shop)}</span><span>${money(x.amount)}</span></div>`).join('')}</details>`
+    : '';
+  return `<div class="sum-card"><div class="sum-label">${escapeHtml(p.label)}</div><div class="sum-range">${escapeHtml(p.range)}</div>
+    <div class="sum-big">${money(p.total)}</div><div class="sum-sub">${escapeHtml(parts)}</div>${p.total ? shops : '<div class="sum-sub">Nothing logged yet.</div>'}</div>`;
+}
+
+function cookingCard(p) {
+  const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+  const dishes = p.byDish.length
+    ? `<details class="sum-more"><summary>By dish</summary>${p.byDish.map((d) => `<div class="sum-row"><span>${escapeHtml(d.dish)}<small>${plural(d.batches, 'batch', 'batches')}${d.perPortion === null ? '' : `, ${money(d.perPortion)} a portion`}</small></span><span>${plural(d.portions, 'portion', 'portions')}</span></div>`).join('')}</details>`
+    : '';
+  const low = p.lowYield.length ? `<div class="sum-warn">Low yield: ${p.lowYield.map((b) => `${escapeHtml(b.dish)} ${b.portions} on ${escapeHtml(b.date)}`).join(', ')}. Check the margin.</div>` : '';
+  return `<div class="sum-card"><div class="sum-label">${escapeHtml(p.label)}</div><div class="sum-range">${escapeHtml(p.range)}</div>
+    <div class="sum-big">${plural(p.batches, 'batch', 'batches')}</div>
+    <div class="sum-sub">${plural(p.portions, 'portion', 'portions')} · cost ${money(p.cost)}${p.perPortion === null ? '' : ` · ${money(p.perPortion)} a portion`}</div>
+    ${low}${p.batches ? dishes : '<div class="sum-sub">Nothing cooked yet.</div>'}</div>`;
+}
+
+// Puts a summary into `box`. Returns a function that reloads it (call after logging something).
+function summaryLoader(box, url, cardOf) {
+  const run = async () => {
+    try {
+      const res = await fetch(url);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+      box.innerHTML = d.periods.map(cardOf).join('');
+    } catch (err) {
+      box.innerHTML = `<div class="sum-card"><div class="sum-sub">Summary not available: ${escapeHtml(err.message)}</div></div>`;
+    }
+  };
+  box.innerHTML = '<div class="sum-card"><div class="sum-sub">Loading summary…</div></div>';
+  run();
+  return run;
+}
+
 // ---- Mode 2: Weekly Receipts (typed) ----
 
 function renderReceipts() {
@@ -69,6 +112,7 @@ function renderReceipts() {
         <h1 class="intro-title">Weekly Receipts</h1>
         <p class="intro-body">Type your shopping with a date, then one line per item with the quantity and price. Items go into the Expense Log, kept separate from your live Price Log. A batch cooked on or after that date uses the price.</p>
       </div>
+      <div class="sum-grid" id="spendSummary"></div>
       <textarea id="receiptText" rows="8" placeholder="18/10&#10;minced pork 1000g 110thb&#10;onion 2kg 90thb" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="receiptSubmit" disabled>Type a receipt first</button>
       <div id="receiptResult"></div>
@@ -79,6 +123,7 @@ function renderReceipts() {
   const input = section.querySelector('#receiptText');
   const submitBtn = section.querySelector('#receiptSubmit');
   const resultDiv = section.querySelector('#receiptResult');
+  const reloadSpend = summaryLoader(section.querySelector('#spendSummary'), '/api/summary/spend', spendCard);
 
   input.addEventListener('input', () => {
     const has = input.value.trim().length > 0;
@@ -98,6 +143,7 @@ function renderReceipts() {
       const html = data.replies.map((r) => `<div class="result-card"><pre style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(r)}</pre></div>`).join('');
       resultDiv.appendChild(el(`<div>${html}</div>`));
       input.value = '';
+      reloadSpend();
     } catch (err) {
       resultDiv.appendChild(el(`<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`));
     } finally {
@@ -136,6 +182,7 @@ async function renderBatchCook() {
         <h1 class="intro-title">Batch Cook</h1>
         <p class="intro-body">Pick the dish and date. Ingredients fill in from the recipe in Merlin's numbers. Change any quantity that was different today, and leave the rest. Prices are the latest purchase on or before the cook date. This does the same job as a cook note in the LINE group.</p>
       </div>
+      <div class="sum-grid" id="cookSummary"></div>
       <label class="label">Paste a cook note or any command</label>
       <textarea id="noteText" rows="10" placeholder="7/10&#10;Bolo&#10;Meat 1000&#10;O 446&#10;G 60&#10;yield 21" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="noteSubmit" disabled>Paste a note first</button>
@@ -153,6 +200,7 @@ async function renderBatchCook() {
   const noteInput = section.querySelector('#noteText');
   const noteBtn = section.querySelector('#noteSubmit');
   const noteResult = section.querySelector('#noteResult');
+  const reloadCooking = summaryLoader(section.querySelector('#cookSummary'), '/api/summary/cooking', cookingCard);
   const noteLabel = () => { const has = noteInput.value.trim().length > 0; noteBtn.disabled = !has; noteBtn.textContent = has ? 'Log cook note' : 'Paste a note first'; };
   noteInput.addEventListener('input', noteLabel);
   noteBtn.addEventListener('click', async () => {
@@ -167,6 +215,7 @@ async function renderBatchCook() {
       const html = data.replies.map((r) => `<div class="result-card"><pre style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(r)}</pre></div>`).join('');
       noteResult.appendChild(el(`<div>${html}</div>`));
       noteInput.value = '';
+      reloadCooking();
     } catch (err) {
       noteResult.appendChild(el(`<div class="result-card"><pre class="error-item" style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(err.message)}</pre></div>`));
     } finally {
@@ -184,7 +233,7 @@ async function renderBatchCook() {
       const res = await fetch(`/api/cook/recipe?dish=${encodeURIComponent(dishSelect.value)}&date=${encodeURIComponent(dateInput.value)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
-      renderCookForm(area, data, dateInput);
+      renderCookForm(area, data, dateInput, reloadCooking);
     } catch (err) {
       area.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
     }
@@ -195,7 +244,7 @@ async function renderBatchCook() {
   else area.innerHTML = '<div class="empty-state">No dishes found.</div>';
 }
 
-function renderCookForm(container, recipe, dateInput) {
+function renderCookForm(container, recipe, dateInput, onLogged) {
   // Each row: { type, name, unit, unitCost, priceDate, original, input }
   const rows = [];
   const row = (l, type) => ({ type, name: l.name, unit: l.unit || '', unitCost: l.unitCost, priceDate: l.priceDate, note: l.note, original: l.qty, extra: false });
@@ -353,6 +402,7 @@ function renderCookForm(container, recipe, dateInput) {
       if (!r.ok) throw new Error(data.error || 'Request failed');
       const bad = data.status !== 'logged';
       res.innerHTML = `<div class="result-card"><div class="${bad ? 'error-item' : 'result-headline'}" style="white-space:pre-wrap">${escapeHtml(data.text)}</div></div>`;
+      if (!bad && onLogged) onLogged();
     } catch (err) {
       res.innerHTML = `<div class="result-card"><div class="error-item" style="white-space:pre-wrap">${escapeHtml(err.message)}</div></div>`;
     } finally {
