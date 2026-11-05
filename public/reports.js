@@ -47,7 +47,7 @@ function draw(id, periods, clickable) {
 const dash = () => (RAW ? '' : '–'); // months from before the app only have a total cost
 const PROFIT = [
   ['Month', (m) => m.label, true],
-  ['Borrowed', (m) => (m.key ? (RAW ? (m.borrowed ?? '') : `<span class="borrowbox"><input class="borrow" data-key="${m.key}" data-saved="${m.borrowed ? Math.round(m.borrowed * 100) / 100 : ''}" inputmode="decimal" value="${m.borrowed ? Math.round(m.borrowed * 100) / 100 : ''}" placeholder="0" aria-label="Borrowed in ${m.label}" /><button class="borrowsave" data-key="${m.key}" disabled>Save</button></span>`) : baht(m.borrowed))],
+  ['Borrowed', (m) => (m.key ? (RAW ? (m.borrowed ?? '') : `<span class="borrowbox"><input class="borrow" data-key="${m.key}" data-saved="${m.borrowed ? Math.round(m.borrowed * 100) / 100 : ''}" inputmode="decimal" value="${m.borrowed ? commas(m.borrowed) : ''}" placeholder="0" aria-label="Borrowed in ${m.label}" /><button class="borrowsave" data-key="${m.key}" disabled>Save</button></span>`) : baht(m.borrowed))],
   ['Money to take out', (m) => (m.history ? dash() : baht(m.moneyToTakeOut))],
   ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0, (m) => m.margin >= 0],
   ['Costs (approx)', (m) => baht(m.costs !== undefined ? m.costs : m.foodCost + m.line.rider + m.overheads)],
@@ -64,6 +64,9 @@ const PROFIT = [
   ['Net Grab earning', (m) => baht(m.grab.net)],
   ['Total earning', (m) => baht(m.line.net + m.line.delivery + m.grab.net)],
 ];
+
+// 24171 -> 24,171 and 15069.12 -> 15,069.12 (two decimals only when there are some)
+const commas = (n) => Number(n).toLocaleString('en-AU', { maximumFractionDigits: 2 });
 
 function drawProfit(months) {
   const t = $('profit');
@@ -98,12 +101,14 @@ function wireBorrowed(t) {
       try {
         const r = await call('/api/borrowed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ month: inp.dataset.key, amount }) });
         inp.dataset.saved = r.amount ? String(r.amount) : '';
+        inp.value = r.amount ? commas(r.amount) : '';
         mark();
         say(`Saved. Borrowed for ${label}: ฿${baht(r.amount || 0)}.`);
         load();
       } catch (err) { btn.textContent = 'Save'; btn.disabled = false; say(`Not saved. ${err.message}`, true); }
     };
     inp.addEventListener('input', mark);
+    inp.addEventListener('blur', () => { const v = clean(inp.value); if (v !== '' && !Number.isNaN(Number(v))) inp.value = commas(v); });
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
     btn.addEventListener('click', save);
   });

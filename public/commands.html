@@ -7,25 +7,25 @@
   <link rel="stylesheet" href="style.css" />
   <style>
     .wide { max-width: 900px; }
-    h2 { font-size: 17px; margin: 28px 0 4px; }
-    h3 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    h2 { font-size: 20px; margin: 28px 0 4px; }
+    details.sec { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin: 0 0 10px; }
+    details.sec > summary { list-style: none; cursor: pointer; padding: 16px 16px; font-size: 18px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+    details.sec > summary::-webkit-details-marker { display: none; }
+    details.sec > summary::after { content: '+'; font-size: 24px; font-weight: 400; color: var(--accent); line-height: 1; }
+    details.sec[open] > summary::after { content: '\2212'; }
+    details.sec[open] > summary { border-bottom: 1px solid var(--line); }
+    details.sec table { width: 100%; border-collapse: collapse; }
+    details.sec tr { display: block; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    details.sec tr:last-child { border-bottom: 0; }
+    details.sec td { display: block; padding: 0; }
+    details.sec td:first-child { font-family: inherit; font-size: 18px; font-weight: 700; line-height: 1.35; white-space: pre-line; margin-bottom: 6px; }
+    details.sec td:last-child { font-size: 16px; line-height: 1.5; color: var(--ink); }
+    .where { font-size: 14px; }
     p.where { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
-    table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
-    td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    td:first-child { width: 42%; font-family: ui-monospace, Menlo, monospace; white-space: pre-line; }
+
+    
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
     .note { font-size: 13px; color: var(--muted); }
-    .picker { margin: 10px 0 12px; }
-    .picker select { width: 100%; font: inherit; font-size: 16px; padding: 12px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
-    .picked { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
-    .picked .ex { font-family: ui-monospace, Menlo, monospace; font-size: 15px; white-space: pre-line; margin-bottom: 8px; }
-    .picked .what { font-size: 14px; }
-    .picked.empty { color: var(--muted); font-size: 14px; }
-    button.fulllist { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); padding: 4px 0; cursor: pointer; }
-    section.group.js .sec { display: none; }
-    section.group.js.showall .sec { display: block; }
-    section.group { border-top: 1px solid var(--line); padding-top: 4px; }
-    section.group:first-of-type { border-top: 0; }
   </style>
 </head>
 <body>
@@ -42,6 +42,7 @@
 
     <nav class="tab-bar" id="tabBar">
       <a class="tab-button tab-link active" href="commands.html">Commands</a>
+      <a class="tab-button tab-link" href="home.html">Home</a>
       <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
       <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
       <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
@@ -53,24 +54,29 @@
       <h2>Customer bot (LINE OA)</h2>
       <p class="where">Admin commands: type them in your own one to one chat with the OA, from the admin account. Group commands: type them in the BOH private group.</p>
 
-      <h3>Private group only</h3>
-      <table>
+      <details class="sec">
+        <summary>Private group only</summary>
+        <table>
         <tr><td>ok &nbsp; /&nbsp; ok 001 &nbsp; /&nbsp; 001 ok</td><td>Places an order whose slip you checked by eye.</td></tr>
         <tr><td>55<br>001 55</td><td>Delivery fee reply for the oldest waiting request, or for a named order.</td></tr>
         <tr><td>change the 5 point reward to bacon steak</td><td>Changes the 5 or 10 point loyalty reward (Reward Config tab).</td></tr>
       </table>
+      </details>
 
-      <h3>Opening hours</h3>
-      <table>
+      <details class="sec">
+        <summary>Opening hours</summary>
+        <table>
         <tr><td>close &nbsp; /&nbsp; close today</td><td>Marks the shop closed until you text open.</td></tr>
         <tr><td>close 11/9<br>close 11/9-13/9</td><td>Closes one day or a range. Clears itself afterwards.</td></tr>
         <tr><td>open &nbsp; /&nbsp; open now</td><td>Forces the shop open, even outside normal hours.</td></tr>
         <tr><td>normal hours</td><td>Back to the automatic schedule.</td></tr>
         <tr><td>status &nbsp; /&nbsp; hours</td><td>Shows open or closed, overrides and scheduled closures.</td></tr>
       </table>
+      </details>
 
-      <h3>Menu stock (what customers can order)</h3>
-      <table>
+      <details class="sec">
+        <summary>Menu stock (what customers can order)</summary>
+        <table>
         <tr><td>stock</td><td>Lists every item with its id and count.</td></tr>
         <tr><td>soldout bolo, ragu</td><td>Marks whole items sold out.</td></tr>
         <tr><td>soldout rws l<br>soldout bolo luma</td><td>Marks one size or one pasta sold out only.</td></tr>
@@ -79,17 +85,21 @@
         <tr><td>setstock rws l4 r7<br>setstock bolo luma 3 riga 5</td><td>Sets counts per size or per pasta.</td></tr>
         <tr><td>keywords</td><td>Shows the shorthand words the bot understands.</td></tr>
       </table>
+      </details>
 
-      <h3>Menu items</h3>
-      <table>
+      <details class="sec">
+        <summary>Menu items</summary>
+        <table>
         <tr><td>additem drinks | Pepsi Max | 38 | Zero sugar</td><td>Adds a dish. Categories: spotlight, mains, pasta, soup, extras, drinks. Description optional. Add "pasta" or "size" as a 5th part for choices. Then send the photo.</td></tr>
         <tr><td>setimage bolo</td><td>Then send a photo within 15 minutes to replace the dish photo.</td></tr>
         <tr><td>remove bolo</td><td>Takes an item off the menu (not allowed while it is a loyalty reward).</td></tr>
         <tr><td>removed &nbsp; /&nbsp; restore &nbsp; /&nbsp; restore bolo</td><td>Lists removed items, or brings one back.</td></tr>
       </table>
+      </details>
 
-      <h3>Promotions and announcements</h3>
-      <table>
+      <details class="sec">
+        <summary>Promotions and announcements</summary>
+        <table>
         <tr><td>promo</td><td>Shows the storewide and item promos.</td></tr>
         <tr><td>promo 10 14/9-30/9 Launch Campaign</td><td>Storewide percentage off. Start can be "today".</td></tr>
         <tr><td>promo off</td><td>Turns the storewide promo off.</td></tr>
@@ -97,30 +107,36 @@
         <tr><td>itempromo bolognese off</td><td>Clears that item's promo.</td></tr>
         <tr><td>announce Headline | Body text | 14/9-30/9</td><td>Shows an announcement to customers for those dates.</td></tr>
       </table>
+      </details>
 
-      <h3>What customers can type</h3>
-      <table>
+      <details class="sec">
+        <summary>What customers can type</summary>
+        <table>
         <tr><td>menu &nbsp; /&nbsp; order</td><td>Sends the ordering link.</td></tr>
         <tr><td>change address &nbsp; /&nbsp; change payment &nbsp; /&nbsp; cancel</td><td>Changes the address or payment, or cancels the order.</td></tr>
         <tr><td>help &nbsp; /&nbsp; staff</td><td>Hands the chat to you. The bot stays quiet until they type menu.</td></tr>
       </table>
+      </details>
       </section>
 
       <section class="group" data-group="boh">
       <h2>Back of house (BOH private group)</h2>
       <p class="where">Type these in the BOH LINE group. The BOH app answers.</p>
 
-      <h3>Cooking</h3>
-      <table>
+      <details class="sec">
+        <summary>Cooking</summary>
+        <table>
         <tr><td>7/10<br>Bolo<br>Meat 1000<br>O 446<br>yield 21</td><td>Cook note: date, dish, any ingredient changes, yield. Costs the batch on the cook date. Left out ingredients stay at recipe quantity.</td></tr>
         <tr><td>undo noir ragu 6/10</td><td>Takes a logged batch back out (and gives the grams back to the lots) so you can send it again.</td></tr>
         <tr><td>undo receipt</td><td>Takes the latest typed receipt back out: its Expense Log lines, overhead items and stock lots. Add the ID to pick an older one: undo receipt R261104-153211. A lot a batch already used from is kept.</td></tr>
         <tr><td>alias en ziero = EN Ziero - Golden Apple and Yuzu</td><td>A short name for receipts (and cook notes). Needs 3 letters or more. Send <b>aliases</b> to list them.</td></tr>
         <tr><td>Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs</td><td>Shorthand for dishes. Add more in the Shorthand tab.</td></tr>
       </table>
+      </details>
 
-      <h3>Purchasing and stock lots</h3>
-      <table>
+      <details class="sec">
+        <summary>Purchasing and stock lots</summary>
+        <table>
         <tr><td>18/10<br>minced pork 1000g 110thb</td><td>Typed receipt: date, then one line per item with quantity and total price. Goes to the Expense Log and becomes a stock lot. Weights like 0.478g are read as 478g, and 0.60g 2pcs as 600g each. Spelling slips are corrected and listed in the reply.</td></tr>
         <tr><td>at Makro</td><td>A shop line under the date. Applies to every item below it until the next shop or date line. Goes to the Shopped at column.</td></tr>
         <tr><td>04/11<br>meta ads, 1200thb</td><td>Meta ads spend. "meta ads, 1200thb" on one line under a date line, or an "ads" / "meta ads" line with one line per item under it. It shows in the Meta ads column on the Numbers page and comes off the margin. Grab ads are already inside the Grab figures, so do not send them here. Not an ingredient, so no stock or food cost. "undo receipt" takes it back out.</td></tr>
@@ -138,67 +154,31 @@
         <tr><td>count minced pork 1500g</td><td>Corrects a quantity to what is really on the shelf.</td></tr>
         <tr><td>size worcestershire sauce 290ml</td><td>Sets the size of one bottle or can, so "2 bottles" is stored as 580ml.</td></tr>
       </table>
+      </details>
 
-      <h3>Numbers and team handoffs</h3>
-      <table>
+      <details class="sec">
+        <summary>Numbers and team handoffs</summary>
+        <table>
         <tr><td>huddle</td><td>The team summary: sales, cooking, stock to move, open handoffs. Also sent automatically each night.</td></tr>
         <tr><td>week &nbsp; or &nbsp; month</td><td>Income, costs and margin for the current week or month.</td></tr>
         <tr><td>sync</td><td>Pulls the latest LINE orders into the Ledger.</td></tr>
         <tr><td>rider 001 55</td><td>Logs what you paid the rider for LINE order #001. Add a date to log another day: rider 001 55 3/11.</td></tr>
         <tr><td>rider 001,002 80</td><td>One trip for two orders, split evenly.</td></tr>
       </table>
+      </details>
 
-      <h3>Drinks and packaging counts</h3>
-      <table>
+      <details class="sec">
+        <summary>Drinks and packaging counts</summary>
+        <table>
         <tr><td>stock</td><td>Lists counts (BOH stock, separate from the customer bot's "stock"). Packs at 1 or less show RUNNING LOW.</td></tr>
         <tr><td>stock add Salt, pack, 3</td><td>Starts counting unopened packs of a condiment (salt, flour, pepper). Receipts then add the packs you buy. Cooking never takes packs off: the open bag is not counted. Set the real number any time with: stock salt 2</td></tr>
         <tr><td>stock coke zero zero 5</td><td>Sets one count. Use the full item name.</td></tr>
       </table>
+      </details>
       </section>
 
       <p class="note">Dates are day/month (4/11). The numbers pages are at Numbers. Nothing here changes the customer bot unless you send it from the admin chat or the private group.</p>
     </main>
   </div>
-  <script>
-    // One dropdown per group. The tables below stay as the source of truth: this script reads them,
-    // builds the dropdown from their rows, and shows only the chosen command. "Show full list" opens every table.
-    document.querySelectorAll('section.group').forEach((group) => {
-      const secs = [];
-      let cur = null;
-      [...group.children].forEach((el) => {
-        if (el.tagName === 'H3') { cur = { name: el.textContent.trim(), nodes: [el] }; secs.push(cur); }
-        else if (cur && el.tagName === 'TABLE') { cur.nodes.push(el); cur.table = el; }
-      });
-      if (!secs.length) return;
-      group.classList.add('js');
-      secs.forEach((sec) => sec.nodes.forEach((n) => n.classList.add('sec')));
-      const text = (td) => { const c = td.cloneNode(true); c.querySelectorAll('br').forEach((br) => br.replaceWith('\n')); return c.textContent.replace(/\u00a0/g, ' ').replace(/ {2,}/g, ' ').trim(); };
-      const picker = document.createElement('div'); picker.className = 'picker';
-      const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Pick a command');
-      sel.innerHTML = '<option value="">Pick a command…</option>';
-      const rows = [];
-      secs.forEach((sec) => {
-        const og = document.createElement('optgroup'); og.label = sec.name;
-        [...sec.table.rows].forEach((tr) => {
-          const ex = text(tr.cells[0]); const label = ex.split('\n')[0].slice(0, 70);
-          const o = document.createElement('option'); o.value = String(rows.length); o.textContent = label; og.appendChild(o);
-          rows.push({ ex, what: tr.cells[1].innerHTML });
-        });
-        sel.appendChild(og);
-      });
-      const out = document.createElement('div'); out.className = 'picked empty'; out.textContent = 'Choose a command above to see how to type it.';
-      const full = document.createElement('button'); full.type = 'button'; full.className = 'fulllist'; full.textContent = 'Show full list';
-      picker.append(sel); 
-      const head = group.querySelector('p.where');
-      head.after(picker, out, full);
-      sel.addEventListener('change', () => {
-        const r = rows[sel.value];
-        if (!r) { out.className = 'picked empty'; out.textContent = 'Choose a command above to see how to type it.'; return; }
-        out.className = 'picked'; out.innerHTML = '<div class="ex"></div><div class="what"></div>';
-        out.querySelector('.ex').textContent = r.ex; out.querySelector('.what').innerHTML = r.what;
-      });
-      full.addEventListener('click', () => { const on = group.classList.toggle('showall'); full.textContent = on ? 'Hide full list' : 'Show full list'; });
-    });
-  </script>
 </body>
 </html>

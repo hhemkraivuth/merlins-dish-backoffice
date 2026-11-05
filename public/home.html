@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merlin's Dish — The Pit</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .wide { max-width: 1000px; }
+    .status { font-size: 14px; color: var(--muted); min-height: 20px; margin-bottom: 8px; }
+    .status.err { color: var(--flag); }
+    .topline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 4px 0 14px; flex-wrap: wrap; }
+    .topline h2 { font-size: 20px; margin: 0; }
+    .topline .meta { font-size: 14px; color: var(--muted); }
+    .topline button { font: inherit; font-size: 14px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); cursor: pointer; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .team { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+    .team h3 { margin: 0 0 2px; font-size: 18px; }
+    .team .asof { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+    .team .latest { font-size: 17px; line-height: 1.4; font-weight: 600; margin: 0 0 8px; }
+    .team ul.more { margin: 0 0 12px; padding-left: 18px; font-size: 15px; line-height: 1.45; }
+    .team ul.more li { margin-bottom: 4px; }
+    .open-head { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+    .open-head .n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--flag); color: var(--card); text-align: center; margin-left: 4px; }
+    .open-head .n.zero { background: var(--line); color: var(--muted); }
+    .ho { font-size: 15px; line-height: 1.4; margin: 0 0 8px; }
+    .ho .who { display: block; font-size: 12px; color: var(--muted); }
+    .none { font-size: 15px; color: var(--muted); margin: 0; }
+    details.rest summary { font-size: 14px; color: var(--accent); cursor: pointer; margin-bottom: 8px; }
+    @media (max-width: 600px) { .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <span class="logo-mark">MD</span>
+        <div>
+          <div class="title">The Pit</div>
+          <div class="subtitle">What each team is doing right now.</div>
+        </div>
+      </div>
+    </header>
+
+    <nav class="tab-bar" id="tabBar">
+      <a class="tab-button tab-link" href="commands.html">Commands</a>
+      <a class="tab-button tab-link active" href="home.html">Home</a>
+      <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
+      <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
+      <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
+      <a class="tab-button tab-link" href="reports.html">Numbers</a>
+    </nav>
+
+    <main class="main wide">
+      <div class="topline">
+        <div>
+          <h2 id="today">The Pit</h2>
+          <div class="meta" id="openTotal"></div>
+        </div>
+        <button id="reload">Refresh</button>
+      </div>
+      <div class="status" id="status">Loading…</div>
+      <div class="grid" id="teams"></div>
+    </main>
+  </div>
+  <script src="home.js"></script>
+</body>
+</html>
