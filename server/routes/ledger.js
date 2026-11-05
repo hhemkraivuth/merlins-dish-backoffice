@@ -5,6 +5,7 @@ const lineApi = require('../lib/lineApi');
 const { formatDMY, parseDate } = require('../lib/dates');
 const { withHistory } = require('../lib/history');
 const borrowedLib = require('../lib/borrowed');
+const drive = require('../lib/driveImport');
 
 const fail = (res, err) => { console.error(err); res.status(500).json({ error: String((err && err.message) || err) }); };
 
@@ -27,6 +28,29 @@ async function manualOrders(req, res) {
     if (!out.added.length && !out.skipped.length) return res.status(400).json({ error: out.problems[0] || 'No orders could be read.', ...out });
     res.json(out);
   } catch (err) { fail(res, err); }
+}
+
+// Picks up every CSV in the "Ready for BOH" Drive folder. The Numbers page button and the timer both use this.
+async function driveImport(req, res) {
+  try {
+    const run = await drive.importFromDrive();
+    if (run.busy) return res.status(409).json({ error: 'An import is already running. Try again in a minute.' });
+    res.json(run);
+  } catch (err) {
+    const setup = /DRIVE_|GOOGLE_|File not found|insufficient|permission|403|404/i.test(String(err.message));
+    if (setup) return res.status(503).json({ error: `Drive is not set up yet: ${err.message}` });
+    fail(res, err);
+  }
+}
+
+// Used by the timer: import, then tell the BOH group only if something was found.
+async function sendDriveImport() {
+  const run = await drive.importFromDrive();
+  const text = drive.summaryText(run);
+  const to = process.env.BOH_GROUP_ID;
+  const access = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (text && to && access) await lineApi.push(to, text, access);
+  return { ...run, text };
 }
 
 async function syncLine(req, res) {
@@ -105,4 +129,4 @@ async function saveBorrowed(req, res) {
   catch (err) { if (/must (look|be)/.test(String(err.message))) return res.status(400).json({ error: err.message }); fail(res, err); }
 }
 
-module.exports = { saveBorrowed, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };
+module.exports = { driveImport, sendDriveImport, saveBorrowed, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle };

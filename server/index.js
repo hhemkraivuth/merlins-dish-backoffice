@@ -10,7 +10,7 @@ const stockCountsRoute = require('./routes/stockCounts');
 const lineRoute = require('./routes/line');
 const cookRoute = require('./routes/cook');
 const ledgerRoute = require('./routes/ledger');
-const { startHuddleTimer } = require('./lib/scheduler');
+const { startHuddleTimer, startDriveImportTimer } = require('./lib/scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -52,6 +52,7 @@ app.post('/api/stock/seed-packaging', stockCountsRoute.seedPackagingRoute);
 // Team numbers: Ledger (Grab CSV + LINE orders), weekly and monthly reports, daily huddle
 app.post('/api/ledger/grab-csv', upload.single('csv'), ledgerRoute.importGrab);
 app.post('/api/ledger/sync-line', ledgerRoute.syncLine);
+app.post('/api/ledger/drive-import', ledgerRoute.driveImport);
 app.post('/api/reports/refresh', ledgerRoute.refresh);
 app.get('/api/reports/summary', ledgerRoute.summary);
 app.get('/api/reports/day', ledgerRoute.day);
@@ -70,4 +71,5 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.listen(PORT, () => {
   console.log(`Merlin's Dish back-office app running on port ${PORT}`);
   startHuddleTimer(ledgerRoute.sendHuddle);
+  startDriveImportTimer(ledgerRoute.sendDriveImport);
 });

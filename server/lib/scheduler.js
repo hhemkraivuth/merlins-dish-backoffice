@@ -17,4 +17,18 @@ function startHuddleTimer(run, { now = () => Date.now(), every = 60000, log = co
   return setInterval(tick, every);
 }
 
-module.exports = { startHuddleTimer };
+// Drive handover timer. Off unless DRIVE_IMPORT_AUTO=on. Checks the "Ready for BOH" folder every
+// DRIVE_IMPORT_EVERY_MIN minutes (default 15, never less than 5). Empty checks are silent.
+function startDriveImportTimer(run, { every, log = console } = {}) {
+  if (String(process.env.DRIVE_IMPORT_AUTO || '').toLowerCase() !== 'on') return null;
+  const mins = Math.max(5, Number(process.env.DRIVE_IMPORT_EVERY_MIN) || 15);
+  const tick = async () => {
+    try {
+      const out = await run();
+      if (out && out.files && out.files.length) log.log(`Drive import: ${out.files.length} file(s) found`);
+    } catch (err) { log.error('Drive import failed:', err.message); }
+  };
+  return setInterval(tick, every || mins * 60000);
+}
+
+module.exports = { startHuddleTimer, startDriveImportTimer };
