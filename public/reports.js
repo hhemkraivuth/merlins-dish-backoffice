@@ -226,6 +226,19 @@ $('csv').addEventListener('change', async (e) => {
   e.target.value = '';
 });
 
+$('driveImport').addEventListener('click', async () => {
+  say('Checking the "Ready for BOH" folder in Drive…');
+  try {
+    const r = await call('/api/ledger/drive-import', { method: 'POST' });
+    if (!r.files.length) { say('Nothing waiting in "Ready for BOH".'); return; }
+    const lines = r.files.map((f) => f.ok
+      ? `${f.name}: ${f.orders} orders, ${f.imported} rows, replaced ${f.replaced}.${f.flagged ? ` ${f.flagged} rows carry XXXXXX or a missing figure.` : ''}${f.moved ? '' : ' Imported, but could not be moved to "Imported".'}`
+      : `${f.name}: ${f.error} It stays in "Ready for BOH".`);
+    say(lines.join('\n'), r.files.some((f) => !f.ok));
+    load();
+  } catch (err) { say(err.message, true); }
+});
+
 $('sync').addEventListener('click', async () => {
   say('Reading LINE orders…');
   try {
