@@ -56,6 +56,7 @@ app.post('/api/ledger/drive-import', ledgerRoute.driveImport);
 app.post('/api/reports/refresh', ledgerRoute.refresh);
 app.get('/api/reports/summary', ledgerRoute.summary);
 app.get('/api/reports/day', ledgerRoute.day);
+app.get('/api/pit', ledgerRoute.pit);
 app.post('/api/ledger/delete-range', ledgerRoute.deleteRange);
 app.post('/api/borrowed', ledgerRoute.saveBorrowed);
 app.post('/api/ledger/manual-orders', ledgerRoute.manualOrders);

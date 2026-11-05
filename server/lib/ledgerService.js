@@ -12,6 +12,7 @@ const { LotBook } = require('./ingredientLots');
 const { dayDetail, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps } = require('./reports');
 const { HANDOFF_TAB, HANDOFF_HEADERS, currentHandoffs, reconcile, openHandoffs } = require('./handoffs');
 const { buildHuddle, buildPeriodText } = require('./huddle');
+const { buildPit } = require('./pit');
 const { parseDate, formatDMY, bangkokToday } = require('./dates');
 
 const WEEKLY_TAB = 'Weekly Report';
@@ -219,9 +220,17 @@ async function huddle({ sync = true } = {}) {
   return { text: notes.length ? `${text}\n\n${notes.join('. ')}.` : text, notes };
 }
 
+// The home page: one card per team. Read only, it never writes a tab.
+async function pit() {
+  const today = bangkokToday();
+  const d = await loadAll();
+  const stock = sellThrough(d.ledger, d.cookBatches, today);
+  return buildPit({ today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
+}
+
 async function periodText(type) {
   const { weekly, monthly } = await computeReports();
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, periodText, cookBatchesFrom, purchasesFrom };
