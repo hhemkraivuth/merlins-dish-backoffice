@@ -16,6 +16,7 @@ const FIXED_DATES = [
   [12, 24, 'Christmas Eve'], [12, 25, 'Christmas Day'], [12, 31, "New Year's Eve"],
 ].filter((d) => !d[2].includes('AU/US'));
 
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
 const baht = (n) => `฿${Math.round(n || 0).toLocaleString('en-AU')}`;
 
@@ -32,7 +33,7 @@ function upcomingDates(today, within = 60) {
     for (const [m, d, label] of FIXED_DATES) {
       const date = new Date(Date.UTC(y, m - 1, d));
       const away = daysBetween(date, today);
-      if (away >= 0 && away <= within) out.push({ date: formatDMY(date), label, away });
+      if (away >= 0 && away <= within) out.push({ date: formatDMY(date), day: DAYS[date.getUTCDay()], label, away });
     }
   }
   return out.sort((a, b) => a.away - b.away);
@@ -57,11 +58,57 @@ function line(p, ig) {
   return { orders, grab: p.grab.orders, line: lineOrders, ig: ig.orders, text: plural(orders, 'order'), grabText: `${plural(p.grab.orders, 'order')}, ${baht(p.grab.gross)}`, lineText: `${plural(lineOrders, 'order')}, ${baht(lineNet)}`, igText: `${plural(ig.orders, 'order')}, ${baht(ig.net)}` };
 }
 
+
+const DATE_RE = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+const DATE_RANGE_RE = /\s*\d{1,2}\/\d{1,2}\/\d{4}(\s+to\s+\d{1,2}\/\d{1,2}\/\d{4})?/g;
+
+// First dd/mm/yyyy found in a note title, as a UTC date, or null.
+function titleDate(title) {
+  const m = String(title || '').match(DATE_RE);
+  return m ? new Date(Date.UTC(+m[3], +m[2] - 1, +m[1])) : null;
+}
+
+// One note per account (or per topic). A re-run of the Sunday check replaces the earlier summary on screen.
+// Every row stays in the sheet and in the download, so history is never lost.
+function noteKey(n) {
+  const title = String(n.title || '');
+  const handle = title.match(/@[\w.]+/);
+  if (handle && (n.kind === 'Competitor' || n.kind === 'Inspo')) return `${n.kind}|${handle[0].toLowerCase()}`;
+  return `${n.kind}|${title.replace(DATE_RANGE_RE, '').replace(/\s+/g, ' ').trim().toLowerCase()}`;
+}
+
+function latestOnly(list) {
+  const seen = new Set();
+  return list.filter((n) => { const k = noteKey(n); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+// Date notes, soonest first. Dates already passed go to the bottom.
+function sortDateNotes(list, today) {
+  const rank = (n) => { const d = titleDate(n.title); if (!d) return 2e15; const away = daysBetween(d, today); return away >= 0 ? away : 1e15 - away; };
+  return [...list].sort((a, b) => rank(a) - rank(b));
+}
+
+// "Coming up": the fixed festival dates plus every Date note, so the box and the Dates section always agree.
+function comingUp(today, dateNotes, within = 60) {
+  const byDate = new Map();
+  for (const d of upcomingDates(today, within)) byDate.set(d.date, d);
+  for (const n of dateNotes) {
+    const date = titleDate(n.title);
+    if (!date) continue;
+    const away = daysBetween(date, today);
+    if (away < 0 || away > within) continue;
+    const label = String(n.title).replace(DATE_RANGE_RE, '').replace(/\s+/g, ' ').trim();
+    byDate.set(formatDMY(date), { date: formatDMY(date), day: DAYS[date.getUTCDay()], label: label || n.title, away });
+  }
+  return [...byDate.values()].sort((a, b) => a.away - b.away);
+}
+
 function buildMarketing({ today, ledger = [], noteRows = [] }) {
   const find = (grain) => summarise(ledger, [], [], grain, { through: today }).find((p) => p.key === periodOf(today, grain).key) || null;
   const notes = notesFrom(noteRows);
   const byKind = {};
-  for (const k of KINDS) byKind[k] = notes.filter((n) => n.kind === k);
+  for (const k of KINDS) byKind[k] = latestOnly(notes.filter((n) => n.kind === k));
+  byKind.Date = sortDateNotes(byKind.Date, today);
   const last = notes.find((n) => n.kind === 'Competitor');
   const audit = last ? daysBetween(today, parseNoteDate(last.date)) : null;
   return {
@@ -70,7 +117,8 @@ function buildMarketing({ today, ledger = [], noteRows = [] }) {
     month: line(find('month'), igIn(ledger, periodOf(today, 'month'))),
     notes: byKind,
     kinds: KINDS,
-    dates: upcomingDates(today),
+    dates: comingUp(today, byKind.Date),
+    history: [...notes].reverse(),
     auditDue: audit === null || audit >= 9,
     auditNote: audit === null ? 'First Sunday check is pending.' : `Last check ${last.date}, ${audit === 0 ? 'today' : `${audit} day${audit === 1 ? '' : 's'} ago`}.`,
   };
@@ -81,4 +129,4 @@ function parseNoteDate(text) {
   return m ? new Date(Date.UTC(+m[3], +m[2] - 1, +m[1])) : new Date(0);
 }
 
-module.exports = { buildMarketing, notesFrom, upcomingDates, TAB, HEADERS, KINDS };
+module.exports = { buildMarketing, notesFrom, upcomingDates, comingUp, latestOnly, sortDateNotes, titleDate, TAB, HEADERS, KINDS };

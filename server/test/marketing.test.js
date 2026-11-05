@@ -33,3 +33,25 @@ test('instagram orders are split out of LINE by the Order from column', () => {
   assert.strictEqual(m.week.line, 1);
   assert.strictEqual(m.week.igText, '1 order, ฿330');
 });
+
+test('a re-run replaces the earlier summary per account on screen, history keeps every row', () => {
+  const r = [['Date', 'Kind', 'Title', 'Note', 'Status'],
+    ['05/11/2026', 'Competitor', '@ratto.bangkok', 'old', ''], ['05/11/2026', 'Competitor', '@ratto.bangkok 05/11/2026', 'new', ''],
+    ['05/11/2026', 'Competitor', '@pasta.tomatoo', 'x', '']];
+  const m = buildMarketing({ today, ledger: [], noteRows: r });
+  assert.strictEqual(m.notes.Competitor.length, 2);
+  assert.strictEqual(m.notes.Competitor.find((n) => n.title.startsWith('@ratto')).note, 'new');
+  assert.strictEqual(m.history.length, 3);
+});
+
+test('date notes run soonest first and Coming up uses the same notes', () => {
+  const r = [['Date', 'Kind', 'Title', 'Note', 'Status'],
+    ['05/11/2026', 'Date', 'New Year 31/12/2026 to 01/01/2027', 'a', ''], ['05/11/2026', 'Date', 'Constitution Day 10/12/2026 (confirm)', 'b', ''],
+    ['05/11/2026', 'Date', 'Loy Krathong 24/11/2026 (confirm date)', 'c', '']];
+  const m = buildMarketing({ today, ledger: [], noteRows: r });
+  assert.strictEqual(m.notes.Date[0].title.startsWith('Loy Krathong'), true);
+  assert.deepStrictEqual(m.dates.map((d) => d.date), ['24/11/2026', '05/12/2026', '10/12/2026', '24/12/2026', '25/12/2026', '31/12/2026']);
+  assert.strictEqual(m.dates[0].label, 'Loy Krathong (confirm date)');
+  assert.strictEqual(m.dates[0].away, 19);
+  assert.strictEqual(m.dates[0].day, 'Tue');
+});
