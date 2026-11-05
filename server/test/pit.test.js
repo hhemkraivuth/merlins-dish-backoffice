@@ -26,6 +26,13 @@ test('pit has the four teams and says how far each one runs', () => {
   assert.match(ops.updates[0], /Noir Ragu, 10 portions \(฿80 a portion\)/);
   assert.match(ops.updates.join(' '), /Noir Ragu 4 \(oldest 2d\)/);
   assert.match(buy.updates[0], /1 item, ฿110/);
+  assert.strictEqual(app.headline, '1 order, ฿300');
+  assert.strictEqual(app.when, '04/11/2026, yesterday');
+  assert.strictEqual(app.sub, 'Week: 1 order, ฿300');
+  assert.strictEqual(direct.headline, '1 order, ฿330');
+  assert.strictEqual(ops.headline, 'Noir Ragu, 10 portions');
+  assert.strictEqual(ops.sub, 'Week: 1 batch, 10 portions');
+  assert.strictEqual(buy.headline, '฿110, 1 item');
   assert.strictEqual(pit.openTotal, 1);
   assert.strictEqual(app.open.length, 1);
   assert.strictEqual(direct.open.length, 1);

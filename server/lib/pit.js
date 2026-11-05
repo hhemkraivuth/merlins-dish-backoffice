@@ -54,21 +54,27 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   if (grabLast) {
     const d = dayOf(ledger, 'Grab', grabLast);
     const stale = daysBetween(today, grabLast) > 2;
+    app.headline = `${plural(d.grab.orders, 'order')}, ${baht(d.grab.gross)}`;
+    app.when = `${formatDMY(grabLast)}, ${ago(today, grabLast)}`;
+    if (wk) app.sub = `Week: ${plural(wk.grab.orders, 'order')}, ${baht(wk.grab.gross)}`;
     app.updates.push(`Latest Grab day ${formatDMY(grabLast)} (${ago(today, grabLast)}): ${plural(d.grab.orders, 'order')}, ${baht(d.grab.gross)} gross, ${baht(d.grab.net)} after fees.`);
     if (stale) app.updates.push('Grab data is behind. Import the latest CSV on the Numbers page.');
     if (wk) app.updates.push(`This week: ${plural(wk.grab.orders, 'order')}, ${baht(wk.grab.gross)} gross.`);
-  } else app.updates.push('No Grab data imported yet.');
+  } else { app.headline = 'No data yet'; app.updates.push('No Grab data imported yet.'); }
 
   // Direct sales (LINE)
   const lineLast = lastDateOf(ledger, 'LINE');
   const direct = { name: 'Direct sales', channel: 'LINE', asOf: lineLast ? formatDMY(lineLast) : null, updates: [] };
   if (lineLast) {
     const d = dayOf(ledger, 'LINE', lineLast);
+    direct.headline = `${plural(d.line.orders, 'order')}, ${baht(d.line.net)}`;
+    direct.when = `${formatDMY(lineLast)}, ${ago(today, lineLast)}`;
+    if (wk) direct.sub = `Week: ${plural(wk.line.orders, 'order')}, ${baht(wk.line.net)}`;
     direct.updates.push(`Latest LINE day ${formatDMY(lineLast)} (${ago(today, lineLast)}): ${plural(d.line.orders, 'order')}, ${baht(d.line.net)} net.`);
     if (wk) direct.updates.push(`This week: ${plural(wk.line.orders, 'order')}, ${baht(wk.line.net)} net, ${baht(wk.line.delivery)} delivery charged.`);
     const gaps = riderGaps(ledger, today);
     if (gaps.length) direct.updates.push(`${plural(gaps.length, 'LINE order')} still need a rider fee.`);
-  } else direct.updates.push('No LINE orders in the Ledger yet.');
+  } else { direct.headline = 'No data yet'; direct.updates.push('No LINE orders in the Ledger yet.'); }
 
   // Operations (cooking and stock)
   const batches = [...cookBatches].sort((a, b) => b.date - a.date);
@@ -76,11 +82,14 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   const ops = { name: 'Operations', channel: null, asOf: latest ? formatDMY(latest.date) : null, updates: [] };
   if (latest) {
     const per = latest.portions ? ` (${baht(latest.cost / latest.portions)} a portion)` : '';
+    ops.headline = `${latest.dish}, ${plural(latest.portions, 'portion')}`;
+    ops.when = `${formatDMY(latest.date)}, ${ago(today, latest.date)}`;
+    if (wk) ops.sub = `Week: ${plural(wk.cookBatches, 'batch', 'batches')}, ${plural(wk.cookPortions, 'portion')}`;
     ops.updates.push(`Last batch ${formatDMY(latest.date)} (${ago(today, latest.date)}): ${latest.dish}, ${plural(latest.portions, 'portion')}${per}.`);
     if (wk) ops.updates.push(`This week: ${plural(wk.cookBatches, 'batch', 'batches')}, ${plural(wk.cookPortions, 'portion')}.`);
     const lowYield = batches.filter((b) => daysBetween(today, b.date) <= 7 && b.portions > 0 && b.portions <= 3);
     if (lowYield.length) ops.updates.push(`Low yield this week: ${lowYield.map((b) => `${b.dish} ${b.portions}`).join(', ')}. Check the margin.`);
-  } else ops.updates.push('No batches logged yet.');
+  } else { ops.headline = 'No data yet'; ops.updates.push('No batches logged yet.'); }
   const left = stock.filter((s) => s.remaining > 0);
   if (left.length) ops.updates.push(`Stock left: ${left.map((s) => `${s.dish} ${s.remaining}${s.oldestAgeDays ? ` (oldest ${s.oldestAgeDays}d)` : ''}`).join(', ')}.`);
 
@@ -90,9 +99,12 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   const buy = { name: 'Purchasing', channel: null, asOf: lastBuy ? formatDMY(lastBuy.date) : null, updates: [] };
   if (lastBuy) {
     const day = ingredients.filter((p) => p.date.getTime() === lastBuy.date.getTime());
+    buy.headline = `${baht(day.reduce((s, p) => s + (p.amount || 0), 0))}, ${plural(day.length, 'item')}`;
+    buy.when = `${formatDMY(lastBuy.date)}, ${ago(today, lastBuy.date)}`;
+    if (wk) buy.sub = `Week: ${baht(wk.purchases + wk.overheads)} spent`;
     buy.updates.push(`Last receipt ${formatDMY(lastBuy.date)} (${ago(today, lastBuy.date)}): ${plural(day.length, 'item')}, ${baht(day.reduce((s, p) => s + (p.amount || 0), 0))}.`);
     if (wk) buy.updates.push(`This week: ${baht(wk.purchases)} on ingredients, ${baht(wk.overheads)} on overheads.`);
-  } else buy.updates.push('No receipts logged yet.');
+  } else { buy.headline = 'No data yet'; buy.updates.push('No receipts logged yet.'); }
   const moves = priceMoves(expense).filter((m) => daysBetween(today, m.date) <= 14);
   if (moves.length) buy.updates.push(`Price moves: ${moves.map((m) => `${m.name} ${m.change > 0 ? 'up' : 'down'} ${Math.round(Math.abs(m.change) * 100)}%`).join(', ')}.`);
   const low = [...lowPacks, ...lowIngredients];

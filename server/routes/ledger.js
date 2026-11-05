@@ -95,6 +95,13 @@ async function pit(req, res) {
   try { res.json(await svc.pit()); } catch (err) { fail(res, err); }
 }
 
+async function spendSummary(req, res) {
+  try { res.json(await svc.spendSummary()); } catch (err) { fail(res, err); }
+}
+async function cookingSummary(req, res) {
+  try { res.json(await svc.cookingSummary()); } catch (err) { fail(res, err); }
+}
+
 async function sendHuddle() {
   const { text } = await svc.huddle();
   const to = process.env.BOH_GROUP_ID;
@@ -133,4 +140,4 @@ async function saveBorrowed(req, res) {
   catch (err) { if (/must (look|be)/.test(String(err.message))) return res.status(400).json({ error: err.message }); fail(res, err); }
 }
 
-module.exports = { driveImport, sendDriveImport, saveBorrowed, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit };
+module.exports = { driveImport, sendDriveImport, saveBorrowed, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary };

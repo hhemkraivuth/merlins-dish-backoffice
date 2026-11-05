@@ -345,3 +345,40 @@ test('Meta ads are counted separately and come off the margin', () => {
   assert.strictEqual(m.overheads, 100);
   assert.strictEqual(m.margin, 600);
 });
+
+// ---- the huddle is sent once a day, even when the app restarts ------------------------------------
+test('huddle: a restart later the same day does not send it again', async () => {
+  process.env.HUDDLE_AUTO = 'on'; process.env.HUDDLE_TIME = '05:00';
+  const quiet = { log() {}, error() {} };
+  let saved = '';
+  const store = { get: async () => saved, set: async (key, v) => { saved = v; } };
+  let sent = 0;
+  let now = Date.UTC(2026, 10, 4, 22, 1); // 05:01 Bangkok, 05/11
+  const first = startHuddleTimer(async () => { sent++; }, { now: () => now, every: 5, log: quiet, store });
+  await new Promise((r) => setTimeout(r, 40)); assert.strictEqual(sent, 1);
+  clearInterval(first);
+  // deploy at 07:30 Bangkok: a brand new timer with the same store
+  now = Date.UTC(2026, 10, 5, 0, 30);
+  const second = startHuddleTimer(async () => { sent++; }, { now: () => now, every: 5, log: quiet, store });
+  await new Promise((r) => setTimeout(r, 40)); assert.strictEqual(sent, 1);
+  clearInterval(second);
+  // next morning it sends again
+  now = Date.UTC(2026, 10, 5, 22, 5);
+  const third = startHuddleTimer(async () => { sent++; }, { now: () => now, every: 5, log: quiet, store });
+  await new Promise((r) => setTimeout(r, 40)); assert.strictEqual(sent, 2);
+  clearInterval(third); delete process.env.HUDDLE_AUTO; delete process.env.HUDDLE_TIME;
+});
+
+test('huddle: a late restart does not send a missed one, and an unreadable store sends nothing', async () => {
+  process.env.HUDDLE_AUTO = 'on'; process.env.HUDDLE_TIME = '05:00';
+  const quiet = { log() {}, error() {} };
+  let sent = 0;
+  const empty = { get: async () => '', set: async () => {} };
+  const late = startHuddleTimer(async () => { sent++; }, { now: () => Date.UTC(2026, 10, 5, 7, 0), every: 5, log: quiet, store: empty }); // 14:00 Bangkok
+  await new Promise((r) => setTimeout(r, 30)); assert.strictEqual(sent, 0);
+  clearInterval(late);
+  const broken = { get: async () => { throw new Error('sheet down'); }, set: async () => {} };
+  const t = startHuddleTimer(async () => { sent++; }, { now: () => Date.UTC(2026, 10, 4, 22, 5), every: 5, log: quiet, store: broken });
+  await new Promise((r) => setTimeout(r, 30)); assert.strictEqual(sent, 0);
+  clearInterval(t); delete process.env.HUDDLE_AUTO; delete process.env.HUDDLE_TIME;
+});

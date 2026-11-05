@@ -11,6 +11,7 @@ const lineRoute = require('./routes/line');
 const cookRoute = require('./routes/cook');
 const ledgerRoute = require('./routes/ledger');
 const { startHuddleTimer, startDriveImportTimer } = require('./lib/scheduler');
+const appState = require('./lib/appState');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -57,6 +58,8 @@ app.post('/api/reports/refresh', ledgerRoute.refresh);
 app.get('/api/reports/summary', ledgerRoute.summary);
 app.get('/api/reports/day', ledgerRoute.day);
 app.get('/api/pit', ledgerRoute.pit);
+app.get('/api/summary/spend', ledgerRoute.spendSummary);
+app.get('/api/summary/cooking', ledgerRoute.cookingSummary);
 app.post('/api/ledger/delete-range', ledgerRoute.deleteRange);
 app.post('/api/borrowed', ledgerRoute.saveBorrowed);
 app.post('/api/ledger/manual-orders', ledgerRoute.manualOrders);
@@ -71,6 +74,6 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => {
   console.log(`Merlin's Dish back-office app running on port ${PORT}`);
-  startHuddleTimer(ledgerRoute.sendHuddle);
+  startHuddleTimer(ledgerRoute.sendHuddle, { store: { get: appState.getState, set: appState.setState } });
   startDriveImportTimer(ledgerRoute.sendDriveImport);
 });

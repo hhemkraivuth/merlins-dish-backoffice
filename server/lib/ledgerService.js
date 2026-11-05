@@ -13,6 +13,7 @@ const { dayDetail, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMove
 const { HANDOFF_TAB, HANDOFF_HEADERS, currentHandoffs, reconcile, openHandoffs } = require('./handoffs');
 const { buildHuddle, buildPeriodText } = require('./huddle');
 const { buildPit } = require('./pit');
+const { buildSpend, buildCooking } = require('./summaries');
 const { parseDate, formatDMY, bangkokToday } = require('./dates');
 
 const WEEKLY_TAB = 'Weekly Report';
@@ -228,9 +229,19 @@ async function pit() {
   return buildPit({ today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
 }
 
+// Summaries above the Weekly Receipts and Batch Cook boxes. Read only, each reads just the tabs it needs.
+async function spendSummary() {
+  const [expenseRows, overheadRows] = await Promise.all([readOrEmpty('Expense Log'), readOrEmpty('Overheads')]);
+  return buildSpend({ today: bangkokToday(), expenseRows, overheadRows });
+}
+async function cookingSummary() {
+  const [cookRows, sizeRows] = await Promise.all([readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes')]);
+  return buildCooking({ today: bangkokToday(), batches: cookBatchesFrom(cookRows, sizeRows) });
+}
+
 async function periodText(type) {
   const { weekly, monthly } = await computeReports();
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
