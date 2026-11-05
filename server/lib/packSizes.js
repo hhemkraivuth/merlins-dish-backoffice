@@ -27,7 +27,8 @@ function parseSizes(rows = []) {
     const text = String(r[1] || '').replace(/\s+/g, '');
     const pu = parsePurchaseUnit(text);
     if (!name || !pu || !(pu.qty > 0) || pu.unit === 'piece') return;
-    map.set(normName(name), { name, qty: pu.qty, unit: pu.unit, text });
+    const w = String(r[2] || '').match(/\bone\s+([a-z]+)/i);
+    map.set(normName(name), { name, qty: pu.qty, unit: pu.unit, text, word: w ? w[1].toLowerCase() : 'pack' });
   });
   return map;
 }
@@ -53,16 +54,34 @@ async function loadPackSizes() {
   return parseSizes(await readTab(TAB));
 }
 
-// Adds or changes one ingredient's size. Returns 'added' or 'changed'.
-async function setPackSize(name, sizeText) {
+// Adds or changes one ingredient's size. `word` (can, bottle, bag) is kept in the Note column as "one can". Returns 'added' or 'changed'.
+async function setPackSize(name, sizeText, word) {
   const cookLog = require('./cookLog');
   const { readTab, appendRows, updateRow } = require('./sheets');
   await cookLog.ensureTab(TAB, HEADERS, DEFAULT_SIZES);
   const rows = await readTab(TAB);
   const at = rows.findIndex((r, i) => i > 0 && normName(r[0]) === normName(name));
-  if (at > 0) { await updateRow(TAB, at + 1, [name, sizeText, rows[at][2] || '']); return 'changed'; }
-  await appendRows(TAB, [[name, sizeText, '']]);
+  const note = word ? `one ${word}` : '';
+  if (at > 0) { await updateRow(TAB, at + 1, [name, sizeText, note || rows[at][2] || '']); return 'changed'; }
+  await appendRows(TAB, [[name, sizeText, note]]);
   return 'added';
 }
 
-module.exports = { parseSizes, applyPackSize, isContainerWord, loadPackSizes, setPackSize, TAB, HEADERS, DEFAULT_SIZES };
+
+// ---- counting in packs (cans, bags, bottles) ------------------------------------------------------
+// size: one entry from parseSizes. left is in the stock's own unit (g, ml). Returns null when the size is unknown
+// or the stock is counted in a different unit, so the page falls back to plain grams or ml.
+function packView(left, unit, size) {
+  if (!size || size.unit !== unit || !(size.qty > 0)) return null;
+  const packs = Math.round((left / size.qty) * 10) / 10;
+  return { packs, size: size.text, word: size.word, label: packLabel(packs, size.word) };
+}
+function packLabel(n, word) {
+  const w = String(word || 'pack');
+  const plural = /(s|x|ch|sh)$/.test(w) ? `${w}es` : `${w}s`;
+  return `${n} ${n === 1 ? w : plural}`;
+}
+// 36 cans of 330ml -> 11880 (ml)
+function packsToBase(packs, size) { return Math.round(packs * size.qty * 1000) / 1000; }
+
+module.exports = { packView, packLabel, packsToBase, parseSizes, applyPackSize, isContainerWord, loadPackSizes, setPackSize, TAB, HEADERS, DEFAULT_SIZES };

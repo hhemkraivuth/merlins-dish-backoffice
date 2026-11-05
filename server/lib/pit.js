@@ -4,6 +4,7 @@
 
 const { formatDMY, daysBetween } = require('./dates');
 const { summarise, periodOf, riderGaps, priceMoves } = require('./reports');
+const { notesFrom } = require('./marketing');
 
 const baht = (n) => `฿${Math.round(n || 0).toLocaleString('en-AU')}`;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
@@ -43,7 +44,7 @@ function openRows(rows) {
 const involves = (team) => (h) => h.from.includes(team) || h.to.includes(team);
 
 // { today, ledger, cookBatches, purchases, expense, stock, handoffRows, lowIngredients, lowPacks }
-function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expense = [], stock = [], handoffRows = [], lowIngredients = [], lowPacks = [] }) {
+function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expense = [], stock = [], handoffRows = [], lowIngredients = [], lowPacks = [], noteRows = [] }) {
   const weeks = summarise(ledger, cookBatches, purchases, 'week', { through: today });
   const wk = weekOf(weeks, today);
   const open = openRows(handoffRows);
@@ -110,7 +111,23 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   const low = [...lowPacks, ...lowIngredients];
   if (low.length) buy.updates.push(`Running low: ${low.join(', ')}.`);
 
-  const teams = [app, direct, ops, buy];
+  // Marketing: this week's orders across both channels, and the newest note the team logged
+  const mk = { name: 'Marketing', channel: null, updates: [] };
+  const notes = notesFrom(noteRows);
+  if (wk) {
+    const orders = wk.grab.orders + wk.line.orders;
+    mk.headline = plural(orders, 'order') + ' this week';
+    mk.sub = `Grab ${wk.grab.orders}, LINE ${wk.line.orders}`;
+    mk.updates.push(`This week: ${plural(orders, 'order')} across Grab and LINE.`);
+  } else { mk.headline = 'No sales this week yet'; }
+  if (notes[0]) {
+    mk.when = notes[0].date;
+    mk.updates.push(`Latest note (${notes[0].kind}): ${notes[0].title}.`);
+  } else mk.updates.push('No marketing notes logged yet.');
+  const drafts = notes.filter((n) => n.kind === 'Ad draft' && n.status.toLowerCase() === 'draft');
+  if (drafts.length) mk.updates.push(`${plural(drafts.length, 'ad draft')} waiting for approval.`);
+
+  const teams = [app, direct, ops, buy, mk];
   for (const t of teams) t.open = open.filter(involves(t.name));
   return { today: formatDMY(today), teams, openTotal: open.length };
 }

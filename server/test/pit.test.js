@@ -6,7 +6,7 @@ const { buildPit, openRows } = require('../lib/pit');
 const today = utc(2026, 11, 5);
 const row = (o) => ({ date: utc(2026, 11, 4), dmy: '04/11/2026', desc: '', channel: 'Grab', orderFrom: '', type: 'Order', qty: 1, moneyIn: 0, cost: 0, net: 0, customer: '', orderNo: '', time: '', key: '', flags: '', ...o });
 
-test('pit has the four teams and says how far each one runs', () => {
+test('pit has the five teams and says how far each one runs', () => {
   const ledger = [
     row({ channel: 'Grab', type: 'Order', net: 300, orderNo: 'GF-1' }),
     row({ channel: 'Grab', type: 'Grab', desc: 'Order commission', net: -90, orderNo: '' }),
@@ -18,7 +18,7 @@ test('pit has the four teams and says how far each one runs', () => {
     ['04/11/2026', 'Operations', 'App sales, Direct sales', 'Noir Ragu is sold out.', 'Open', '', 'k'],
     ['03/11/2026', 'Purchasing', 'Operations', 'Pork is up 12%.', 'Done', '', 'k2']];
   const pit = buildPit({ today, ledger, cookBatches, purchases, handoffRows, stock: [{ dish: 'Noir Ragu', remaining: 4, oldestAgeDays: 2 }] });
-  assert.deepStrictEqual(pit.teams.map((t) => t.name), ['App sales', 'Direct sales', 'Operations', 'Purchasing']);
+  assert.deepStrictEqual(pit.teams.map((t) => t.name), ['App sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing']);
   const [app, direct, ops, buy] = pit.teams;
   assert.strictEqual(app.asOf, '04/11/2026');
   assert.match(app.updates[0], /1 order, ฿300 gross, ฿210 after fees/);
@@ -42,7 +42,7 @@ test('pit has the four teams and says how far each one runs', () => {
 
 test('pit copes with nothing logged', () => {
   const pit = buildPit({ today });
-  assert.strictEqual(pit.teams.length, 4);
+  assert.strictEqual(pit.teams.length, 5);
   assert.match(pit.teams[0].updates[0], /No Grab data/);
   assert.strictEqual(pit.openTotal, 0);
 });

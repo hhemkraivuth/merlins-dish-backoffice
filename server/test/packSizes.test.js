@@ -85,3 +85,27 @@ test('undo gives the grams back and removes the batch rows', async () => {
   const none = await undoBatch('noir ragu', utc(2026, 10, 6), io);
   assert.strictEqual(none.status, 'none');
 });
+
+const { packView, packsToBase, packLabel } = require('../lib/packSizes');
+const test2 = require('node:test');
+const assert2 = require('node:assert');
+
+test2('pack view turns ml into cans and reads the word from the note', () => {
+  const m = parseSizes([['Ingredient', 'Size per container', 'Note'], ['Stout', '330ml', 'one can']]);
+  const size = [...m.values()][0];
+  assert2.strictEqual(size.word, 'can');
+  const v = packView(11880, 'ml', size);
+  assert2.strictEqual(v.packs, 36);
+  assert2.strictEqual(v.label, '36 cans');
+  assert2.strictEqual(packView(330, 'ml', size).label, '1 can');
+  assert2.strictEqual(packView(490, 'ml', size).packs, 1.5);
+  assert2.strictEqual(packView(500, 'g', size), null);
+  assert2.strictEqual(packView(500, 'ml', undefined), null);
+});
+
+test2('packs convert back to base units and plural words are right', () => {
+  assert2.strictEqual(packsToBase(36, { qty: 330 }), 11880);
+  assert2.strictEqual(packsToBase(1.5, { qty: 330 }), 495);
+  assert2.strictEqual(packLabel(2, 'box'), '2 boxes');
+  assert2.strictEqual(packLabel(3, 'bag'), '3 bags');
+});

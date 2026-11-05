@@ -48,6 +48,7 @@ app.post('/api/cook/note', cookRoute.note);
 app.get('/api/stock', stockCountsRoute.listStock);
 app.get('/api/stock/ingredients', stockCountsRoute.listIngredientStock);
 app.post('/api/stock/update', stockCountsRoute.updateStock);
+app.post('/api/stock/ingredient-count', stockCountsRoute.countIngredientPacks);
 app.post('/api/stock/seed-packaging', stockCountsRoute.seedPackagingRoute);
 
 // Team numbers: Ledger (Grab CSV + LINE orders), weekly and monthly reports, daily huddle
@@ -58,6 +59,8 @@ app.post('/api/reports/refresh', ledgerRoute.refresh);
 app.get('/api/reports/summary', ledgerRoute.summary);
 app.get('/api/reports/day', ledgerRoute.day);
 app.get('/api/pit', ledgerRoute.pit);
+app.get('/api/marketing', ledgerRoute.marketing);
+app.post('/api/marketing/note', ledgerRoute.addMarketingNote);
 app.get('/api/summary/spend', ledgerRoute.spendSummary);
 app.get('/api/summary/cooking', ledgerRoute.cookingSummary);
 app.post('/api/ledger/delete-range', ledgerRoute.deleteRange);

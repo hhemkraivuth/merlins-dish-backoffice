@@ -7,7 +7,7 @@ const { withHistory } = require('../lib/history');
 const borrowedLib = require('../lib/borrowed');
 const drive = require('../lib/driveImport');
 
-const fail = (res, err) => { console.error(err); res.status(500).json({ error: String((err && err.message) || err) }); };
+const fail = (res, err) => { console.error(err); res.status((err && err.status) || 500).json({ error: String((err && err.message) || err) }); };
 
 // Upload the Grab CSV (form field "csv") or post JSON { csv: "..." }.
 async function importGrab(req, res) {
@@ -140,4 +140,11 @@ async function saveBorrowed(req, res) {
   catch (err) { if (/must (look|be)/.test(String(err.message))) return res.status(400).json({ error: err.message }); fail(res, err); }
 }
 
-module.exports = { driveImport, sendDriveImport, saveBorrowed, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary };
+async function marketing(req, res) {
+  try { res.json(await svc.marketing()); } catch (err) { fail(res, err); }
+}
+async function addMarketingNote(req, res) {
+  try { await svc.addMarketingNote(req.body || {}); res.json({ ok: true }); } catch (err) { fail(res, err); }
+}
+
+module.exports = { marketing, addMarketingNote, driveImport, sendDriveImport, saveBorrowed, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary };

@@ -14,6 +14,7 @@ const { HANDOFF_TAB, HANDOFF_HEADERS, currentHandoffs, reconcile, openHandoffs }
 const { buildHuddle, buildPeriodText } = require('./huddle');
 const { buildPit } = require('./pit');
 const { buildSpend, buildCooking } = require('./summaries');
+const marketingLib = require('./marketing');
 const { parseDate, formatDMY, bangkokToday } = require('./dates');
 
 const WEEKLY_TAB = 'Weekly Report';
@@ -226,7 +227,21 @@ async function pit() {
   const today = bangkokToday();
   const d = await loadAll();
   const stock = sellThrough(d.ledger, d.cookBatches, today);
-  return buildPit({ today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
+  const noteRows = await readOrEmpty(marketingLib.TAB);
+  return buildPit({ noteRows, today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
+}
+
+async function marketing() {
+  const today = bangkokToday();
+  const d = await loadAll();
+  const noteRows = await readOrEmpty(marketingLib.TAB);
+  return marketingLib.buildMarketing({ today, ledger: d.ledger, noteRows });
+}
+async function addMarketingNote({ kind, title, note, status }) {
+  if (!marketingLib.KINDS.includes(kind)) throw Object.assign(new Error(`Kind must be one of ${marketingLib.KINDS.join(', ')}.`), { status: 400 });
+  if (!String(title || '').trim()) throw Object.assign(new Error('Add a short title.'), { status: 400 });
+  await ensureTab(marketingLib.TAB, marketingLib.HEADERS);
+  await appendRows(marketingLib.TAB, [[formatDMY(bangkokToday()), kind, String(title).trim(), String(note || '').trim(), String(status || (kind === 'Ad draft' ? 'Draft' : '')).trim()]]);
 }
 
 // Summaries above the Weekly Receipts and Batch Cook boxes. Read only, each reads just the tabs it needs.
@@ -244,4 +259,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { marketing, addMarketingNote, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
