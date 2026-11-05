@@ -47,7 +47,7 @@ function draw(id, periods, clickable) {
 const dash = () => (RAW ? '' : '–'); // months from before the app only have a total cost
 const PROFIT = [
   ['Month', (m) => m.label, true],
-  ['Borrowed', (m) => (m.key ? (RAW ? (m.borrowed ?? '') : `<input class="borrow" data-key="${m.key}" inputmode="decimal" value="${m.borrowed ? Math.round(m.borrowed * 100) / 100 : ''}" placeholder="0" aria-label="Borrowed in ${m.label}" />`) : baht(m.borrowed))],
+  ['Borrowed', (m) => (m.key ? (RAW ? (m.borrowed ?? '') : `<span class="borrowbox"><input class="borrow" data-key="${m.key}" data-saved="${m.borrowed ? Math.round(m.borrowed * 100) / 100 : ''}" inputmode="decimal" value="${m.borrowed ? Math.round(m.borrowed * 100) / 100 : ''}" placeholder="0" aria-label="Borrowed in ${m.label}" /><button class="borrowsave" data-key="${m.key}" disabled>Save</button></span>`) : baht(m.borrowed))],
   ['Money to take out', (m) => (m.history ? dash() : baht(m.moneyToTakeOut))],
   ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0, (m) => m.margin >= 0],
   ['Costs (approx)', (m) => baht(m.costs !== undefined ? m.costs : m.foodCost + m.line.rider + m.overheads)],
@@ -80,7 +80,38 @@ function drawProfit(months) {
   };
   const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : c[4] && c[4](m) ? 'pos' : ''}">${c[1](m)}</td>`).join('');
   t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`;
+  wireBorrowed(t);
 }
+
+// Borrowed: type a figure, then press Save (or Enter). The button stays disabled until the figure differs from what is saved.
+function wireBorrowed(t) {
+  const clean = (v) => String(v ?? '').replace(/[฿,\s]/g, '');
+  t.querySelectorAll('input.borrow').forEach((inp) => {
+    const btn = t.querySelector(`button.borrowsave[data-key="${inp.dataset.key}"]`);
+    const label = inp.getAttribute('aria-label').replace('Borrowed in ', '');
+    const dirty = () => clean(inp.value) !== clean(inp.dataset.saved);
+    const mark = () => { btn.disabled = !dirty(); btn.textContent = 'Save'; inp.classList.toggle('unsaved', dirty()); };
+    const save = async () => {
+      if (!dirty()) return;
+      const amount = clean(inp.value);
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const r = await call('/api/borrowed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ month: inp.dataset.key, amount }) });
+        inp.dataset.saved = r.amount ? String(r.amount) : '';
+        mark();
+        say(`Saved. Borrowed for ${label}: ฿${baht(r.amount || 0)}.`);
+        load();
+      } catch (err) { btn.textContent = 'Save'; btn.disabled = false; say(`Not saved. ${err.message}`, true); }
+    };
+    inp.addEventListener('input', mark);
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+    btn.addEventListener('click', save);
+  });
+}
+
+window.addEventListener('beforeunload', (e) => {
+  if (document.querySelector('input.borrow.unsaved')) { e.preventDefault(); e.returnValue = ''; }
+});
 
 function table(headers, rows) {
   if (!rows.length) return '<p class="intro-body">Nothing logged.</p>';
@@ -160,13 +191,6 @@ async function showDay(from, to, p) {
     });
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) { box.innerHTML = ''; say(err.message, true); }
-  t.querySelectorAll('input.borrow').forEach((inp) => inp.addEventListener('change', async () => {
-    try {
-      await call('/api/borrowed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ month: inp.dataset.key, amount: inp.value }) });
-      say(`Saved. Borrowed for ${inp.getAttribute('aria-label').replace('Borrowed in ', '')}: ฿${baht(inp.value || 0)}.`);
-      load();
-    } catch (err) { say(err.message, true); }
-  }));
 }
 
 // ---- CSV downloads (open in Excel). Same columns as the tables on this page, but every period, not just what is shown. ----

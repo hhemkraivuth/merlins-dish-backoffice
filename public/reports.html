@@ -23,6 +23,10 @@
     .neg { color: var(--flag); }
     .pos { color: #14532d; font-weight: 600; }
     td input.borrow { font: inherit; font-size: 13px; width: 86px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink); text-align: right; }
+    td .borrowbox { display: inline-flex; gap: 4px; align-items: center; }
+    td input.borrow.unsaved { border-color: var(--flag); }
+    td button.borrowsave { font: inherit; font-size: 12px; padding: 3px 8px; border: 0; border-radius: 5px; background: var(--ink); color: var(--card); cursor: pointer; }
+    td button.borrowsave:disabled { background: var(--line); color: var(--muted); cursor: default; }
     h2 { font-size: 16px; margin: 20px 0 8px; }
     .hint { font-size: 12px; font-weight: 400; color: var(--muted); }
     table.clickable tr.row { cursor: pointer; }
@@ -75,11 +79,11 @@
     </header>
 
     <nav class="tab-bar" id="tabBar">
+      <a class="tab-button tab-link" href="commands.html">Commands</a>
       <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
       <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
       <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
       <a class="tab-button tab-link active" href="reports.html">Numbers</a>
-      <a class="tab-button tab-link" href="commands.html">Commands</a>
     </nav>
     <main class="main wide">
       <div class="actions">
@@ -108,7 +112,7 @@
       <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span> <button class="alt" data-csv="profit" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <p class="hint swipe">Swipe the table sideways to see every column. The month stays in place.</p>
       <div class="tablewrap"><table id="profit"></table></div>
-      <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only. Type the amount you borrowed from Merlin's Dish in the Borrowed column and press Enter or tap away to save it.</p>
+      <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only. Type the amount you borrowed from Merlin's Dish in the Borrowed column, then tap Save (or press Enter). The box turns red until it is saved.</p>
       <div id="detail"></div>
       <h2>Monthly <span class="hint">(tap a month, week or day to see its orders, batches and purchases, then edit or delete)</span> <button class="alt" data-csv="monthly" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <div class="tablewrap"><table id="monthly" class="clickable"></table></div>

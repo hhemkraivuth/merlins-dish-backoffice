@@ -15,6 +15,17 @@
     td:first-child { width: 42%; font-family: ui-monospace, Menlo, monospace; white-space: pre-line; }
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
     .note { font-size: 13px; color: var(--muted); }
+    .picker { margin: 10px 0 12px; }
+    .picker select { width: 100%; font: inherit; font-size: 16px; padding: 12px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
+    .picked { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+    .picked .ex { font-family: ui-monospace, Menlo, monospace; font-size: 15px; white-space: pre-line; margin-bottom: 8px; }
+    .picked .what { font-size: 14px; }
+    .picked.empty { color: var(--muted); font-size: 14px; }
+    button.fulllist { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); padding: 4px 0; cursor: pointer; }
+    section.group.js .sec { display: none; }
+    section.group.js.showall .sec { display: block; }
+    section.group { border-top: 1px solid var(--line); padding-top: 4px; }
+    section.group:first-of-type { border-top: 0; }
   </style>
 </head>
 <body>
@@ -30,62 +41,15 @@
     </header>
 
     <nav class="tab-bar" id="tabBar">
+      <a class="tab-button tab-link active" href="commands.html">Commands</a>
       <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
       <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
       <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
       <a class="tab-button tab-link" href="reports.html">Numbers</a>
-      <a class="tab-button tab-link active" href="commands.html">Commands</a>
     </nav>
     <main class="main wide">
 
-      <h2>Back of house (BOH private group)</h2>
-      <p class="where">Type these in the BOH LINE group. The BOH app answers.</p>
-
-      <h3>Cooking</h3>
-      <table>
-        <tr><td>7/10<br>Bolo<br>Meat 1000<br>O 446<br>yield 21</td><td>Cook note: date, dish, any ingredient changes, yield. Costs the batch on the cook date. Left out ingredients stay at recipe quantity.</td></tr>
-        <tr><td>undo noir ragu 6/10</td><td>Takes a logged batch back out (and gives the grams back to the lots) so you can send it again.</td></tr>
-        <tr><td>undo receipt</td><td>Takes the latest typed receipt back out: its Expense Log lines, overhead items and stock lots. Add the ID to pick an older one: undo receipt R261104-153211. A lot a batch already used from is kept.</td></tr>
-        <tr><td>alias en ziero = EN Ziero - Golden Apple and Yuzu</td><td>A short name for receipts (and cook notes). Needs 3 letters or more. Send <b>aliases</b> to list them.</td></tr>
-        <tr><td>Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs</td><td>Shorthand for dishes. Add more in the Shorthand tab.</td></tr>
-      </table>
-
-      <h3>Purchasing and stock lots</h3>
-      <table>
-        <tr><td>18/10<br>minced pork 1000g 110thb</td><td>Typed receipt: date, then one line per item with quantity and total price. Goes to the Expense Log and becomes a stock lot. Weights like 0.478g are read as 478g, and 0.60g 2pcs as 600g each. Spelling slips are corrected and listed in the reply.</td></tr>
-        <tr><td>at Makro</td><td>A shop line under the date. Applies to every item below it until the next shop or date line. Goes to the Shopped at column.</td></tr>
-        <tr><td>04/11<br>meta ads, 1200thb</td><td>Meta ads spend. "meta ads, 1200thb" on one line under a date line, or an "ads" / "meta ads" line with one line per item under it. It shows in the Meta ads column on the Numbers page and comes off the margin. Grab ads are already inside the Grab figures, so do not send them here. Not an ingredient, so no stock or food cost. "undo receipt" takes it back out.</td></tr>
-        <tr><td>overhead<br>pot 7lt, 2575thb</td><td>Overheads (pots, paper bags, knives). Put an "overhead" line under the date, then one line per item with the price. Add a word to tag it, like "overhead equipment". Goes to the Overheads tab only, never to ingredient prices, stock or food cost, but the cash spent comes off that month's margin. A date line, or a line saying "ingredients", ends the overhead section.</td></tr>
-        <tr><td>prices only</td><td>A line in a receipt: logs the prices but makes no stock lots, for the items below it until the next date line.</td></tr>
-        <tr><td>worcestershire sauce, 290ml, 8bottles, 1168</td><td>Size of one bottle, then how many, then the total price. 8 bottles of 290ml is stored as 2320ml, so recipes in ml cost correctly. The same works for cans, bags and boxes. Items your recipe counts in pieces (Knorr cube, EN Ziero cans) stay as pieces.</td></tr>
-        <tr><td>tomato paste (Mica) 560g, 12pcs, 816thb</td><td>A brand goes in brackets after the ingredient name. It is saved in Remarks and shown on the Best Prices tab, so you see which brand gave the best price. 12 tins of 560g is 6720g.</td></tr>
-        <tr><td>en ziero 2 cans, 16thb ea</td><td>"ea" or "each" after the price means the price is for one. 2 cans at 16 each is logged as 32.</td></tr>
-        <tr><td>pecorino 60g 2pcs, 180</td><td>A weight then a count is weight each: 120g for 180. Items you usually buy by the piece (Knorr cube 20g 48pcs) stay as pieces.</td></tr>
-        <tr><td>opening 1/11<br>minced pork 2000g 220thb</td><td>One off starting stock. Skips any ingredient that already has lots.</td></tr>
-        <tr><td>free 4/11<br>knorr cube 2 boxes of 6</td><td>Free samples. Adds a lot costed at ฿0 (Source: Free sample). Nothing goes in the Expense Log.</td></tr>
-        <tr><td>lots</td><td>Shows what is left per ingredient, oldest lot first.</td></tr>
-        <tr><td>low salt 500g</td><td>Alert level: flags the ingredient when less than that is left in the stock lots. Shows as LOW in lots and in the nightly huddle.</td></tr>
-        <tr><td>low</td><td>Lists what is below its alert level right now.</td></tr>
-        <tr><td>count minced pork 1500g</td><td>Corrects a quantity to what is really on the shelf.</td></tr>
-        <tr><td>size worcestershire sauce 290ml</td><td>Sets the size of one bottle or can, so "2 bottles" is stored as 580ml.</td></tr>
-      </table>
-
-      <h3>Numbers and team handoffs</h3>
-      <table>
-        <tr><td>huddle</td><td>The team summary: sales, cooking, stock to move, open handoffs. Also sent automatically each night.</td></tr>
-        <tr><td>week &nbsp; or &nbsp; month</td><td>Income, costs and margin for the current week or month.</td></tr>
-        <tr><td>sync</td><td>Pulls the latest LINE orders into the Ledger.</td></tr>
-        <tr><td>rider 001 55</td><td>Logs what you paid the rider for LINE order #001. Add a date to log another day: rider 001 55 3/11.</td></tr>
-        <tr><td>rider 001,002 80</td><td>One trip for two orders, split evenly.</td></tr>
-      </table>
-
-      <h3>Drinks and packaging counts</h3>
-      <table>
-        <tr><td>stock</td><td>Lists counts (BOH stock, separate from the customer bot's "stock"). Packs at 1 or less show RUNNING LOW.</td></tr>
-        <tr><td>stock add Salt, pack, 3</td><td>Starts counting unopened packs of a condiment (salt, flour, pepper). Receipts then add the packs you buy. Cooking never takes packs off: the open bag is not counted. Set the real number any time with: stock salt 2</td></tr>
-        <tr><td>stock coke zero zero 5</td><td>Sets one count. Use the full item name.</td></tr>
-      </table>
-
+      <section class="group" data-group="bot">
       <h2>Customer bot (LINE OA)</h2>
       <p class="where">Admin commands: type them in your own one to one chat with the OA, from the admin account. Group commands: type them in the BOH private group.</p>
 
@@ -140,9 +104,101 @@
         <tr><td>change address &nbsp; /&nbsp; change payment &nbsp; /&nbsp; cancel</td><td>Changes the address or payment, or cancels the order.</td></tr>
         <tr><td>help &nbsp; /&nbsp; staff</td><td>Hands the chat to you. The bot stays quiet until they type menu.</td></tr>
       </table>
+      </section>
+
+      <section class="group" data-group="boh">
+      <h2>Back of house (BOH private group)</h2>
+      <p class="where">Type these in the BOH LINE group. The BOH app answers.</p>
+
+      <h3>Cooking</h3>
+      <table>
+        <tr><td>7/10<br>Bolo<br>Meat 1000<br>O 446<br>yield 21</td><td>Cook note: date, dish, any ingredient changes, yield. Costs the batch on the cook date. Left out ingredients stay at recipe quantity.</td></tr>
+        <tr><td>undo noir ragu 6/10</td><td>Takes a logged batch back out (and gives the grams back to the lots) so you can send it again.</td></tr>
+        <tr><td>undo receipt</td><td>Takes the latest typed receipt back out: its Expense Log lines, overhead items and stock lots. Add the ID to pick an older one: undo receipt R261104-153211. A lot a batch already used from is kept.</td></tr>
+        <tr><td>alias en ziero = EN Ziero - Golden Apple and Yuzu</td><td>A short name for receipts (and cook notes). Needs 3 letters or more. Send <b>aliases</b> to list them.</td></tr>
+        <tr><td>Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs</td><td>Shorthand for dishes. Add more in the Shorthand tab.</td></tr>
+      </table>
+
+      <h3>Purchasing and stock lots</h3>
+      <table>
+        <tr><td>18/10<br>minced pork 1000g 110thb</td><td>Typed receipt: date, then one line per item with quantity and total price. Goes to the Expense Log and becomes a stock lot. Weights like 0.478g are read as 478g, and 0.60g 2pcs as 600g each. Spelling slips are corrected and listed in the reply.</td></tr>
+        <tr><td>at Makro</td><td>A shop line under the date. Applies to every item below it until the next shop or date line. Goes to the Shopped at column.</td></tr>
+        <tr><td>04/11<br>meta ads, 1200thb</td><td>Meta ads spend. "meta ads, 1200thb" on one line under a date line, or an "ads" / "meta ads" line with one line per item under it. It shows in the Meta ads column on the Numbers page and comes off the margin. Grab ads are already inside the Grab figures, so do not send them here. Not an ingredient, so no stock or food cost. "undo receipt" takes it back out.</td></tr>
+        <tr><td>overhead<br>pot 7lt, 2575thb</td><td>Overheads (pots, paper bags, knives). Put an "overhead" line under the date, then one line per item with the price. Add a word to tag it, like "overhead equipment". Goes to the Overheads tab only, never to ingredient prices, stock or food cost, but the cash spent comes off that month's margin. A date line, or a line saying "ingredients", ends the overhead section.</td></tr>
+        <tr><td>prices only</td><td>A line in a receipt: logs the prices but makes no stock lots, for the items below it until the next date line.</td></tr>
+        <tr><td>worcestershire sauce, 290ml, 8bottles, 1168</td><td>Size of one bottle, then how many, then the total price. 8 bottles of 290ml is stored as 2320ml, so recipes in ml cost correctly. The same works for cans, bags and boxes. Items your recipe counts in pieces (Knorr cube, EN Ziero cans) stay as pieces.</td></tr>
+        <tr><td>tomato paste (Mica) 560g, 12pcs, 816thb</td><td>A brand goes in brackets after the ingredient name. It is saved in Remarks and shown on the Best Prices tab, so you see which brand gave the best price. 12 tins of 560g is 6720g.</td></tr>
+        <tr><td>en ziero 2 cans, 16thb ea</td><td>"ea" or "each" after the price means the price is for one. 2 cans at 16 each is logged as 32.</td></tr>
+        <tr><td>pecorino 60g 2pcs, 180</td><td>A weight then a count is weight each: 120g for 180. Items you usually buy by the piece (Knorr cube 20g 48pcs) stay as pieces.</td></tr>
+        <tr><td>opening 1/11<br>minced pork 2000g 220thb</td><td>One off starting stock. Skips any ingredient that already has lots.</td></tr>
+        <tr><td>free 4/11<br>knorr cube 2 boxes of 6</td><td>Free samples. Adds a lot costed at ฿0 (Source: Free sample). Nothing goes in the Expense Log.</td></tr>
+        <tr><td>lots</td><td>Shows what is left per ingredient, oldest lot first.</td></tr>
+        <tr><td>low salt 500g</td><td>Alert level: flags the ingredient when less than that is left in the stock lots. Shows as LOW in lots and in the nightly huddle.</td></tr>
+        <tr><td>low</td><td>Lists what is below its alert level right now.</td></tr>
+        <tr><td>count minced pork 1500g</td><td>Corrects a quantity to what is really on the shelf.</td></tr>
+        <tr><td>size worcestershire sauce 290ml</td><td>Sets the size of one bottle or can, so "2 bottles" is stored as 580ml.</td></tr>
+      </table>
+
+      <h3>Numbers and team handoffs</h3>
+      <table>
+        <tr><td>huddle</td><td>The team summary: sales, cooking, stock to move, open handoffs. Also sent automatically each night.</td></tr>
+        <tr><td>week &nbsp; or &nbsp; month</td><td>Income, costs and margin for the current week or month.</td></tr>
+        <tr><td>sync</td><td>Pulls the latest LINE orders into the Ledger.</td></tr>
+        <tr><td>rider 001 55</td><td>Logs what you paid the rider for LINE order #001. Add a date to log another day: rider 001 55 3/11.</td></tr>
+        <tr><td>rider 001,002 80</td><td>One trip for two orders, split evenly.</td></tr>
+      </table>
+
+      <h3>Drinks and packaging counts</h3>
+      <table>
+        <tr><td>stock</td><td>Lists counts (BOH stock, separate from the customer bot's "stock"). Packs at 1 or less show RUNNING LOW.</td></tr>
+        <tr><td>stock add Salt, pack, 3</td><td>Starts counting unopened packs of a condiment (salt, flour, pepper). Receipts then add the packs you buy. Cooking never takes packs off: the open bag is not counted. Set the real number any time with: stock salt 2</td></tr>
+        <tr><td>stock coke zero zero 5</td><td>Sets one count. Use the full item name.</td></tr>
+      </table>
+      </section>
 
       <p class="note">Dates are day/month (4/11). The numbers pages are at Numbers. Nothing here changes the customer bot unless you send it from the admin chat or the private group.</p>
     </main>
   </div>
+  <script>
+    // One dropdown per group. The tables below stay as the source of truth: this script reads them,
+    // builds the dropdown from their rows, and shows only the chosen command. "Show full list" opens every table.
+    document.querySelectorAll('section.group').forEach((group) => {
+      const secs = [];
+      let cur = null;
+      [...group.children].forEach((el) => {
+        if (el.tagName === 'H3') { cur = { name: el.textContent.trim(), nodes: [el] }; secs.push(cur); }
+        else if (cur && el.tagName === 'TABLE') { cur.nodes.push(el); cur.table = el; }
+      });
+      if (!secs.length) return;
+      group.classList.add('js');
+      secs.forEach((sec) => sec.nodes.forEach((n) => n.classList.add('sec')));
+      const text = (td) => { const c = td.cloneNode(true); c.querySelectorAll('br').forEach((br) => br.replaceWith('\n')); return c.textContent.replace(/\u00a0/g, ' ').replace(/ {2,}/g, ' ').trim(); };
+      const picker = document.createElement('div'); picker.className = 'picker';
+      const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Pick a command');
+      sel.innerHTML = '<option value="">Pick a command…</option>';
+      const rows = [];
+      secs.forEach((sec) => {
+        const og = document.createElement('optgroup'); og.label = sec.name;
+        [...sec.table.rows].forEach((tr) => {
+          const ex = text(tr.cells[0]); const label = ex.split('\n')[0].slice(0, 70);
+          const o = document.createElement('option'); o.value = String(rows.length); o.textContent = label; og.appendChild(o);
+          rows.push({ ex, what: tr.cells[1].innerHTML });
+        });
+        sel.appendChild(og);
+      });
+      const out = document.createElement('div'); out.className = 'picked empty'; out.textContent = 'Choose a command above to see how to type it.';
+      const full = document.createElement('button'); full.type = 'button'; full.className = 'fulllist'; full.textContent = 'Show full list';
+      picker.append(sel); 
+      const head = group.querySelector('p.where');
+      head.after(picker, out, full);
+      sel.addEventListener('change', () => {
+        const r = rows[sel.value];
+        if (!r) { out.className = 'picked empty'; out.textContent = 'Choose a command above to see how to type it.'; return; }
+        out.className = 'picked'; out.innerHTML = '<div class="ex"></div><div class="what"></div>';
+        out.querySelector('.ex').textContent = r.ex; out.querySelector('.what').innerHTML = r.what;
+      });
+      full.addEventListener('click', () => { const on = group.classList.toggle('showall'); full.textContent = on ? 'Hide full list' : 'Show full list'; });
+    });
+  </script>
 </body>
 </html>
