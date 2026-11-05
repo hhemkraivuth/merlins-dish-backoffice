@@ -65,12 +65,12 @@ const money = (n) => '฿' + Math.round(Number(n || 0)).toLocaleString('en-AU');
 const money2 = (n) => '฿' + Number(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function spendCard(p) {
-  const parts = [`Ingredients ${money(p.ingredients)}`, `Overheads ${money(p.overheads)}`, `Meta ads ${money(p.ads)}`].join(' · ');
+  const parts = [['Ingredients', p.ingredients], ['Overheads', p.overheads], ['Meta ads', p.ads]].map(([n, v]) => `<div class="sum-row"><span>${n}</span><span>${money(v)}</span></div>`).join('');
   const shops = p.byShop.length
     ? `<details class="sum-more"><summary>Where it went</summary>${p.byShop.map((x) => `<div class="sum-row"><span>${escapeHtml(x.shop)}</span><span>${money(x.amount)}</span></div>`).join('')}</details>`
     : '';
   return `<div class="sum-card"><div class="sum-label">${escapeHtml(p.label)}</div><div class="sum-range">${escapeHtml(p.range)}</div>
-    <div class="sum-big">${money(p.total)}</div><div class="sum-sub">${escapeHtml(parts)}</div>${p.total ? shops : '<div class="sum-sub">Nothing logged yet.</div>'}</div>`;
+    <div class="sum-big">${money(p.total)}</div><div class="sum-lines">${parts}</div>${p.total ? shops : '<div class="sum-sub">Nothing logged yet.</div>'}</div>`;
 }
 
 function cookingCard(p) {
@@ -81,7 +81,7 @@ function cookingCard(p) {
   const low = p.lowYield.length ? `<div class="sum-warn">Low yield: ${p.lowYield.map((b) => `${escapeHtml(b.dish)} ${b.portions} on ${escapeHtml(b.date)}`).join(', ')}. Check the margin.</div>` : '';
   return `<div class="sum-card"><div class="sum-label">${escapeHtml(p.label)}</div><div class="sum-range">${escapeHtml(p.range)}</div>
     <div class="sum-big">${plural(p.batches, 'batch', 'batches')}</div>
-    <div class="sum-sub">${plural(p.portions, 'portion', 'portions')} · cost ${money(p.cost)}${p.perPortion === null ? '' : ` · ${money(p.perPortion)} a portion`}</div>
+    <div class="sum-lines"><div class="sum-row"><span>Portions</span><span>${p.portions}</span></div><div class="sum-row"><span>Cost</span><span>${money(p.cost)}</span></div>${p.perPortion === null ? '' : `<div class="sum-row"><span>Per portion</span><span>${money(p.perPortion)}</span></div>`}</div>
     ${low}${p.batches ? dishes : '<div class="sum-sub">Nothing cooked yet.</div>'}</div>`;
 }
 
@@ -463,7 +463,7 @@ async function renderStock() {
       <div class="stock-row">
         <div>
           <div class="stock-name">${escapeHtml(i.name)}${i.low ? ' <span style="color:#b3261e;font-weight:600">LOW</span>' : ''}</div>
-          <div class="stock-meta">${i.pack ? escapeHtml(i.left + i.unit) + ' · ' : ''}oldest bought ${escapeHtml(i.oldest)}${i.level ? ' · alert below ' + escapeHtml(i.level) : ''}</div>
+          <div class="stock-meta">${i.pack ? escapeHtml(i.left + i.unit) + ' · ' : 'tap to count in packs · '}oldest bought ${escapeHtml(i.oldest)}${i.level ? ' · alert below ' + escapeHtml(i.level) : ''}</div>
         </div>
         <button class="stock-count-button">${escapeHtml(i.pack ? i.pack.label : i.left + i.unit)}</button>
       </div>`);

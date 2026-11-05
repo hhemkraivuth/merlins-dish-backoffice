@@ -6,35 +6,43 @@
   <title>Merlin's Dish — The Pit</title>
   <link rel="stylesheet" href="style.css" />
   <style>
+    /* Merlin's Dish look, Home only until Lily approves it for every page.
+       Primary: red #E63D23, blue #294BD4, white. Secondary: yellow #F8CC1A, teal #63CBC6, cream #FFEEDE (from the sticker sheet). */
+    :root { --ink: #1B2559; --paper: #FFF7EE; --card: #FFFFFF; --line: #F3DCC8; --accent: #294BD4; --muted: #6C6A7A; --flag: #E63D23; --red: #E63D23; --blue: #294BD4; --yellow: #F8CC1A; --teal: #63CBC6; --cream: #FFEEDE; }
+    body { background: var(--paper); }
+    .header { background: var(--red); border-bottom: 0; }
+    .header .title { color: #fff; }
+    .header .subtitle { color: #FFE3DC; }
+    .logo-mark { background: #fff; color: var(--red); }
+    .tab-bar { background: var(--paper); }
+    .tab-button.active { background: var(--blue); color: #fff; }
     .wide { max-width: 1000px; }
     .status { font-size: 14px; color: var(--muted); min-height: 20px; margin-bottom: 8px; }
     .status.err { color: var(--flag); }
-    .topline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 4px 0 14px; flex-wrap: wrap; }
+    .topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; }
     .topline h2 { font-size: 18px; margin: 0; }
-    .topline .meta { font-size: 14px; color: var(--muted); }
-    .topline button { font: inherit; font-size: 14px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); cursor: pointer; }
-    .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-    @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; } }
-    .team { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-    .teamtop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-    .team h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--muted); }
-    .team .when { font-size: 12px; color: var(--muted); text-align: right; }
-    .team .latest { font-size: 22px; font-weight: 700; line-height: 1.2; margin: 6px 0 2px; }
-    .team .sub { font-size: 14px; color: var(--muted); margin: 0 0 8px; }
-    .team .clear { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
-    details.rest { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
-    details.rest summary { font-size: 14px; color: var(--accent); cursor: pointer; }
-    details.rest .n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--flag); color: var(--card); text-align: center; font-weight: 600; }
-    .ho { font-size: 14px; line-height: 1.4; margin: 8px 0 0; }
-    .ho .who { display: block; font-size: 12px; color: var(--muted); }
-    ul.more { margin: 8px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.45; }
-    ul.more li { margin-bottom: 4px; }
-    .office { position: relative; width: 100%; max-width: 760px; margin: 0 auto 16px; border: 3px solid #7c5c3e; border-radius: 10px; overflow: hidden; background: #efe6d6; }
+    .topline button { font: inherit; font-size: 14px; font-weight: 600; padding: 8px 16px; border: 0; border-radius: 999px; background: var(--blue); color: #fff; cursor: pointer; }
+    .office { position: relative; width: 100%; max-width: 760px; margin: 0 auto 18px; border: 3px solid var(--blue); border-radius: 12px; overflow: hidden; background: #efe6d6; }
     .office canvas { display: block; width: 100%; aspect-ratio: 192 / 120; image-rendering: pixelated; }
-    .office .plate { position: absolute; transform: translate(-50%, -100%); font: inherit; font-size: 11px; font-weight: 600; line-height: 1; padding: 4px 7px; border: 1px solid #7c5c3e; border-radius: 6px; background: var(--card); color: var(--ink); cursor: pointer; white-space: nowrap; }
-    .office .plate .n { margin-left: 4px; padding: 1px 5px; border-radius: 8px; background: var(--flag); color: var(--card); }
+    .office .plate { position: absolute; transform: translate(-50%, -100%); font: inherit; font-size: 11px; font-weight: 700; line-height: 1; padding: 4px 8px; border: 0; border-radius: 6px; background: var(--yellow); color: var(--blue); cursor: pointer; white-space: nowrap; }
     @media (min-width: 600px) { .office .plate { font-size: 13px; padding: 5px 10px; } }
-    .team.flash { box-shadow: 0 0 0 3px #f2c230; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (min-width: 760px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    .team { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--red); border-radius: 12px; padding: 12px 14px 12px; }
+    .team:nth-child(even) { border-top-color: var(--blue); }
+    .team.flash { box-shadow: 0 0 0 3px var(--yellow); }
+    .tlink { display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: var(--ink); }
+    .tname { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+    .top { font-size: 26px; font-weight: 800; line-height: 1.1; margin-top: 6px; }
+    .line { font-size: 16px; font-weight: 600; }
+    .note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .note.stale { color: var(--red); font-weight: 600; }
+    details.rest { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; }
+    details.rest summary { font-size: 13px; font-weight: 600; color: var(--blue); cursor: pointer; }
+    details.rest .n { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 10px; background: var(--teal); color: var(--ink); text-align: center; font-weight: 700; }
+    .ho { font-size: 13px; line-height: 1.35; margin: 8px 0 0; }
+    .ho .who { display: block; font-size: 11px; color: var(--muted); }
+    .week { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
     @media (max-width: 600px) { .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; } }
   </style>
 </head>
@@ -64,12 +72,12 @@
       <div class="topline">
         <div>
           <h2 id="today">The Pit</h2>
-          <div class="meta" id="openTotal"></div>
         </div>
         <button id="reload">Refresh</button>
       </div>
       <div class="office" id="office"></div>
       <div class="status" id="status">Loading…</div>
+      <p class="week">This week, Monday to Sunday. Tap a card for the detail.</p>
       <div class="grid" id="teams"></div>
     </main>
   </div>

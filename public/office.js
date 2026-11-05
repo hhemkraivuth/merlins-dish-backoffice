@@ -21,9 +21,9 @@
   ];
   const CHEF = ['...wwwwww...', '..wwwwwwww..'].map((r) => r.slice(0, 12));
   const PIGS = [
-    { name: 'Red', shirt: '#d64545', hat: '#a82a2a' },
-    { name: 'Blue', shirt: '#3b6fd4', hat: '#2a4f9c' },
-    { name: 'Yellow', shirt: '#f2c230', hat: '#c79a14' },
+    { name: 'Red', shirt: '#e63d23', hat: '#a82a2a' },
+    { name: 'Blue', shirt: '#294bd4', hat: '#1d368f' },
+    { name: 'Yellow', shirt: '#f8cc1a', hat: '#c9a00c' },
     { name: 'Chef', shirt: '#f4f0e8', hat: '#ffffff', chef: true },
   ];
   const BASE = { p: '#f4a6b8', e: '#e07a95', s: '#d9607f', k: '#2b1b1b', d: '#5a3b2e' };
@@ -64,14 +64,14 @@
   function drawRoom(ctx) {
     ctx.fillStyle = '#efe6d6'; ctx.fillRect(0, 0, W, H);
     for (let y = 12; y < H; y += 8) for (let x = ((y / 8) % 2) * 8; x < W; x += 16) { ctx.fillStyle = '#e6dac6'; ctx.fillRect(x, y, 8, 8); }
-    ctx.fillStyle = '#7c5c3e'; ctx.fillRect(0, 0, W, 12);
-    ctx.fillStyle = '#a8845c'; ctx.fillRect(0, 10, W, 2);
+    ctx.fillStyle = '#e63d23'; ctx.fillRect(0, 0, W, 12);
+    ctx.fillStyle = '#f8cc1a'; ctx.fillRect(0, 10, W, 2);
     // windows
     [30, 90, 150].forEach((x) => { ctx.fillStyle = '#bfe1ee'; ctx.fillRect(x, 2, 14, 7); ctx.fillStyle = '#8fc0d4'; ctx.fillRect(x + 6, 2, 1, 7); });
     // plant
     ctx.fillStyle = '#4c6b4f'; ctx.fillRect(184, 98, 6, 8); ctx.fillStyle = '#7c5c3e'; ctx.fillRect(185, 106, 4, 5);
     // rug
-    ctx.fillStyle = '#f2c230'; ctx.globalAlpha = 0.25; ctx.fillRect(70, 100, 52, 14); ctx.globalAlpha = 1;
+    ctx.fillStyle = '#294bd4'; ctx.globalAlpha = 0.18; ctx.fillRect(70, 100, 52, 14); ctx.globalAlpha = 1;
   }
 
   function drawDesks(ctx) {

@@ -10,14 +10,14 @@ function note(n) {
 
 function draw(d) {
   $('top').innerHTML = `
-    <div class="box"><h3>This week</h3><p class="big">${esc(d.week.text)}</p><p class="sub">Grab ${esc(d.week.grabText || '–')}<br>LINE ${esc(d.week.lineText || '–')}</p></div>
-    <div class="box"><h3>This month</h3><p class="big">${esc(d.month.text)}</p><p class="sub">Grab ${esc(d.month.grabText || '–')}<br>LINE ${esc(d.month.lineText || '–')}</p></div>
-    <div class="box"><h3>Competitor check</h3><p class="big ${d.auditDue ? 'due' : ''}">${d.auditDue ? 'Due now' : 'On track'}</p><p class="sub">${esc(d.auditNote)} Send the screenshots to LINE, then log the numbers below.</p></div>
+    <div class="box"><h3>This week</h3><p class="big">${esc(d.week.text)}</p><p class="sub">Grab: ${esc(d.week.grabText)}<br>LINE: ${esc(d.week.lineText)}<br>Instagram: ${esc(d.week.igText)}</p></div>
+    <div class="box"><h3>This month</h3><p class="big">${esc(d.month.text)}</p><p class="sub">Grab: ${esc(d.month.grabText)}<br>LINE: ${esc(d.month.lineText)}<br>Instagram: ${esc(d.month.igText)}</p></div>
+    <div class="box"><h3>Competitor check</h3><p class="big ${d.auditDue ? 'due' : ''}">${d.auditDue ? 'Check pending' : 'Up to date'}</p><p class="sub">${esc(d.auditNote)} Claude runs it every Monday, the summary lands here.</p></div>
     <div class="box"><h3>Coming up</h3>${d.dates.length ? d.dates.map((x) => `<p class="sub">${esc(x.date)}: ${esc(x.label)} (${x.away} days)</p>`).join('') : '<p class="sub">Nothing fixed in the next 60 days.</p>'}</div>`;
-  $('sections').innerHTML = d.kinds.map((k) => {
-    const list = d.notes[k] || [];
-    return `<div class="box"><details ${list.length ? 'open' : ''}><summary>${esc(TITLES[k] || k)} (${list.length})</summary>${list.length ? list.slice(0, 10).map(note).join('') : '<p class="sub">Nothing logged yet.</p>'}</details></div>`;
-  }).join('');
+  const filled = d.kinds.filter((k) => (d.notes[k] || []).length);
+  $('sections').innerHTML = filled.length
+    ? filled.map((k) => `<div class="box"><details open><summary>${esc(TITLES[k] || k)} (${d.notes[k].length})</summary>${d.notes[k].slice(0, 10).map(note).join('')}</details></div>`).join('')
+    : '<div class="box"><p class="sub">Competitor checks, inspo, trends and ad drafts from Claude appear here once they are logged.</p></div>';
 }
 
 async function load() {
