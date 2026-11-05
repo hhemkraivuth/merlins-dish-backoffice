@@ -437,7 +437,7 @@ async function renderStock() {
       <div class="stock-list" id="stockList"></div>
       <div class="intro" style="margin-top:18px">
         <h1 class="intro-title" style="font-size:18px">Ingredient stock</h1>
-        <p class="intro-body">What is left of each ingredient, built from the receipts and cook notes (oldest purchase first). Read only here. Correct a number from LINE, for example: count minced pork 3000g</p>
+        <p class="intro-body">What is left of each ingredient, built from receipts and cook notes. Tap a number to recount. Where a pack size is known it counts in packs (cans, bags), otherwise in g or ml.</p>
       </div>
       <div class="stock-list" id="ingredientList"><div class="loading">Loading…</div></div>
       <button class="primary-button" id="addStockBtn" style="margin-top:8px">+ Add item</button>
@@ -458,14 +458,18 @@ async function renderStock() {
     const items = d.items || [];
     if (!items.length) { box.innerHTML = '<div class="empty-state">No ingredient stock yet. It appears after a receipt (without "prices only") or an "opening" count in LINE.</div>'; return; }
     box.innerHTML = '';
-    items.forEach((i) => box.appendChild(el(`
+    items.forEach((i) => {
+      const row = el(`
       <div class="stock-row">
         <div>
           <div class="stock-name">${escapeHtml(i.name)}${i.low ? ' <span style="color:#b3261e;font-weight:600">LOW</span>' : ''}</div>
-          <div class="stock-meta">oldest bought ${escapeHtml(i.oldest)}${i.level ? ' · alert below ' + escapeHtml(i.level) : ''}</div>
+          <div class="stock-meta">${i.pack ? escapeHtml(i.left + i.unit) + ' · ' : ''}oldest bought ${escapeHtml(i.oldest)}${i.level ? ' · alert below ' + escapeHtml(i.level) : ''}</div>
         </div>
-        <div class="stock-count-button" style="cursor:default">${i.left}${escapeHtml(i.unit)}</div>
-      </div>`)));
+        <button class="stock-count-button">${escapeHtml(i.pack ? i.pack.label : i.left + i.unit)}</button>
+      </div>`);
+      row.querySelector('button').addEventListener('click', () => recountIngredient(i));
+      box.appendChild(row);
+    });
   }).catch((err) => { section.querySelector('#ingredientList').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`; });
 
   section.querySelector('#seedPkgBtn').addEventListener('click', async () => {
@@ -485,6 +489,37 @@ async function renderStock() {
     if (count == null) return;
     saveStock(name, Number(count), unit).then(() => renderStock()).catch(() => {});
   });
+}
+
+// Recount one ingredient. Known pack size: type packs. Unknown: ask the size of one pack and its word once, then packs.
+async function recountIngredient(i) {
+  let size = null; let word = null;
+  if (!i.pack) {
+    const ans = prompt(`Size of one pack of ${i.name} in ${i.unit}, for example 330${i.unit}. Cancel to count in ${i.unit} instead.`, '');
+    if (ans === null || !ans.trim()) {
+      const g = prompt(`${i.name} left in ${i.unit}:`, String(i.left));
+      if (g === null || !Number.isFinite(Number(g))) return;
+      try {
+        const res = await fetch('/api/stock/ingredient-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: i.name, base: Number(g) }) });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Not saved');
+        renderStock();
+      } catch (e) { alert(`Not saved: ${e.message}`); }
+      return;
+    }
+    size = ans.trim();
+    word = prompt('What do you call one pack? For example can, bag, bottle.', 'can');
+    if (word === null) return;
+  }
+  const label = i.pack ? i.pack.word : word;
+  const n = prompt(`How many ${label}s of ${i.name} are left?`, i.pack ? String(i.pack.packs) : '');
+  if (n === null || !n.trim() || !Number.isFinite(Number(n))) return;
+  try {
+    const res = await fetch('/api/stock/ingredient-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: i.name, packs: Number(n), size, word }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Not saved');
+    renderStock();
+  } catch (err) { alert(`Not saved: ${err.message}`); }
 }
 
 // ISO timestamp -> "15/10/2026 22:26" in Bangkok time

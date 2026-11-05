@@ -29,6 +29,12 @@
     .ho .who { display: block; font-size: 12px; color: var(--muted); }
     ul.more { margin: 8px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.45; }
     ul.more li { margin-bottom: 4px; }
+    .office { position: relative; width: 100%; max-width: 760px; margin: 0 auto 16px; border: 3px solid #7c5c3e; border-radius: 10px; overflow: hidden; background: #efe6d6; }
+    .office canvas { display: block; width: 100%; aspect-ratio: 192 / 120; image-rendering: pixelated; }
+    .office .plate { position: absolute; transform: translate(-50%, -100%); font: inherit; font-size: 11px; font-weight: 600; line-height: 1; padding: 4px 7px; border: 1px solid #7c5c3e; border-radius: 6px; background: var(--card); color: var(--ink); cursor: pointer; white-space: nowrap; }
+    .office .plate .n { margin-left: 4px; padding: 1px 5px; border-radius: 8px; background: var(--flag); color: var(--card); }
+    @media (min-width: 600px) { .office .plate { font-size: 13px; padding: 5px 10px; } }
+    .team.flash { box-shadow: 0 0 0 3px #f2c230; }
     @media (max-width: 600px) { .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; } }
   </style>
 </head>
@@ -47,6 +53,7 @@
     <nav class="tab-bar" id="tabBar">
       <a class="tab-button tab-link" href="commands.html">Commands</a>
       <a class="tab-button tab-link active" href="home.html">Home</a>
+      <a class="tab-button tab-link" href="marketing.html">Marketing</a>
       <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
       <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
       <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
@@ -61,10 +68,12 @@
         </div>
         <button id="reload">Refresh</button>
       </div>
+      <div class="office" id="office"></div>
       <div class="status" id="status">Loading…</div>
       <div class="grid" id="teams"></div>
     </main>
   </div>
+  <script src="office.js"></script>
   <script src="home.js"></script>
 </body>
 </html>
