@@ -6,6 +6,7 @@ const { ensureTab } = require('./cookLog');
 const { LEDGER_TAB, LEDGER_HEADERS, COL, num, grabCsvToLedger, lineOrdersToLedger, ledgerObjects, rowInRange, cellsFor } = require('./ledger');
 const { overheadsFrom } = require('./overheads');
 const { grabAdsFrom } = require('./grabAds');
+const { walletPaidFrom } = require('./walletPaid');
 const { lowItems, parseLevels } = require('./reorderLevels');
 const { LotBook } = require('./ingredientLots');
 const { dayDetail, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps } = require('./reports');
@@ -101,6 +102,20 @@ async function deleteLedgerRange({ from, to, channel = 'All', dryRun = false }) 
   return { count, deleted };
 }
 
+// Other tabs can be cleared by date too: the Expense Log and the Overheads tab both keep the date in column A.
+// Stock lots are not touched, so this only takes the rows out of the numbers.
+const DATE_TABS = { expense: 'Expense Log', overheads: 'Overheads' };
+async function deleteTabRange({ target, from, to, dryRun = false }) {
+  const tab = DATE_TABS[target];
+  if (!tab) throw new Error('Choose Ledger, Expense Log or Overheads.');
+  const inRange = (r) => { const d = parseDate(r[0]); return !!d && d.getTime() >= from.getTime() && d.getTime() <= to.getTime(); };
+  const rows = await readOrEmpty(tab);
+  const count = rows.slice(1).filter(inRange).length;
+  if (dryRun || !count) return { count, deleted: 0 };
+  const deleted = await deleteRowsWhere(tab, inRange);
+  return { count, deleted };
+}
+
 async function deleteLedgerRow(key) {
   const k = String(key || '').trim();
   if (!k) throw new Error('No row key was sent.');
@@ -137,14 +152,14 @@ function purchasesFrom(rows) {
 }
 
 async function loadAll() {
-  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows] = await Promise.all([
-    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'),
+  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows] = await Promise.all([
+    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'),
   ]);
   const purchases = purchasesFrom(expense);
   return {
     ledger: ledgerObjects(ledgerRows),
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
-    purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows)],
+    purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows), ...walletPaidFrom(walletRows)],
     expense: purchases.map((p) => ({ date: p.date, name: p.name, unitCost: p.unitCost })),
     handoffRows: handoffs,
     lowIngredients: lowItems(new LotBook(lotRows, [], bangkokToday()), parseLevels(levelRows)).map((x) => `${x.name}: ${Math.round(x.left)}${x.unit} left`),
@@ -209,4 +224,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { addManualOrders, deleteLedgerRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, periodText, cookBatchesFrom, purchasesFrom };
