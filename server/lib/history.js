@@ -39,12 +39,12 @@ function historyMonths() {
   }));
 }
 
-// Months the app already has data for are kept as they are; history fills only the months before them.
+// The Master Log runs to the end of September 2026, so every month up to 09/2026 comes from history, even when BOH
+// holds a few stray rows for it (e.g. the 02/09 Grab day). BOH is the live source from 01/10/2026 onwards.
+const MASTER_LAST_MONTH = '2026-09';
 function withHistory(live) {
-  const have = new Set(live.filter((p) => p.grab.gross || p.line.gross || p.foodCost || p.overheads).map((p) => p.key));
-  const firstLive = live.length ? live[0].key : '9999-99';
-  const older = historyMonths().filter((h) => !have.has(h.key) && h.key < firstLive);
-  return [...older, ...live];
+  const older = historyMonths().filter((h) => h.key <= MASTER_LAST_MONTH);
+  return [...older, ...live.filter((p) => p.key > MASTER_LAST_MONTH)];
 }
 
 module.exports = { historyMonths, withHistory, HISTORY };
