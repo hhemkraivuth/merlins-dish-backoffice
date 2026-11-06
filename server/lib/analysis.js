@@ -90,14 +90,12 @@ function eventsFromLedger(ledger, { from = null } = {}) {
   }));
 }
 
-// Every order line since the start, never counted twice: Master Log before September, the Ledger from September, Sheet1 only for September rows the Ledger does not already hold.
-function allEvents({ master = [], sheet1 = [], ledger = [] }) {
-  const sep = utc(2026, 9, 1); const oct = utc(2026, 10, 1);
-  const a = eventsFromRows(master, { carryDate: true, to: sep });
-  const b = eventsFromLedger(ledger, { from: sep });
-  const seen = new Set(b.filter((e) => e.date < oct).map(keyOf));
-  const c = eventsFromRows(sheet1, { from: sep, to: oct }).filter((e) => { const k = keyOf(e); if (seen.has(k)) return false; seen.add(k); return true; });
-  return { events: [...a, ...b, ...c], masterEvents: a };
+// Every order line since the start, never counted twice: the Master Log runs to the end of September, BOH (the Ledger) takes over from 01/10/2026.
+function allEvents({ master = [], ledger = [] }) {
+  const oct = utc(2026, 10, 1);
+  const a = eventsFromRows(master, { carryDate: true, to: oct });
+  const b = eventsFromLedger(ledger, { from: oct });
+  return { events: [...a, ...b], masterEvents: a };
 }
 
 function emptySteps(type, from, today) {
@@ -136,12 +134,15 @@ function buildHistory({ events, today }) {
 // Monthly result straight from the Master Log: sales (Order and Delivery rows) less every cost row logged (recipe, ads, overheads,
 // Grab fees, riders, waste, staff). Net Income is the figure each row already carries. Rows are never counted twice.
 function monthlyResult(master = [], today) {
+  const oct = utc(2026, 10, 1);
+  // The Master Log is used to the end of September 2026 only. From October the numbers come from BOH (see buildAnalysis).
+  const cut = utc(2026, 10, 1);
   const by = new Map(); let last = null; let lastDate = null;
   master.forEach((r, i) => {
     if (!r || (i === 0 && /date/i.test(String(r[0] || '')))) return;
     let date = parseDate(r[0]);
     if (date) last = date; else if (String(r[0] ?? '').trim() === '' && String(r[1] || '').trim()) date = last;
-    if (!date) return;
+    if (!date || date >= cut) return;
     const type = String(r[4] || '').trim().toLowerCase();
     const net = num0(r[8]) || (type === 'order' || type === 'delivery' ? num0(r[5]) * num0(r[6]) : -num0(r[7]));
     if (!type || !net) return;
@@ -151,7 +152,7 @@ function monthlyResult(master = [], today) {
     by.set(key, v);
     if (!lastDate || date > lastDate) lastDate = date;
   });
-  const months = [...by].sort().map(([key, v]) => ({ key, label: `${key.slice(5)}/${key.slice(0, 4)}`, sales: Math.round(v.sales), costs: Math.round(v.costs), net: Math.round(v.sales - v.costs), inProgress: Boolean(lastDate && key >= `${lastDate.getUTCFullYear()}-${String(lastDate.getUTCMonth() + 1).padStart(2, '0')}` && lastDate.getUTCDate() < 28) }));
+  const months = [...by].sort().map(([key, v]) => ({ key, label: `${key.slice(5)}/${key.slice(0, 4)}`, sales: Math.round(v.sales), costs: Math.round(v.costs), net: Math.round(v.sales - v.costs), inProgress: false }));
   return { months, lastDate: lastDate ? formatDMY(lastDate) : null };
 }
 
@@ -251,7 +252,20 @@ function dishPerformance({ ledger, cookBatches, expense, today }) {
   return { sitting, creep, moves, breakEven };
 }
 
-function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], sheet1 = [], cookBatches = [], expense = [] }) {
+// Master Log months to September, then BOH months from October (sales after Grab fees, and what is left after costs).
+function withBoh(res, bohMonths) {
+  const extra = bohMonths.map((m) => ({ key: m.label, label: m.label, sales: m.revenue, costs: m.revenue - m.margin, net: m.margin, inProgress: m.inProgress }));
+  return { months: [...res.months, ...extra], lastDate: res.lastDate };
+}
+
+// Master Log months to September, then BOH months (revenue after Grab fees, and the margin after food, overheads and ads).
+function resultWithBoh(res, months) {
+  const keyOfM = (m) => `${m.from.slice(6)}-${m.from.slice(3, 5)}`;
+  const boh = months.filter((m) => keyOfM(m) >= '2026-10').map((m) => ({ key: keyOfM(m), label: m.label, sales: m.revenue, costs: m.revenue - m.margin, net: m.margin, inProgress: m.inProgress }));
+  return { ...res, months: [...res.months, ...boh] };
+}
+
+function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [] }) {
   const chW = channelOrders(ledger, 'week'); const chM = channelOrders(ledger, 'month');
   const rpW = repeatCustomers(ledger, 'week'); const rpM = repeatCustomers(ledger, 'month');
   const weeks = weekly.filter((p) => p.to >= FROM).map((p) => shape(p, today, 'week', chW.get(p.key), rpW.get(p.key)));
@@ -263,10 +277,10 @@ function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master =
   const notes = [];
   if (last.length === 2) notes.push({ title: 'Last finished week against the one before', text: `Gross ${change(last[1].gross, last[0].gross) ?? 'n/a'}%, margin ${change(last[1].margin, last[0].margin) ?? 'n/a'}%, orders ${last[1].orders} against ${last[0].orders}.` });
   if (best && worst && best !== worst) notes.push({ title: 'Best and weakest full week', text: `Best: ${best.label}, margin ฿${best.margin.toLocaleString('en-AU')}. Weakest: ${worst.label}, margin ฿${worst.margin.toLocaleString('en-AU')}.` });
-  const { events } = allEvents({ master, sheet1, ledger });
+  const { events } = allEvents({ master, ledger });
   return {
     today: formatDMY(today), from: formatDMY(FROM), weeks, months, mix: itemMix(ledger, today), notes, best: best && best.label, worst: worst && worst.label,
-    history: { ...buildHistory({ events, today }), result: monthlyResult(master, today) },
+    history: { ...buildHistory({ events, today }), result: withBoh(monthlyResult(master, today), months) },
     heatmap: heatmap(ledger),
     dishes: dishPerformance({ ledger, cookBatches, expense, today }),
   };

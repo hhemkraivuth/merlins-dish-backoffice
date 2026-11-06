@@ -138,7 +138,7 @@ function draw() {
 
   if (since && mode === 'months') {
     const rs = (data.history.result && data.history.result.months) || [];
-    if (rs.length) html += card('Monthly result', `Sales less every cost logged in the Master Log (food, ads, overheads, Grab fees, riders). Master Log runs to ${data.history.result.lastDate}, so the last month is not finished.`, chart({ labels: rs.map((r) => r.label), partial: rs.map((r) => r.inProgress), bars: [{ name: 'Sales', color: COLORS.gross, values: rs.map((r) => r.sales) }, { name: 'Costs', color: COLORS.food, values: rs.map((r) => r.costs) }, { name: 'Result', color: COLORS.margin, values: rs.map((r) => r.net) }] }));
+    if (rs.length) html += card('Monthly result', `Sales less every cost (food, ads, overheads, Grab fees, riders). Nov 2025 to Sep 2026 comes from the Master Log, October onwards from BOH. Faded bars are not finished yet.`, chart({ labels: rs.map((r) => r.label), partial: rs.map((r) => r.inProgress), bars: [{ name: 'Sales', color: COLORS.gross, values: rs.map((r) => r.sales) }, { name: 'Costs', color: COLORS.food, values: rs.map((r) => r.costs) }, { name: 'Result', color: COLORS.margin, values: rs.map((r) => r.net) }] }));
   }
   if (since) html += '<p class="status">Margin, food cost and the deeper analysis below use the Ledger, which starts in October. Switch to From October to see them.</p>';
   else html += octCharts(rows);

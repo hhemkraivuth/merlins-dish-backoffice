@@ -11,23 +11,23 @@ const master = [
   ['01/08/2026', 'Noir Ragu', 'LINE', 'LINE', 'Order', 10, 2000, 0, 2000, 'a', 'A1'],
   ['', 'Tuscan Pork Braise', 'LINE', 'LINE', 'Order', 5, 1000, 0, 1000, 'b', 'A2'], // blank date carries forward
   ['', 'Rigatoni (paired with Noir Ragu)', 'LINE', 'LINE', 'Order', 3, 0, 0, 0, 'b', 'A2'], // pasta, not a batch dish
+  ['05/09/2026', 'Noir Ragu', 'LINE', 'LINE', 'Order', 20, 4000, 0, 4000, 'x', 'B1'], // the Master Log runs to the end of September
 ];
 const ledger = [
   ['Date'],
-  sale('05/09/2026', 'Noir Ragu', 20, 'B1'),
+  sale('05/09/2026', 'Noir Ragu', 20, 'B1'), // BOH starts in October, so a September row here is ignored
   sale('05/10/2026', 'Noir Ragu', 2, 'C1'), // slow month
 ];
-const sheet1 = [['Date'], sale('05/09/2026', 'Noir Ragu', 20, 'B1')]; // duplicate of the ledger row
 
 test('combineSales carries blank dates and never counts a row twice', () => {
-  const s = sp.combineSales({ master, sheet1, ledger });
+  const s = sp.combineSales({ master, ledger });
   assert.strictEqual(s.filter((x) => x.dish === 'Noir Ragu').reduce((a, x) => a + x.qty, 0), 10 + 20 + 2);
   assert.strictEqual(s.find((x) => x.dish === 'Tuscan Pork Braise').date.getUTCDate(), 1);
   assert.ok(!s.some((x) => /rigatoni/i.test(x.dish)));
 });
 
 test('demand leaves out the slow October', () => {
-  const d = sp.demandOf(sp.combineSales({ master, sheet1, ledger }), today);
+  const d = sp.demandOf(sp.combineSales({ master, ledger }), today);
   assert.strictEqual(d.dishes.find((x) => x.dish === 'Noir Ragu').perMonth, 15); // (10 + 20) / 2
 });
 
@@ -42,7 +42,7 @@ const priceLog = [['Date', 'Ingredient', 'Price', 'Unit', 'c', 'Shop'],
   ['01/11/2026', 'Onion', 100, '1 kg', '', 'Fresh market']];
 
 function run(extra = {}) {
-  return sp.buildShoppingPlan({ today, sales: sp.combineSales({ master, sheet1, ledger }), cookLogRows: cookLog, sizeRows: sizes, lineRows: lines, priceLogRows: priceLog, ...extra });
+  return sp.buildShoppingPlan({ today, sales: sp.combineSales({ master, ledger }), cookLogRows: cookLog, sizeRows: sizes, lineRows: lines, priceLogRows: priceLog, ...extra });
 }
 
 test('onion is a fresh run, pork is bulk, and amounts follow portions', () => {

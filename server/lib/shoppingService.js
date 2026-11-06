@@ -24,9 +24,9 @@ async function live(tab, a1, warnings) {
 async function getPlan({ force = false } = {}) {
   if (!force && cache.data && Date.now() - cache.at < TTL) return cache.data;
   const warnings = [];
-  const [master, priceLog, shelf, sheet1, ledger, expense, cookLog, sizes, lines] = await Promise.all([
+  const [master, priceLog, shelf, ledger, expense, cookLog, sizes, lines] = await Promise.all([
     live('Master Log', 'A:K', warnings), live('Price Log', 'A:H', warnings), live('Shelf Life', 'A:B', []).catch(() => []),
-    own('Sheet1'), own(LEDGER_TAB), own('Expense Log'), own('Cook Log'), own('Cook Log Sizes'), own('Cook Log Lines'),
+    own(LEDGER_TAB), own('Expense Log'), own('Cook Log'), own('Cook Log Sizes'), own('Cook Log Lines'),
   ]);
   const shelfOwn = await own('Shelf Life');
   const stock = new Map();
@@ -40,7 +40,7 @@ async function getPlan({ force = false } = {}) {
   } catch (err) { warnings.push(`Could not read the counted stock (${err.message}), so what is left is estimated from receipts.`); }
   const result = plan.buildShoppingPlan({
     today: bangkokToday(),
-    sales: plan.combineSales({ master, sheet1, ledger }),
+    sales: plan.combineSales({ master, ledger }),
     cookLogRows: cookLog, sizeRows: sizes, lineRows: lines,
     priceLogRows: priceLog, expenseRows: expense, shelfRows: [...shelf, ...shelfOwn], stock,
   });

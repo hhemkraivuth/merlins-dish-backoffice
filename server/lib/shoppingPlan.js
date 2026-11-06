@@ -1,6 +1,6 @@
 // Monthly shopping plan: what to buy, when, so there are fewer trips.
 //
-// 1. Demand. Portions sold per batch dish per month, from the Master Log (August), Sheet1 (September) and the Ledger (October on).
+// 1. Demand. Portions sold per batch dish per month, from the Master Log (to September) and BOH, the Ledger (October on).
 //    The plan uses the normal completed months (slow months such as October are left out), plus a small buffer.
 // 2. Usage. Grams of each ingredient (and pieces of packaging) per portion, from the real batches in Cook Log + Cook Log Lines.
 // 3. Need per ingredient per month = demand x usage per portion.
@@ -51,7 +51,7 @@ function fmtQty(qty, unit) {
 
 // ---- demand ------------------------------------------------------------------------------------------
 
-// Master Log / Sheet1 / Ledger rows share the first columns: Date | Description | Branch or Channel | Order from | Type | QTY | Money In | Cost | Net | Customer | Order No
+// Master Log / Ledger rows share the first columns: Date | Description | Branch or Channel | Order from | Type | QTY | Money In | Cost | Net | Customer | Order No
 // carryDate: the Master Log merges the date across a day, so a blank date means "same day as above".
 function salesFromRows(rows = [], { from, to, carryDate = false } = {}) {
   const out = [];
@@ -70,17 +70,10 @@ function salesFromRows(rows = [], { from, to, carryDate = false } = {}) {
   return out;
 }
 
-// One list of sales across the three places they live, never counting a row twice:
-//   before 01/09/2026 the Master Log, September the Ledger and Sheet1 together, from 01/10/2026 the Ledger.
-function combineSales({ master = [], sheet1 = [], ledger = [] }) {
-  const sep = utc(2026, 9, 1); const oct = utc(2026, 10, 1);
-  const out = [
-    ...salesFromRows(master, { to: sep, carryDate: true }),
-    ...salesFromRows(ledger, { from: sep }),
-  ];
-  const seen = new Set(out.filter((s) => s.date < oct).map((s) => s.key));
-  for (const s of salesFromRows(sheet1, { from: sep, to: oct })) if (!seen.has(s.key)) { seen.add(s.key); out.push(s); }
-  return out;
+// One list of sales: the Master Log runs to the end of September, BOH (the Ledger) takes over from 01/10/2026.
+function combineSales({ master = [], ledger = [] }) {
+  const oct = utc(2026, 10, 1);
+  return [...salesFromRows(master, { to: oct, carryDate: true }), ...salesFromRows(ledger, { from: oct })];
 }
 
 function monthsOf(today) {
@@ -253,7 +246,7 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
   const shelf = shelfOf(shelfRows);
 
   for (const k of demand.normal) {
-    if (!demand.dishes.some((d) => d.months[k] > 0)) warnings.push(`No batch dish sales were found for ${monthName(k)}. Check the Master Log, Sheet1 and Ledger have that month.`);
+    if (!demand.dishes.some((d) => d.months[k] > 0)) warnings.push(`No batch dish sales were found for ${monthName(k)}. Check the Master Log (to September) and BOH (October on) have that month.`);
   }
   if (!usage.batchCount) warnings.push('No batches with ingredient lines were found in the Cook Log yet, so amounts per portion are unknown.');
 

@@ -10,9 +10,8 @@ async function analysisJson(req, res) {
     const warnings = [];
     let master = [];
     try { master = await require('../lib/liveSheet').readLiveRange('Master Log', 'A:K'); }
-    catch (err) { warnings.push(`Could not read the Master Log (${err.message}), so the history before September is missing.`); }
-    const sheet1 = await svc.readOrEmpty('Sheet1');
-    const out = buildAnalysis({ weekly, monthly, ledger: d.ledger, today: bangkokToday(), master, sheet1, cookBatches: d.cookBatches, expense: d.expense });
+    catch (err) { warnings.push(`Could not read the Master Log (${err.message}), so the history to September is missing.`); }
+    const out = buildAnalysis({ weekly, monthly, ledger: d.ledger, today: bangkokToday(), master, cookBatches: d.cookBatches, expense: d.expense });
     out.warnings = warnings;
     res.json(out);
   } catch (err) { console.error(err); res.status(500).json({ error: String((err && err.message) || err) }); }

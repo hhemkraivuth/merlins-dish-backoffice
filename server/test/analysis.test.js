@@ -46,16 +46,15 @@ test('channels are sorted into Grab, LINE and Instagram, from either column', ()
   assert.strictEqual(A.channelFromText('', 'GrabFood-n'), 'grab');
 });
 
-test('history: Master Log before September, Ledger from September, a September row in both is counted once', () => {
+test('history: the Master Log runs to September, BOH (the Ledger) takes over from October', () => {
   const master = [['Date', 'Description', 'Branch', 'Order from', 'Type', 'QTY', 'Money In'],
     ['10/11/2025', 'Noir Ragu', 'LINE', 'Instagram', 'Order', 2, 400, 0, 400],
     ['', 'Tubetti', 'LINE', 'LINE', 'Order', 1, 100, 0, 100], // blank date carries the day above
     ['12/05/2026', 'Noir Ragu', 'Grab', '', 'Order', 3, 900, 0, 900]];
   const ledgerRow = (d, desc, ch, from, q, m, no) => ({ date: d, dmy: '', desc, channel: ch, orderFrom: from, type: 'Order', qty: q, moneyIn: m, net: m, customer: '', orderNo: no });
-  const ledger = [ledgerRow(utc(2026, 9, 5), 'Noir Ragu', 'LINE', 'LINE', 2, 400, 'S1')];
-  const sheet1 = [['Date'], ['05/09/2026', 'Noir Ragu', 'LINE', 'LINE', 'Order', 2, 400, 0, 400, 'x', 'S1']];
-  const { events } = A.allEvents({ master, sheet1, ledger });
-  assert.strictEqual(events.length, 4, 'three master rows plus one September row');
+  const ledger = [ledgerRow(utc(2026, 9, 5), 'Noir Ragu', 'LINE', 'LINE', 2, 400, 'S1'), ledgerRow(utc(2026, 10, 5), 'Noir Ragu', 'LINE', 'LINE', 2, 400, 'S2')];
+  const { events } = A.allEvents({ master, ledger });
+  assert.strictEqual(events.length, 4, 'three master rows plus the October BOH row; a September BOH row is ignored');
   const h = A.buildHistory({ events, today: utc(2026, 10, 20) });
   const nov = h.months.find((m) => m.key === '2025-11');
   assert.strictEqual(nov.ig, 400); assert.strictEqual(nov.line, 100);
