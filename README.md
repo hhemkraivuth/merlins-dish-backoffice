@@ -211,6 +211,7 @@ It runs on Railway, so no computer needs to be on. If Railway was down on Sunday
 Set in Railway:
 - `DRIVE_WEEKLY_FOLDER_ID`: the Drive folder, shared with the service account email as Editor
 - `WEEKLY_EXPORT_AUTO=on`: turns the Sunday timer on
+- `BOT_URL`: the customer bot address (for example https://merlins-dish-bot.up.railway.app). BOH reads its public menu feed, read only, at 03:00 Bangkok time (change with `STOCK_SNAPSHOT_TIME`) to fill the Stock left box on Home. Nothing is ever written to the bot.
 - `WEEKLY_EXPORT_TIME`: optional, Bangkok time HH:MM (default 20:00)
 
 Test it any time with "Save last week to Drive now" on the Numbers page (saves the last finished Sunday to Saturday week).
