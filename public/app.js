@@ -1,7 +1,7 @@
 const main = document.getElementById('main');
 const tabBar = document.getElementById('tabBar');
 
-const PANELS = { receipts: renderReceipts, batchcook: renderBatchCook };
+const PANELS = { receipts: renderReceipts, batchcook: renderBatchCook, stock: renderStock };
 
 tabBar.addEventListener('click', (e) => {
   const btn = e.target.closest('.tab-button');
@@ -563,8 +563,172 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
   drawRows();
 }
 
+// ---- Mode 4: Stock Counts ----
+
+async function renderStock() {
+  main.innerHTML = '<div class="loading">Loading stock…</div>';
+  let stock = [];
+  try {
+    const res = await fetch('/api/stock');
+    const data = await res.json();
+    stock = data.stock || [];
+  } catch (err) {
+    main.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
+    return;
+  }
+
+  main.innerHTML = '';
+  const section = el(`
+    <section class="section">
+      <div class="intro">
+        <h1 class="intro-title">Stock Counts</h1>
+        <p class="intro-body">Packaging, cans and counted packs. Tap a number to recount; your number wins from that point on.</p>
+      </div>
+      <div class="intro" style="margin-top:18px">
+        <h1 class="intro-title" style="font-size:18px">Packaging and cans</h1>
+      </div>
+      <div class="stock-list" id="stockList"></div>
+      <div class="intro" style="margin-top:18px">
+        <h1 class="intro-title" style="font-size:18px">Ingredient stock</h1>
+        <p class="intro-body">What is left of each ingredient, built from receipts and cook notes. Tap a number to recount. Where a pack size is known it counts in packs (cans, bags), otherwise in g or ml.</p>
+      </div>
+      <div class="stock-list" id="ingredientList"><div class="loading">Loading…</div></div>
+      <button class="primary-button" id="addStockBtn" style="margin-top:8px">+ Add item</button>
+      <button class="primary-button" id="seedPkgBtn" style="margin-top:8px">Add the 4 packaging items (at 0)</button>
+    </section>
+  `);
+  main.appendChild(section);
+
+  const list = section.querySelector('#stockList');
+  if (!stock.length) {
+    list.innerHTML = '<div class="empty-state">No stock items yet — add your first one below.</div>';
+  }
+  stock.forEach((item) => list.appendChild(renderStockRow(item)));
+
+  fetch('/api/stock/ingredients').then((r) => r.json()).then((d) => {
+    const box = section.querySelector('#ingredientList');
+    if (d.error) { box.innerHTML = `<div class="empty-state">${escapeHtml(d.error)}</div>`; return; }
+    const items = d.items || [];
+    if (!items.length) { box.innerHTML = '<div class="empty-state">No ingredient stock yet. It appears after a receipt (without "prices only") or an "opening" count in LINE.</div>'; return; }
+    box.innerHTML = '';
+    items.forEach((i) => {
+      const row = el(`
+      <div class="stock-row">
+        <div>
+          <div class="stock-name">${escapeHtml(i.name)}${i.low ? ' <span style="color:#b3261e;font-weight:600">LOW</span>' : ''}</div>
+          <div class="stock-meta">${i.pack ? escapeHtml(i.left + i.unit) + ' · ' : 'tap to count in packs · '}oldest bought ${escapeHtml(i.oldest)}${i.level ? ' · alert below ' + escapeHtml(i.level) : ''}</div>
+        </div>
+        <button class="stock-count-button">${escapeHtml(i.pack ? i.pack.label : i.left + i.unit)}</button>
+      </div>`);
+      row.querySelector('button').addEventListener('click', () => recountIngredient(i));
+      box.appendChild(row);
+    });
+  }).catch((err) => { section.querySelector('#ingredientList').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`; });
+
+  section.querySelector('#seedPkgBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/stock/seed-packaging', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      alert(data.added.length ? `Added at 0: ${data.added.join(', ')}. Now set the real counts.` : 'All 4 packaging items are already there. Nothing changed.');
+      renderStock();
+    } catch (err) { alert(`Nothing was added: ${err.message}`); }
+  });
+  section.querySelector('#addStockBtn').addEventListener('click', () => {
+    const name = prompt('Item name:');
+    if (!name) return;
+    const unit = prompt('Unit (e.g. Set, can, pcs):', '') || '';
+    const count = prompt('Starting count:', '0');
+    if (count == null) return;
+    saveStock(name, Number(count), unit).then(() => renderStock()).catch(() => {});
+  });
+}
+
+
+// Recount one ingredient. Known pack size: type packs. Unknown: ask the size of one pack and its word once, then packs.
+async function recountIngredient(i) {
+  let size = null; let word = null;
+  if (!i.pack) {
+    const ans = prompt(`Size of one pack of ${i.name} in ${i.unit}, for example 330${i.unit}. Cancel to count in ${i.unit} instead.`, '');
+    if (ans === null || !ans.trim()) {
+      const g = prompt(`${i.name} left in ${i.unit}:`, String(i.left));
+      if (g === null || !Number.isFinite(Number(g))) return;
+      try {
+        const res = await fetch('/api/stock/ingredient-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: i.name, base: Number(g) }) });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Not saved');
+        renderStock();
+      } catch (e) { alert(`Not saved: ${e.message}`); }
+      return;
+    }
+    size = ans.trim();
+    word = prompt('What do you call one pack? For example can, bag, bottle.', 'can');
+    if (word === null) return;
+  }
+  const label = i.pack ? i.pack.word : word;
+  const n = prompt(`How many ${label}s of ${i.name} are left?`, i.pack ? String(i.pack.packs) : '');
+  if (n === null || !n.trim() || !Number.isFinite(Number(n))) return;
+  try {
+    const res = await fetch('/api/stock/ingredient-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: i.name, packs: Number(n), size, word }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Not saved');
+    renderStock();
+  } catch (err) { alert(`Not saved: ${err.message}`); }
+}
+
+// ISO timestamp -> "15/10/2026 22:26" in Bangkok time
+function formatStamp(value) {
+  const d = new Date(value);
+  if (!value || Number.isNaN(d.getTime())) return value ? String(value) : 'never';
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+  const g = (t) => p.find((x) => x.type === t).value;
+  return `${g('day')}/${g('month')}/${g('year')} ${g('hour')}:${g('minute')}`;
+}
+
+function renderStockRow(item) {
+  const row = el(`
+    <div class="stock-row">
+      <div>
+        <div class="stock-name">${escapeHtml(item.itemName)}</div>
+        <div class="stock-meta">${escapeHtml(item.unit)} · last updated ${escapeHtml(formatStamp(item.lastUpdated))}${item.lastUpdatedBy ? ' · ' + escapeHtml(item.lastUpdatedBy) : ''}</div>
+      </div>
+      <button class="stock-count-button">${item.currentCount}</button>
+    </div>
+  `);
+  row.querySelector('.stock-count-button').addEventListener('click', () => {
+    const editGroup = el(`
+      <div class="stock-edit-group">
+        <input class="stock-edit-input" type="number" value="${item.currentCount}" />
+        <button class="small-button">Save</button>
+      </div>
+    `);
+    const btn = row.querySelector('.stock-count-button');
+    row.replaceChild(editGroup, btn);
+    const input = editGroup.querySelector('input');
+    input.focus();
+    editGroup.querySelector('button').addEventListener('click', async () => {
+      try { await saveStock(item.itemName, Number(input.value), item.unit); renderStock(); } catch (e) { /* already shown */ }
+    });
+  });
+  return row;
+}
+
+async function saveStock(itemName, newCount, unit) {
+  const res = await fetch('/api/stock/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ itemName, newCount, unit }),
+  });
+  if (!res.ok) {
+    let msg = 'Request failed';
+    try { msg = (await res.json()).error || msg; } catch (e) { /* keep default */ }
+    alert(`Stock was NOT updated: ${msg}`);
+    throw new Error(msg);
+  }
+}
+
 // ---- Init ----
-// Numbers and Commands link back here with /#receipts or /#batchcook.
+// Numbers and Commands link back here with /#receipts, /#batchcook or /#stock.
 const startTab = (location.hash || '').replace('#', '');
 if (PANELS[startTab] && startTab !== 'receipts') {
   document.querySelectorAll('.tab-button').forEach((b) => b.classList.toggle('active', b.dataset.tab === startTab));
