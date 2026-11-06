@@ -593,8 +593,27 @@ async function renderStock() {
         <p class="intro-body">What is left of each ingredient, built from receipts and cook notes. Tap a number to recount. Where a pack size is known it counts in packs (cans, bags), otherwise in g or ml.</p>
       </div>
       <div class="stock-list" id="ingredientList"><div class="loading">Loading…</div></div>
-      <button class="primary-button" id="addStockBtn" style="margin-top:8px">+ Add item</button>
-      <button class="primary-button" id="seedPkgBtn" style="margin-top:8px">Add the 4 packaging items (at 0)</button>
+      <div class="intro" style="margin-top:18px">
+        <h1 class="intro-title" style="font-size:18px">Add stock</h1>
+        <p class="intro-body">Type the name, the count and pick the unit, then Add. The form stays open for the next item. Typing a name that already exists updates its count.</p>
+      </div>
+      <form class="stock-row" id="addStockForm" style="display:grid;grid-template-columns:1fr 80px 100px;gap:8px;align-items:center">
+        <input class="stock-edit-input" id="addName" list="stockNames" placeholder="Item name" autocomplete="off" required style="width:auto" />
+        <input class="stock-edit-input" id="addCount" type="number" inputmode="decimal" step="any" placeholder="Count" required style="width:auto" />
+        <select class="stock-edit-input" id="addUnit" style="width:auto">
+          <option>can</option><option>bottle</option><option>bag</option><option>pack</option><option>pcs</option><option>set</option><option>box</option>
+        </select>
+        <button class="primary-button" type="submit" style="grid-column:1 / -1">Add</button>
+      </form>
+      <datalist id="stockNames"></datalist>
+      <div id="addMsg" class="stock-meta" style="margin:6px 2px"></div>
+      <details style="margin-top:10px">
+        <summary class="stock-meta" style="cursor:pointer">Add many at once</summary>
+        <p class="stock-meta" style="margin:6px 0">One item per line: name, count, unit. Example: coke zero 11 can. The unit is optional (defaults to can).</p>
+        <textarea id="bulkText" rows="6" placeholder="coke zero 11 can&#10;coke original 9 can&#10;paper bags 40 pcs" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea>
+        <button class="primary-button" id="bulkBtn" type="button" style="margin-top:8px">Add all</button>
+      </details>
+      <button class="primary-button" id="seedPkgBtn" style="margin-top:12px">Add the 4 packaging items (at 0)</button>
     </section>
   `);
   main.appendChild(section);
@@ -634,13 +653,36 @@ async function renderStock() {
       renderStock();
     } catch (err) { alert(`Nothing was added: ${err.message}`); }
   });
-  section.querySelector('#addStockBtn').addEventListener('click', () => {
-    const name = prompt('Item name:');
-    if (!name) return;
-    const unit = prompt('Unit (e.g. Set, can, pcs):', '') || '';
-    const count = prompt('Starting count:', '0');
-    if (count == null) return;
-    saveStock(name, Number(count), unit).then(() => renderStock()).catch(() => {});
+  const names = section.querySelector('#stockNames');
+  stock.forEach((it) => { const o = document.createElement('option'); o.value = it.itemName; names.appendChild(o); });
+  const msg = section.querySelector('#addMsg');
+  const addForm = section.querySelector('#addStockForm');
+  addForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = section.querySelector('#addName').value.trim();
+    const count = Number(section.querySelector('#addCount').value);
+    const unit = section.querySelector('#addUnit').value;
+    if (!name || !Number.isFinite(count)) return;
+    try {
+      await saveStock(name, count, unit);
+      await renderStock();
+      const m = document.querySelector('#addMsg');
+      if (m) m.textContent = `Saved: ${name} ${count} ${unit}`;
+      const n = document.querySelector('#addName');
+      if (n) n.focus();
+    } catch (err) { /* already shown */ }
+  });
+  section.querySelector('#bulkBtn').addEventListener('click', async () => {
+    const lines = section.querySelector('#bulkText').value.split('\n').map((l) => l.trim()).filter(Boolean);
+    const done = []; const bad = [];
+    for (const line of lines) {
+      const m = line.match(/^(.*?)[\s:=]+(\d+(?:\.\d+)?)\s*([A-Za-z]+)?$/);
+      if (!m || !m[1].trim()) { bad.push(line); continue; }
+      try { await saveStock(m[1].trim(), Number(m[2]), m[3] || 'can'); done.push(m[1].trim()); } catch (e) { bad.push(line); break; }
+    }
+    await renderStock();
+    const mm = document.querySelector('#addMsg');
+    if (mm) mm.textContent = `Saved ${done.length}.` + (bad.length ? ` Not read: ${bad.join(' | ')}` : '');
   });
 }
 
