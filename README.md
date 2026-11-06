@@ -197,3 +197,29 @@ To track a condiment (salt, flour, pepper) by grams like any other ingredient, d
 Every typed receipt gets an ID (for example R261104-153211), shown in the reply and written into the Remarks of the Expense Log and Overheads rows and the Note of the stock lots. `undo receipt` removes the latest receipt, `undo receipt <ID>` an older one. Lots a batch has already used from are kept.
 `alias en ziero = <full name>` saves a short name in the Shorthand tab (Type Ingredient). The catalogue for matching is the Price Tracker plus every ingredient already in the Price Log.
 The Weekly Receipts page and the LINE group now share one set of dependencies (`server/lib/receiptDeps.js`), so both do the same thing. The Daily Orders page is gone; Grab CSVs go in through the Numbers page. The Stock Counts page also shows ingredient stock from the lots (read only).
+
+
+## Weekly export to Google Drive (Sundays)
+
+Every Sunday at 20:00 Bangkok time the app saves last week's data to Drive as CSV files. A week is Sunday to Saturday,
+so a Saturday night shop is in that week and anything bought on the Sunday itself counts in the next one.
+Files go in `<weekly folder>/<year>/<dd-mm>/`, named for the Sunday they were saved (`08-11` holds Sunday 01/11 to Saturday 07/11).
+Files: Weekly Receipts, Batch Cook, Batch Cook Lines, Marketing Sales, Marketing Notes, Numbers Ledger,
+Numbers Weekly Report, Numbers Monthly Report. Running it again for the same week replaces the files.
+It runs on Railway, so no computer needs to be on. If Railway was down on Sunday it catches up on the next check.
+
+Set in Railway:
+- `DRIVE_WEEKLY_FOLDER_ID`: the Drive folder, shared with the service account email as Editor
+- `WEEKLY_EXPORT_AUTO=on`: turns the Sunday timer on
+- `WEEKLY_EXPORT_TIME`: optional, Bangkok time HH:MM (default 20:00)
+
+Test it any time with "Save last week to Drive now" on the Numbers page (saves the last finished Sunday to Saturday week).
+If Drive says the service account has no storage quota, put the folder in a Shared Drive.
+
+## Shopping plan
+
+`GET /api/shopping/plan` (cached 5 minutes, `?refresh=1` to rebuild). Shown on the Receipts page and in a box on Home.
+Demand is portions sold per batch dish (Merlin's numbers Master Log for August, Sheet1 and Ledger after), averaged over normal months only (October is left out), plus 10%.
+Amounts per portion come from real batches in Cook Log Lines. Fresh items (onion, celery, carrot, mushroom, milk) are bought about every 10 days and never kept past 14. Everything else is one bulk trip covering 30 days, grouped by the cheapest recent shop.
+To change a shelf life, add a `Shelf Life` tab (Ingredient | Days) to the Claude Log sheet or Merlin's numbers. 30 days or more counts as bulk.
+Stock now is estimated from receipts minus usual daily use, so keep logging receipts.
