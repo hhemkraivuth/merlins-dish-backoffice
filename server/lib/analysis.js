@@ -1,5 +1,5 @@
 // Business analysis: weekly and monthly performance from the Ledger-based reports, October onwards.
-// Pure functions. Weeks are Monday to Sunday, the same as the Numbers page, so the two always agree.
+// Pure functions. Weeks run Sunday to Saturday, the same as the Numbers page, so the two always agree.
 const { formatDMY, utc, parseDate, daysBetween } = require('./dates');
 const { batchDishOf, normName } = require('./dishes');
 const { periodOf, hourOf, sellThrough, priceMoves } = require('./reports');
@@ -56,13 +56,15 @@ function itemMix(ledger, today) {
 // ---- channels -----------------------------------------------------------------------------------------
 // Three sales lines: Grab, LINE (direct, everything that is not Grab or Instagram) and Instagram.
 const CHANNELS = ['grab', 'line', 'ig'];
-const channelFromText = (a, b) => {
+const channelFromText = (a, b, date) => {
   const t = `${a || ''} ${b || ''}`;
   if (/grab/i.test(t)) return 'grab';
+  // From May 2026 a blank "Order from" is a Grab dish with no new/returning label. Direct customers are always named.
+  if (!String(b || '').trim() && date && date >= utc(2026, 5, 1)) return 'grab';
   if (/insta|(^|\W)ig(\W|$)/i.test(t)) return 'ig';
   return 'line';
 };
-const channelOfLedger = (r) => (r.channel === 'Grab' ? 'grab' : /^instagram$/i.test(r.orderFrom) ? 'ig' : 'line');
+const channelOfLedger = (r) => (r.channel === 'Grab' ? 'grab' : /^(ig|instagram)$/i.test(r.orderFrom) ? 'ig' : 'line');
 const num0 = (v) => { const n = Number(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
 const keyOf = (e) => `${formatDMY(e.date)}|${e.orderNo}|${normName(e.desc)}|${e.qty}|${e.money}`;
 
@@ -75,15 +77,16 @@ function eventsFromRows(rows = [], { carryDate = false, from = null, to = null }
     if (date) last = date; else if (carryDate && String(r[0] ?? '').trim() === '' && String(r[1] || '').trim()) date = last;
     if (!date || (from && date < from) || (to && date >= to)) return;
     if (String(r[4] || '').trim().toLowerCase() !== 'order') return;
-    const qty = num0(r[5]); const money = num0(r[6]) || num0(r[8]);
+    // Money In is the price of ONE portion. Net Income is portions x price, so that is the sales figure.
+    const qty = num0(r[5]); const money = num0(r[8]) || qty * num0(r[6]);
     if (!(qty > 0) && !(money > 0)) return;
-    out.push({ date, desc: String(r[1] || '').trim(), channel: channelFromText(r[2], r[3]), branch: String(r[2] || '').trim(), orderFrom: String(r[3] || '').trim(), qty, money, orderNo: String(r[10] || '').trim() });
+    out.push({ date, desc: String(r[1] || '').trim(), channel: channelFromText(r[2], r[3], date), branch: String(r[2] || '').trim(), orderFrom: String(r[3] || '').trim(), qty, money, orderNo: String(r[10] || '').trim() });
   });
   return out;
 }
 function eventsFromLedger(ledger, { from = null } = {}) {
   return ledger.filter((r) => r.type === 'Order' && (!from || r.date >= from)).map((r) => ({
-    date: r.date, desc: r.desc, channel: channelOfLedger(r), branch: r.channel, orderFrom: r.orderFrom, qty: r.qty || 0, money: r.moneyIn || r.net || 0, orderNo: r.orderNo,
+    date: r.date, desc: r.desc, channel: channelOfLedger(r), branch: r.channel, orderFrom: r.orderFrom, qty: r.qty || 0, money: r.net ?? ((r.moneyIn || 0) * (r.qty || 0)), orderNo: r.orderNo,
   }));
 }
 
@@ -130,6 +133,28 @@ function buildHistory({ events, today }) {
   return { ...out, mapping, first: formatDMY(first), markers: { start: '2025-11', grab: GRAB_START } };
 }
 
+// Monthly result straight from the Master Log: sales (Order and Delivery rows) less every cost row logged (recipe, ads, overheads,
+// Grab fees, riders, waste, staff). Net Income is the figure each row already carries. Rows are never counted twice.
+function monthlyResult(master = [], today) {
+  const by = new Map(); let last = null; let lastDate = null;
+  master.forEach((r, i) => {
+    if (!r || (i === 0 && /date/i.test(String(r[0] || '')))) return;
+    let date = parseDate(r[0]);
+    if (date) last = date; else if (String(r[0] ?? '').trim() === '' && String(r[1] || '').trim()) date = last;
+    if (!date) return;
+    const type = String(r[4] || '').trim().toLowerCase();
+    const net = num0(r[8]) || (type === 'order' || type === 'delivery' ? num0(r[5]) * num0(r[6]) : -num0(r[7]));
+    if (!type || !net) return;
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+    const v = by.get(key) || { sales: 0, costs: 0 };
+    if (type === 'order' || type === 'delivery') v.sales += net; else v.costs += Math.abs(net) * (net < 0 ? 1 : -1);
+    by.set(key, v);
+    if (!lastDate || date > lastDate) lastDate = date;
+  });
+  const months = [...by].sort().map(([key, v]) => ({ key, label: `${key.slice(5)}/${key.slice(0, 4)}`, sales: Math.round(v.sales), costs: Math.round(v.costs), net: Math.round(v.sales - v.costs), inProgress: Boolean(lastDate && key >= `${lastDate.getUTCFullYear()}-${String(lastDate.getUTCMonth() + 1).padStart(2, '0')}` && lastDate.getUTCDate() < 28) }));
+  return { months, lastDate: lastDate ? formatDMY(lastDate) : null };
+}
+
 // Orders and sales per channel from the Ledger (October on), for the three lines with orders.
 function channelOrders(ledger, type) {
   const by = new Map();
@@ -174,15 +199,18 @@ function heatmap(ledger) {
     if (!r.orderNo && !r.customer) continue;
     if (seen.has(k)) continue; seen.add(k); total += 1;
     const hh = hourOf(r.time); if (hh === null) { noTime += 1; continue; }
-    const wd = (r.date.getUTCDay() + 6) % 7;
+    const wd = r.date.getUTCDay(); // Sunday = 0
     grid[wd][hh] = (grid[wd][hh] || 0) + 1;
   }
   const hours = [...new Set(grid.flatMap((g) => Object.keys(g)))].sort();
   const lo = hours.length ? Number(hours[0]) : 10; const hi = hours.length ? Number(hours[hours.length - 1]) : 20;
   const cols = []; for (let h = lo; h <= hi; h += 1) cols.push(String(h).padStart(2, '0'));
   const max = Math.max(1, ...grid.flatMap((g) => Object.values(g)));
-  return { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], hours: cols, cells: grid.map((g) => cols.map((h) => g[h] || 0)), max, noTime, total,
-    perDay: grid.map((g) => Object.values(g).reduce((a, b) => a + b, 0)) };
+  // Merlin's Dish operates on weekdays, so the map shows Monday to Friday. Weekend orders are counted but not drawn.
+  const wk = [1, 2, 3, 4, 5];
+  const weekend = [0, 6].reduce((a, i) => a + Object.values(grid[i]).reduce((x, y) => x + y, 0), 0);
+  return { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], hours: cols, cells: wk.map((i) => cols.map((h) => grid[i][h] || 0)), max, noTime, total, weekend,
+    perDay: wk.map((i) => Object.values(grid[i]).reduce((a, b) => a + b, 0)) };
 }
 
 // ---- cooked against sold, stock sitting, price creep, break-even --------------------------------------
@@ -238,10 +266,10 @@ function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master =
   const { events } = allEvents({ master, sheet1, ledger });
   return {
     today: formatDMY(today), from: formatDMY(FROM), weeks, months, mix: itemMix(ledger, today), notes, best: best && best.label, worst: worst && worst.label,
-    history: buildHistory({ events, today }),
+    history: { ...buildHistory({ events, today }), result: monthlyResult(master, today) },
     heatmap: heatmap(ledger),
     dishes: dishPerformance({ ledger, cookBatches, expense, today }),
   };
 }
 
-module.exports = { buildAnalysis, allEvents, eventsFromRows, eventsFromLedger, buildHistory, repeatCustomers, heatmap, channelFromText, FROM, START, GRAB_START };
+module.exports = { monthlyResult, buildAnalysis, allEvents, eventsFromRows, eventsFromLedger, buildHistory, repeatCustomers, heatmap, channelFromText, FROM, START, GRAB_START };

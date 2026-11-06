@@ -1,5 +1,5 @@
 // The two summaries shown above the Weekly Receipts box and the Batch Cook box.
-// Pure functions over the raw tab rows. Week runs Monday to Sunday (as on the Numbers page), month is the calendar month.
+// Pure functions over the raw tab rows. Week runs Sunday to Saturday (as on the Numbers page), month is the calendar month.
 // Both periods show the whole week or month, so days that have not happened yet simply have nothing in them.
 
 const { formatDMY, parseDate } = require('./dates');

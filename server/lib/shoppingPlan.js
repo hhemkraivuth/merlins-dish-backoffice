@@ -195,7 +195,8 @@ function infoFor(list, unit, today) {
   const recentCosted = costed.filter((e) => daysBetween(e.date, today) <= 120 && e.shop);
   const cheapest = recentCosted.length ? recentCosted.reduce((a, b) => (b.cost < a.cost ? b : a)) : null;
   const shopFreq = modeOf((list || []).filter((e) => e.shop).slice(-6).map((e) => e.shop));
-  return { pack, latestCost: latest ? latest.cost : null, lastBought: same.length ? same[same.length - 1].date : (list && list.length ? list[list.length - 1].date : null), shop: cheapest ? cheapest.shop : (shopFreq || ''), cheapest, entries: same };
+  const best = costed.length ? costed.reduce((a, b) => (b.cost < a.cost ? b : a)) : null; // cheapest ever paid
+  return { best, pack, latestCost: latest ? latest.cost : null, lastBought: same.length ? same[same.length - 1].date : (list && list.length ? list[list.length - 1].date : null), shop: cheapest ? cheapest.shop : (shopFreq || ''), cheapest, entries: same };
 }
 
 // What is in the fridge or cupboard now, from the receipts and the usual daily use. Never below zero.
@@ -241,7 +242,10 @@ function roundToPack(need, pack, unit) {
 }
 const packText = (packs, pack, unit) => (packs > 0 ? `${packs} x ${fmtQty(pack, unit)}` : '');
 
-function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [], lineRows = [], priceLogRows = [], expenseRows = [], shelfRows = [] }) {
+const bestText = (b) => (b ? `${b.price !== null && b.qty ? `฿${Math.round(b.price * 100) / 100} for ${fmtQty(b.qty, b.unit)}` : `฿${Math.round(b.cost * 10000) / 10000} each`}` : '');
+
+// stock: Map of normalised ingredient name -> { left, unit }, the counted stock (Ingredient Lots, kept by the bot). It beats the receipt estimate.
+function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [], lineRows = [], priceLogRows = [], expenseRows = [], shelfRows = [], stock = new Map() }) {
   const warnings = [];
   const demand = demandOf(sales, today);
   const usage = usageOf(cookLogRows, sizeRows, lineRows);
@@ -275,10 +279,14 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
     const perDay = n.monthly / 30;
     const info = infoFor(buys.get(key), n.unit, today);
     if (n.kind === 'Ingredient' && !buys.has(key)) noHistory.push(n.name);
-    const hand = info.entries.length ? onHandNow(info.entries, perDay, today) : 0;
+    const counted = stock.get(key);
+    const useCount = counted && counted.unit === n.unit;
+    const hand = useCount ? counted.left : (info.entries.length ? onHandNow(info.entries, perDay, today) : 0);
     const item = {
+      handSource: useCount ? 'counted' : (info.entries.length ? 'estimated' : 'unknown'),
+      bestPrice: bestText(info.best), bestShop: info.best ? titleCase(info.best.shop) : '', bestDate: info.best ? formatDMY(info.best.date) : '',
       name: titleCase(n.name), kind: n.kind, unit: n.unit, monthly: Math.round(n.monthly), monthlyText: fmtQty(n.monthly, n.unit),
-      perDay, onHand: Math.round(hand), onHandText: info.entries.length ? fmtQty(hand, n.unit) : 'unknown',
+      perDay, onHand: Math.round(hand), onHandText: (useCount || info.entries.length) ? fmtQty(hand, n.unit) : 'unknown',
       pack: info.pack, latestCost: info.latestCost, shop: titleCase(info.shop), lastBought: info.lastBought ? formatDMY(info.lastBought) : '',
       boughtLastMonth: boughtIn(key, lastMonth), dishes: [...n.dishes].sort(),
     };
@@ -292,7 +300,9 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
     const runOut = f.onHand > 0 && f.perDay > 0 ? addDays(today, Math.floor(f.onHand / f.perDay)) : today;
     const useBy = f._info.lastBought && f.onHand > 0 ? addDays(f._info.lastBought, f.cover) : today;
     f.dueDate = new Date(Math.max(today.getTime(), Math.min(runOut.getTime(), useBy.getTime())));
-    const r = roundToPack(f.perDay * cycle, f.pack, f.unit);
+    const handAtRun = Math.max(0, f.onHand - f.perDay * daysBetween(today, f.dueDate));
+    f.needText = fmtQty(f.perDay * cycle, f.unit);
+    const r = roundToPack(Math.max(0, f.perDay * cycle - handAtRun), f.pack, f.unit);
     f.buyQty = r.qty; f.buyText = fmtQty(r.qty, f.unit); f.packText = packText(r.packs, f.pack, f.unit);
     f.estCost = f.latestCost ? Math.round(r.qty * f.latestCost) : null;
     f.due = dayText(f.dueDate); f.useBy = f._info.lastBought && f.onHand > 0 ? formatDMY(addDays(f._info.lastBought, f.cover)) : '';
@@ -312,6 +322,7 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
     if (daysBetween(tripDate, b.runOutDate) > BULK_COVER) { enough.push({ name: b.name, until: formatDMY(b.runOutDate) }); continue; }
     const handAtTrip = Math.max(0, b.onHand - b.perDay * daysBetween(today, tripDate));
     const r = roundToPack(Math.max(0, b.perDay * BULK_COVER - handAtTrip), b.pack, b.unit);
+    b.needText = fmtQty(b.perDay * BULK_COVER, b.unit);
     b.buyQty = r.qty; b.buyText = fmtQty(r.qty, b.unit); b.packText = packText(r.packs, b.pack, b.unit);
     b.estCost = b.latestCost ? Math.round(r.qty * b.latestCost) : null;
     b.runOut = dayText(b.runOutDate);
@@ -337,7 +348,7 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
       `Dish volumes: average portions sold in ${basis || 'no completed month yet'}${SLOW_MONTHS.length ? ` (${SLOW_MONTHS.map(monthName).join(', ')} left out, a slow month)` : ''}, plus ${Math.round(BUFFER * 100)}% so a busy week does not force an extra trip.`,
       usage.batchCount ? `Amounts per portion come from ${usage.batchCount} real batches since ${formatDMY(usage.firstDate)}.` : 'Amounts per portion are not known yet.',
       `Fresh items are bought about every ${cycle} days and never kept past ${FRESH_MAX}. Everything else is one bulk trip that covers ${BULK_COVER} days. Add an ingredient and its days to the Shelf Life tab to change that.`,
-      'Stock now is estimated from your receipts and the usual daily use, so keep logging receipts.',
+      'What is left comes from your counted stock when the item has been counted, otherwise it is estimated from receipts and the usual daily use. Each line shows Need, Have and Buy.',
     ],
     demand: demand.dishes.map((d) => ({ dish: d.dish, perMonth: d.perMonth, basis: d.basis, months: d.months })),
     months: demand.completed.map((k) => ({ key: k, label: monthName(k), slow: SLOW_MONTHS.includes(k), used: demand.normal.includes(k) })),

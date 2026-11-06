@@ -16,7 +16,7 @@ const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 // Dates are midnight UTC, so plain millisecond arithmetic is exact (and safe across month and year ends).
 function addDays(d, n) { return new Date(d.getTime() + n * 86400000); }
 function weekStart(d) {
-  const dow = (d.getUTCDay() + 6) % 7; // Monday = 0
+  const dow = d.getUTCDay(); // Sunday = 0. Weeks run Sunday to Saturday.
   return addDays(d, -dow);
 }
 

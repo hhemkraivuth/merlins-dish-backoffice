@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const { utc } = require('../lib/dates');
 const { buildSpend, buildCooking, NO_SHOP } = require('../lib/summaries');
 
-const today = utc(2026, 11, 5); // Thursday. Week starts Monday 02/11.
+const today = utc(2026, 11, 5); // Thursday. Week starts Sunday 01/11.
 
 test('spend: week and month, by shop, ads kept out of the shop list', () => {
   const expenseRows = [
@@ -12,7 +12,7 @@ test('spend: week and month, by shop, ads kept out of the shop list', () => {
     ['04/11/2026', 'onion', 90, '2kg', 0.045, 'Makro', ''],
     ['04/11/2026', 'basil', 40, '100g', 0.4, '', ''],
     ['28/10/2026', 'flour', 500, '5kg', 0.1, 'Tops', ''],      // October: in neither period
-    ['01/11/2026', 'butter', 300, '500g', 0.6, 'Tops', ''],    // Sunday before this week: month only
+    ['01/11/2026', 'butter', 300, '500g', 0.6, 'Tops', ''],    // Sunday, the first day of this week
   ];
   const overheadRows = [
     ['Date', 'Item', 'Category', 'Price', 'Shopped at', 'Remarks'],
@@ -21,12 +21,12 @@ test('spend: week and month, by shop, ads kept out of the shop list', () => {
   ];
   const { periods } = buildSpend({ today, expenseRows, overheadRows });
   const [wk, mo] = periods;
-  assert.strictEqual(wk.range, '02/11/2026 to 08/11/2026');
-  assert.strictEqual(wk.ingredients, 240);
+  assert.strictEqual(wk.range, '01/11/2026 to 07/11/2026');
+  assert.strictEqual(wk.ingredients, 540);
   assert.strictEqual(wk.overheads, 2575);
   assert.strictEqual(wk.ads, 1200);
-  assert.strictEqual(wk.total, 4015);
-  assert.deepStrictEqual(wk.byShop, [{ shop: 'Makro', amount: 2775 }, { shop: NO_SHOP, amount: 40 }]);
+  assert.strictEqual(wk.total, 4315);
+  assert.deepStrictEqual(wk.byShop, [{ shop: 'Makro', amount: 2775 }, { shop: 'Tops', amount: 300 }, { shop: NO_SHOP, amount: 40 }]);
   assert.strictEqual(mo.ingredients, 540);
   assert.deepStrictEqual(mo.byShop.map((s) => s.shop), ['Makro', 'Tops', NO_SHOP]);
 });

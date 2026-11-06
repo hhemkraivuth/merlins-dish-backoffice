@@ -34,7 +34,7 @@ test('Daily, weekly and monthly lists have no skipped dates', () => {
   const upto = summarise(ledger, [], [], 'day', { through: utc(2026, 10, 7) });
   assert.strictEqual(upto.length, 7);
   const weeks = summarise(ledger, [], [utc(2026, 10, 20)].map((date) => ({ date, amount: 1 })), 'week');
-  assert.deepStrictEqual(weeks.map((w) => w.key), ['2026-09-28', '2026-10-05', '2026-10-12', '2026-10-19']);
+  assert.deepStrictEqual(weeks.map((w) => w.key), ['2026-09-27', '2026-10-04', '2026-10-11', '2026-10-18']);
   const months = summarise(ledger, [], [{ date: utc(2026, 12, 3), amount: 1 }], 'month');
   assert.deepStrictEqual(months.map((m) => m.key), ['2026-10', '2026-11', '2026-12']);
 });

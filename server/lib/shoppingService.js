@@ -29,11 +29,20 @@ async function getPlan({ force = false } = {}) {
     own('Sheet1'), own(LEDGER_TAB), own('Expense Log'), own('Cook Log'), own('Cook Log Sizes'), own('Cook Log Lines'),
   ]);
   const shelfOwn = await own('Shelf Life');
+  const stock = new Map();
+  try {
+    const lots = require('./ingredientLots'); const { normName } = require('./priceBook');
+    const book = await lots.loadLotBook(bangkokToday());
+    for (const name of book.names()) {
+      const live = book.lotsFor(name).filter((l) => l.remaining > 1e-6);
+      if (live.length) stock.set(normName(name), { left: book.totalRemaining(name), unit: live[0].unit });
+    }
+  } catch (err) { warnings.push(`Could not read the counted stock (${err.message}), so what is left is estimated from receipts.`); }
   const result = plan.buildShoppingPlan({
     today: bangkokToday(),
     sales: plan.combineSales({ master, sheet1, ledger }),
     cookLogRows: cookLog, sizeRows: sizes, lineRows: lines,
-    priceLogRows: priceLog, expenseRows: expense, shelfRows: [...shelf, ...shelfOwn],
+    priceLogRows: priceLog, expenseRows: expense, shelfRows: [...shelf, ...shelfOwn], stock,
   });
   result.warnings = [...warnings, ...result.warnings];
   cache = { at: Date.now(), data: result };

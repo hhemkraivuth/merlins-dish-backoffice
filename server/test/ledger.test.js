@@ -86,8 +86,8 @@ test('weekly numbers: Grab net, LINE estimated cost, batch cost on the cook date
   const ledger = ledgerFrom(grab, line);
   const cook = [{ key: 'k1', date: utc(2026, 9, 8), dish: 'Noir Ragu', portions: 20, cost: 900 }];
   const weeks = summarise(ledger, cook, [{ date: utc(2026, 9, 9), amount: 1200 }], 'week');
-  const w = weeks.find((p) => p.key === '2026-09-07');
-  assert.strictEqual(w.label, '07/09/2026 to 13/09/2026');
+  const w = weeks.find((p) => p.key === '2026-09-06');
+  assert.strictEqual(w.label, '06/09/2026 to 12/09/2026');
   assert.strictEqual(w.grab.orders, 2);
   assert.strictEqual(w.grab.gross, 410 + 50 + 500);
   assert.strictEqual(w.grab.discount, 66);
@@ -103,7 +103,7 @@ test('weekly numbers: Grab net, LINE estimated cost, batch cost on the cook date
 
 test('LINE cost is estimated from the latest Grab recipe cost; unknown items are listed, not guessed', () => {
   const ledger = ledgerFrom(grab, line);
-  const wk = summarise(ledger, [], [], 'week').find((p) => p.key === '2026-11-02');
+  const wk = summarise(ledger, [], [], 'week').find((p) => p.key === '2026-11-01');
   // Radiatori recipe cost 7.04 x 2 portions of Noir Ragu + Pasta (Radiatori). Bacon Steak and Coke Zero have no Grab recipe row.
   assert.strictEqual(wk.lineEstCost, 14.08);
   assert.deepStrictEqual(wk.missingCosts.sort(), ['Bacon Steak x1', 'Coke Zero Zero x1']);
@@ -127,9 +127,9 @@ test('monthly periods', () => {
   const months = summarise(ledger, [], [], 'month');
   assert.deepStrictEqual(months.map((m) => m.label), ['09/2026', '10/2026', '11/2026']);   // October has no data but is no longer skipped
   assert.strictEqual(periodOf(utc(2026, 2, 10), 'month').to.getUTCDate(), 28);
-  // a week that straddles two months (Mon 26/10 to Sun 01/11) and the first day of a month
-  assert.strictEqual(periodOf(utc(2026, 11, 1), 'week').label, '26/10/2026 to 01/11/2026');
-  assert.strictEqual(periodOf(utc(2026, 1, 1), 'week').label, '29/12/2025 to 04/01/2026');
+  // a week that straddles two months (Sun 01/11 to Sat 07/11) and the first day of a month
+  assert.strictEqual(periodOf(utc(2026, 11, 1), 'week').label, '01/11/2026 to 07/11/2026');
+  assert.strictEqual(periodOf(utc(2026, 1, 1), 'week').label, '28/12/2025 to 03/01/2026');
 });
 
 // ---- sell-through ---------------------------------------------------------------------------
@@ -252,10 +252,10 @@ test('bot Delivery rows become income rows in the Ledger', () => {
 test('delivery charged is income and the rider fee paid is a cost', () => {
   const rider = [riderRow({ dmy: '02/11/2026', orderNo: '#001', customer: 'Anna', fee: 55 })];
   const ledger = ledgerFrom(lineOrdersToLedger(WITH_DELIVERY).rows, rider);
-  const wk = summarise(ledger, [], [], 'week').find((p) => p.key === '2026-11-02');
+  const wk = summarise(ledger, [], [], 'week').find((p) => p.key === '2026-11-01');
   assert.strictEqual(wk.line.delivery, 60);
   assert.strictEqual(wk.line.rider, 55);
-  const withoutDelivery = summarise(ledgerFrom(lineOrdersToLedger(ORDERS).rows), [], [], 'week').find((p) => p.key === '2026-11-02');
+  const withoutDelivery = summarise(ledgerFrom(lineOrdersToLedger(ORDERS).rows), [], [], 'week').find((p) => p.key === '2026-11-01');
   assert.strictEqual(wk.revenue, withoutDelivery.revenue + 60);
   assert.ok(Math.abs(wk.margin - (wk.revenue - wk.foodCost - 55)) < 0.011);
   assert.strictEqual(rider[0][COL.net], -55);

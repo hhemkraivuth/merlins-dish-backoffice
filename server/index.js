@@ -13,7 +13,7 @@ const ledgerRoute = require('./routes/ledger');
 const logsRoute = require('./routes/logs');
 const shoppingRoute = require('./routes/shopping');
 const analysisRoute = require('./routes/analysis');
-const { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer } = require('./lib/scheduler');
+const { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer } = require('./lib/scheduler');
 const appState = require('./lib/appState');
 
 const app = express();
@@ -86,6 +86,8 @@ app.post('/api/borrowed', ledgerRoute.saveBorrowed);
 app.post('/api/ledger/manual-orders', ledgerRoute.manualOrders);
 app.post('/api/ledger/row/delete', ledgerRoute.deleteRow);
 app.post('/api/ledger/row/update', ledgerRoute.updateRow);
+app.get('/api/recipes', (req, res) => res.json(require('./data/recipes.json')));
+app.get('/api/stock-left', require('./routes/stockLeft').stockLeftJson);
 app.post('/api/huddle/run', ledgerRoute.runHuddle);
 
 // Back of house LINE group (own LINE channel, separate from the customer bot)
@@ -98,4 +100,5 @@ app.listen(PORT, () => {
   startHuddleTimer(ledgerRoute.sendHuddle, { store: { get: appState.getState, set: appState.setState } });
   startDriveImportTimer(ledgerRoute.sendDriveImport);
   startWeeklyExportTimer(logsRoute.sendWeeklyExport, { store: { get: appState.getState, set: appState.setState } });
+  startStockSnapshotTimer(require('./routes/stockLeft').runSnapshot, { store: { get: appState.getState, set: appState.setState } });
 });

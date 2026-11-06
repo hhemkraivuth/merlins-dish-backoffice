@@ -93,4 +93,30 @@ function startWeeklyExportTimer(run, { now = () => Date.now(), every = 60000, lo
   return setInterval(tick, every);
 }
 
-module.exports = { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer };
+// Daily stock snapshot from the customer bot. Off unless BOT_URL is set. Runs at STOCK_SNAPSHOT_TIME (Bangkok, default 03:00,
+// the same hour as the nightly Grab task), once a day. "Already done" lives in `store`, so a restart never repeats it.
+const STOCK_KEY = 'stock_snapshot_last';
+function startStockSnapshotTimer(run, { now = () => Date.now(), every = 60000, log = console, store = memoryStore() } = {}) {
+  if (!String(process.env.BOT_URL || process.env.BOT_MENU_URL || '').trim()) return null;
+  const at = /^\d{1,2}:\d{2}$/.test(process.env.STOCK_SNAPSHOT_TIME || '') ? process.env.STOCK_SNAPSHOT_TIME : '03:00';
+  const [h, m] = at.split(':').map(Number);
+  let doneDay = null; let busy = false; let lastTry = 0;
+  const tick = async () => {
+    if (busy) return;
+    const b = new Date(now() + 7 * 3600 * 1000);
+    if (b.getUTCHours() * 60 + b.getUTCMinutes() < h * 60 + m) return;
+    const day = b.toISOString().slice(0, 10);
+    if (doneDay === day || now() - lastTry < RETRY_GAP_MS) return;
+    busy = true;
+    try {
+      let last; try { last = await store.get(STOCK_KEY); } catch (err) { log.error('Stock snapshot: could not check the last run.', err.message); return; }
+      if (last === day) { doneDay = day; return; }
+      lastTry = now();
+      try { await run(); await store.set(STOCK_KEY, day); doneDay = day; log.log(`Stock snapshot saved for ${day}`); }
+      catch (err) { log.error('Stock snapshot failed:', err.message); }
+    } finally { busy = false; }
+  };
+  return setInterval(tick, every);
+}
+
+module.exports = { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer };
