@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { parseBlends } = require('../lib/blends');
 const { LotBook } = require('../lib/ingredientLots');
-const { buildUrgent } = require('../lib/lowStock');
+const { buildUrgent, daysLeft, statusOf, sizeFromName, usageFromLines } = require('../lib/lowStock');
 const { guessCategory } = require('../lib/stockCounts');
 
 const d = (s) => new Date(s + 'T00:00:00Z');
@@ -41,12 +41,48 @@ test('a blend is limited by the part that runs out first', () => {
   assert.ok(Math.abs(b.totalRemaining('Red wine') - 100) < 1e-6); // Ti has 50 left, 50 / 0.5
 });
 
-test('0 and below 2 are red, 0 first, ingredients count in packs', () => {
+test('with no use known: cans and packaging are red below 2, an ingredient only at 0', () => {
   const u = buildUrgent({
-    manual: [{ itemName: 'Coke', currentCount: 1, unit: 'can' }, { itemName: 'Cups', currentCount: 0, unit: 'set' }, { itemName: 'Lemon', currentCount: 2, unit: 'can' }],
-    ingredients: [{ name: 'Stout', left: 490, unit: 'ml', pack: { packs: 1, word: 'can' }, low: false }, { name: 'Salt', left: 900, unit: 'g', pack: null, low: false }],
+    manual: [{ itemName: 'Coke', currentCount: 1, unit: 'can' }, { itemName: 'Cups', currentCount: 0, unit: 'set' }, { itemName: 'Lemon', currentCount: 2, unit: 'can' }, { itemName: 'Black Pepper (450g)', currentCount: 1, unit: 'pcs', category: 'Ingredients' }],
+    ingredients: [{ name: 'Stout', left: 0, unit: 'ml', pack: { packs: 0, word: 'can' }, low: false }],
   });
-  assert.deepStrictEqual(u.map((x) => x.name), ['Cups', 'Coke', 'Stout']);
+  assert.deepStrictEqual(u.map((x) => x.name), ['Cups', 'Stout', 'Coke']);
+});
+
+test('450g of pepper is fine at 1 bottle, and a bottle that runs out within a week is red', () => {
+  const usage = new Map([['black pepper|g', 5], ['bay leaf|g', 2]]);
+  assert.deepStrictEqual(sizeFromName('Black Pepper (450g)'), { qty: 450, unit: 'g' });
+  assert.ok(Math.abs(daysLeft({ name: 'Black Pepper (450g)', count: 1, unit: 'pcs', usage }) - 90) < 1e-9);
+  assert.strictEqual(statusOf({ count: 1, days: 90, category: 'Ingredients' }), false);
+  assert.strictEqual(statusOf({ count: 1, days: 3, category: 'Ingredients' }), true);
+  assert.strictEqual(statusOf({ count: 0, days: 999, category: 'Ingredients' }), true);
+  const u = buildUrgent({ manual: [{ itemName: 'Bay Leaf (50g)', currentCount: 1, unit: 'pcs', category: 'Ingredients' }, { itemName: 'Black Pepper (450g)', currentCount: 1, unit: 'pcs', category: 'Ingredients' }], usage });
+  assert.deepStrictEqual(u.map((x) => x.name), []); // 50g at 2g a day is 25 days, not red
+  const fast = buildUrgent({ manual: [{ itemName: 'Bay Leaf (50g)', currentCount: 1, unit: 'pcs', category: 'Ingredients' }], usage: new Map([['bay leaf|g', 20]]) });
+  assert.deepStrictEqual(fast.map((x) => x.name), ['Bay Leaf (50g)']); // 2.5 days left
+});
+
+test('use per day comes from the batches of the last 28 days, brands and sizes in brackets ignored', () => {
+  const today = d('2026-11-07');
+  const log = [['Key', 'Date', 'Dish', 'Portions'], ['K1', '01/11/2026', 'Noir Ragu', 10], ['K0', '01/09/2026', 'Noir Ragu', 10]];
+  const lines = [['K', '', '', 'Kind', 'Name', 'Qty', 'Unit'], ['K1', '', '', 'Ingredient', 'Red wine', 560, 'ml'], ['K1', '', '', 'Ingredient', 'Thyme', 28, 'g'], ['K0', '', '', 'Ingredient', 'Thyme', 999, 'g']];
+  const m = usageFromLines({ log, sizes: [], lines, today });
+  assert.strictEqual(m.get('red wine|ml'), 20);
+  assert.strictEqual(m.get('thyme|g'), 1);
+});
+
+test('a recipe name takes from every brand of it, oldest first, at each price', () => {
+  const b = new LotBook([
+    ['id', 'Ingredient'],
+    ['T1', 'Tomato paste (Brand A)', '01/11/2026', 'Receipt', 1000, 'g', 1000, 100],
+    ['T2', 'Tomato paste (Brand B)', '03/11/2026', 'Receipt', 1000, 'g', 1000, 60],
+  ], [], d('2026-11-07'));
+  assert.ok(b.hasLots('Tomato paste'));
+  const r = b.allocate('Tomato paste', 1500, 'g', d('2026-11-07'));
+  assert.strictEqual(r.short, 0);
+  const cost = r.parts.reduce((s, x) => s + x.qty * x.unitCost, 0);
+  assert.ok(Math.abs(cost - (1000 * 0.1 + 500 * 0.06)) < 1e-6);
+  assert.ok(Math.abs(b.totalRemaining('Tomato paste (Brand B)') - 500) < 1e-6);
 });
 
 test('drinks and wine are sorted by name', () => {

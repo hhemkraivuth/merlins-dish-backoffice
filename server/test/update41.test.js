@@ -29,12 +29,12 @@ test('history runs monthly from Nov 2025', () => {
   assert.strictEqual(h.months[0].line, 465);
 });
 
-test('weekday map shows Monday to Friday only and counts weekend orders', () => {
+test('weekday map runs Sunday to Saturday and 10:00 to 22:00', () => {
   const mk = (dmy, d, time) => ({ type: 'Order', date: d, dmy, channel: 'Grab', orderNo: dmy + time, time, customer: 'x' });
   const hm = heatmap([mk('05/10/2026', utc(2026, 10, 5), '12:10'), mk('10/10/2026', utc(2026, 10, 10), '12:10')]);
-  assert.deepStrictEqual(hm.days, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
-  assert.strictEqual(hm.perDay[0], 1);
-  assert.strictEqual(hm.weekend, 1);
+  assert.deepStrictEqual(hm.days, ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+  assert.strictEqual(hm.hours[0], '10'); assert.strictEqual(hm.hours[hm.hours.length - 1], '22');
+  assert.strictEqual(hm.perDay[1], 1); assert.strictEqual(hm.perDay[6], 1); assert.strictEqual(hm.perDay[0], 0);
 });
 
 test('monthly result: sales less every cost row', () => {

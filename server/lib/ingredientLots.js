@@ -38,6 +38,9 @@ function newLotId(date, now = Date.now()) {
   return `L${formatDMY(date).split('/').reverse().join('')}-${(now % 1e8).toString(36)}${lotSeq}`;
 }
 
+// "Tomato paste (Brand A)" -> "tomato paste": the name without any (brand) or (size) in brackets.
+const baseName = (n) => normName(String(n || '').replace(/\s*\([^)]*\)\s*/g, ' '));
+
 // The in memory book for one costing run. Nothing here touches Google.
 class LotBook {
   // rows: the Ingredient Lots tab as read (header first). untracked: array of names.
@@ -70,9 +73,21 @@ class LotBook {
   setBlends(map) { this.blends = map instanceof Map ? map : new Map(); }
   blendOf(name) { return this.blends && this.blends.get(normName(name)) || null; }
   isUntracked(name) { return this.untracked.has(looseKey(name)); }
-  hasLots(name) { const b = this.blendOf(name); return b ? b.parts.some((p) => this.lots.has(normName(p.name))) : this.lots.has(normName(name)); }
+  hasLots(name) { return this.lotsFor(name).length > 0; }
   names() { return [...this.lots.values()].map((l) => l[0].name); }
-  lotsFor(name) { const b = this.blendOf(name); return b ? b.parts.flatMap((p) => this.lots.get(normName(p.name)) || []) : (this.lots.get(normName(name)) || []); }
+  // The lots a recipe name draws from. A blend: its parts. Otherwise the exact name, and when there is none, every brand of it:
+  // "Tomato paste" takes from "Tomato paste (Brand A)" and "Tomato paste (Brand B)" together, oldest first, each at its own price.
+  // So changing brand never means changing the recipe.
+  lotsFor(name) {
+    const b = this.blendOf(name);
+    if (b) return b.parts.flatMap((p) => this.lots.get(normName(p.name)) || []);
+    const exact = this.lots.get(normName(name));
+    if (exact) return exact;
+    const base = baseName(name);
+    const pooled = [];
+    for (const [key, list] of this.lots) if (baseName(key) === base && key !== base) pooled.push(...list);
+    return pooled.sort((a, c) => a.date - c.date || a.seq - c.seq);
+  }
   // A blend is limited by whichever part runs out first: what is left of the blend = the smallest (part left / its share).
   totalRemaining(name) {
     const b = this.blendOf(name);

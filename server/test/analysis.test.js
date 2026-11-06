@@ -70,5 +70,7 @@ test('repeat customers and the weekday by hour map', () => {
   assert.deepStrictEqual(r, { newOrders: 2, repeatOrders: 1 });
   const hm = A.heatmap(ledger);
   assert.strictEqual(hm.total, 3);
-  assert.strictEqual(hm.cells[1][hm.hours.indexOf('17')], 1); // Tuesday 06/10 at 17h
+  assert.strictEqual(hm.cells[2][hm.hours.indexOf('17')], 1); // Tuesday 06/10 at 17h (Sunday is row 0)
+  const sept = A.heatmap(ledger, { from: utc(2026, 10, 7), to: utc(2026, 10, 31) });
+  assert.strictEqual(sept.total, 2); // only the two orders on or after 07/10
 });

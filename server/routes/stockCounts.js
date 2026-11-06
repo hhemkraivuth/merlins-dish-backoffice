@@ -2,8 +2,15 @@ const { getAllStock, setStockCount, editStock } = require('../lib/stockCounts');
 
 async function listStock(req, res) {
   try {
+    const ls = require('../lib/lowStock');
+    const { bangkokToday } = require('../lib/dates');
     const stock = await getAllStock();
-    res.json({ stock });
+    const usage = await ls.loadUsage(bangkokToday()).catch(() => null);
+    res.json({ stock: stock.map((i) => {
+      const category = i.category || i.guess || '';
+      const days = ls.daysLeft({ name: i.itemName, count: i.currentCount, unit: i.unit, usage });
+      return { ...i, daysLeft: days === null ? null : Math.round(days), red: ls.statusOf({ count: i.currentCount, days, category }) };
+    }), redDays: ls.RED_DAYS });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -49,13 +56,40 @@ async function seedPackagingRoute(req, res) {
 // Used up ingredients stay in the list at 0 so they show red.
 async function listIngredientStock(req, res) {
   try {
-    const items = await require('../lib/lowStock').ingredientStockItems();
-    const dmy = (d) => { const t = d instanceof Date ? d.toISOString().slice(0, 10) : String(d || ''); const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : t; };
-    res.json({ items: items.map((i) => ({ ...i, oldest: dmy(i.oldest) })) });
+    const ls = require('../lib/lowStock');
+    const { bangkokToday } = require('../lib/dates');
+    const { guessCategory, CATEGORIES } = require('../lib/stockCounts');
+    const { normName } = require('../lib/priceBook');
+    const usage = await ls.loadUsage(bangkokToday()).catch(() => null);
+    const items = await ls.ingredientStockItems(usage);
+    let over = {};
+    try { over = JSON.parse((await require('../lib/appState').getState(CAT_KEY)) || '{}'); } catch (err) { /* no overrides */ }
+    const dmy = (d) => { if (!d) return ''; const t = d instanceof Date ? d.toISOString().slice(0, 10) : String(d || ''); const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : t; };
+    res.json({ items: items.map((i) => {
+      const category = CATEGORIES.includes(over[normName(i.name)]) ? over[normName(i.name)] : (guessCategory(i.name) || 'Ingredients');
+      return { ...i, oldest: dmy(i.oldest), category, daysLeft: i.daysLeft === null || i.daysLeft === undefined ? null : Math.round(i.daysLeft), red: ls.statusOf({ count: i.left, days: i.daysLeft, category: 'Ingredients', low: i.low }) };
+    }) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+}
+
+// Moves a receipt based ingredient (a row built from the stock lots) to another category. Remembered in App State.
+const CAT_KEY = 'stock_item_categories';
+async function setIngredientCategory(req, res) {
+  try {
+    const { name, category } = req.body || {};
+    const { CATEGORIES } = require('../lib/stockCounts');
+    const { normName } = require('../lib/priceBook');
+    if (!name || !CATEGORIES.includes(category)) return res.status(400).json({ error: 'Send the ingredient name and one of ' + CATEGORIES.join(', ') + '.' });
+    const st = require('../lib/appState');
+    let over = {};
+    try { over = JSON.parse((await st.getState(CAT_KEY)) || '{}'); } catch (err) { over = {}; }
+    over[normName(name)] = category;
+    await st.setState(CAT_KEY, JSON.stringify(over));
+    res.json({ name, category });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 }
 
 // Blends: one recipe ingredient made of two or more stocked ingredients in fixed parts.
@@ -120,4 +154,4 @@ async function countIngredientPacks(req, res) {
   }
 }
 
-module.exports = { listStock, updateStock, editStockRoute, seedPackagingRoute, listIngredientStock, countIngredientPacks, listBlends, saveBlendRoute, deleteBlendRoute };
+module.exports = { listStock, updateStock, editStockRoute, seedPackagingRoute, listIngredientStock, countIngredientPacks, listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory };
