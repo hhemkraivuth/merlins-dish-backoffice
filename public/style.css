@@ -161,3 +161,42 @@ body {
 .sum-lines { margin-top: 6px; }
 .sum-lines .sum-row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); }
 .sum-lines .sum-row span:last-child { color: var(--ink); font-weight: 600; }
+
+/* Monthly logs */
+.log-box { margin-top: 24px; }
+.log-title { font-size: 18px; margin: 0 0 10px; }
+.log-bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 10px; }
+.log-bar .select { max-width: 200px; }
+.log-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.log-link { background: var(--ink); color: var(--paper); border-radius: 6px; padding: 7px 12px; font-size: 13px; text-decoration: none; }
+.log-totals { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 0; }
+.log-totals div { display: flex; flex-direction: column; }
+.log-totals span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.log-totals strong { font-size: 20px; }
+.log-scroll { overflow-x: auto; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.log-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.log-table th { text-align: left; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.log-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.log-table tr:last-child td { border-bottom: none; }
+.log-table td small { display: block; font-size: 12px; color: var(--muted); }
+.log-table .r { text-align: right; white-space: nowrap; }
+.log-table tr.warn td small:last-child { color: var(--flag); }
+
+/* Shopping plan */
+.shop-box { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--yellow); border-radius: 12px; padding: 14px 16px; margin: 0 0 16px; }
+.shop-box h2 { font-size: 18px; margin: 0 0 10px; }
+.shop-top { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 640px) { .shop-top { grid-template-columns: repeat(3, 1fr); } }
+.shop-trip span { display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.shop-trip b { display: block; font-size: 18px; margin-top: 2px; }
+.shop-trip small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.shop-h { font-size: 15px; margin: 16px 0 4px; }
+.shop-h small { font-weight: 400; color: var(--muted); }
+.shop-warn { font-size: 13px; color: var(--muted); padding-left: 18px; margin: 8px 0; }
+.shop-link { display: inline-block; margin-top: 10px; font-size: 14px; color: var(--accent); }
+
+/* Open batches */
+.open-batch { border-top: 1px solid var(--line); padding: 10px 0; }
+.open-batch:first-child { border-top: 0; }
+.open-batch small { display: block; font-size: 12px; color: var(--muted); margin: 2px 0 6px; }
+.open-batch .open-result { margin-top: 6px; font-size: 14px; }

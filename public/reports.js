@@ -268,6 +268,14 @@ $('driveImport').addEventListener('click', async () => {
   } catch (err) { say(err.message, true); }
 });
 
+$('weeklyExport').addEventListener('click', async () => {
+  say('Saving last week (Sunday to Saturday) to Drive…');
+  try {
+    const r = await call('/api/export/weekly', { method: 'POST' });
+    say(r.text, r.files.some((f) => !f.ok));
+  } catch (err) { say(err.message, true); }
+});
+
 $('sync').addEventListener('click', async () => {
   say('Reading LINE orders…');
   try {

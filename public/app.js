@@ -102,6 +102,58 @@ function summaryLoader(box, url, cardOf) {
   return run;
 }
 
+
+// ---- Monthly logs (Weekly Receipts and Batch Cook): pick a month, see every line, download as CSV ----
+
+const dmyShort = (d) => String(d || '').slice(0, 5); // 04/11/2026 -> 04/11
+const num2 = (n) => Number(n || 0).toLocaleString('en-AU', { maximumFractionDigits: 2 });
+
+// box: element to fill. api: '/api/receipts/log' (the .csv link is api + '.csv'). draw(log) returns the table html.
+// links: [{ label, query }] extra query text added to the CSV link, for example format=pricelog.
+function monthlyLog(box, { title, api, links, totalsOf, draw }) {
+  box.innerHTML = `<h2 class="log-title">${escapeHtml(title)}</h2><div class="log-body"><div class="loading">Loading…</div></div>`;
+  const body = box.querySelector('.log-body');
+  async function load(month) {
+    body.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+      const res = await fetch(`${api}${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+      const log = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(log.error || `Request failed (${res.status})`);
+      const opts = [...log.months.map((m) => `<option value="${m.key}"${m.key === log.month ? ' selected' : ''}>${escapeHtml(m.label)}</option>`), `<option value="all"${log.month === 'all' ? ' selected' : ''}>All months</option>`].join('');
+      const csv = links.map((l) => `<a class="log-link" href="${api}.csv?month=${encodeURIComponent(log.month)}${l.query ? '&' + l.query : ''}">${escapeHtml(l.label)}</a>`).join('');
+      body.innerHTML = `<div class="log-bar"><select class="select log-month">${opts}</select><div class="log-links">${csv}</div></div>
+        <div class="log-totals">${totalsOf(log)}</div>${log.rows.length ? draw(log) : '<div class="empty-state">Nothing logged in this month yet.</div>'}`;
+      body.querySelector('.log-month').addEventListener('change', (e) => load(e.target.value));
+    } catch (err) {
+      body.innerHTML = `<div class="sum-card"><div class="sum-sub">Log not available: ${escapeHtml(err.message)}</div></div>`;
+    }
+  }
+  load('');
+  return () => load(body.querySelector('.log-month') ? body.querySelector('.log-month').value : '');
+}
+
+function receiptLogTotals(log) {
+  const t = log.totals;
+  const bit = (n, v) => `<div><span>${n}</span><strong>${money(v)}</strong></div>`;
+  return `${bit('Total', t.all)}${bit('Ingredients', t.ingredients)}${bit('Overheads', t.overheads)}${t.ads ? bit('Meta ads', t.ads) : ''}`;
+}
+function receiptLogTable(log) {
+  const shops = log.byShop.length ? `<details class="sum-more"><summary>Spend by shop</summary>${log.byShop.map((x) => `<div class="sum-row"><span>${escapeHtml(x.shop)}</span><span>${money(x.amount)}</span></div>`).join('')}</details>` : '';
+  const rows = log.rows.map((r) => `<tr><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.item)}${r.type !== 'Ingredient' ? `<small>${escapeHtml(r.type)}${r.category && r.type === 'Overhead' ? ', ' + escapeHtml(r.category) : ''}</small>` : ''}</td><td>${escapeHtml(r.qty)}</td><td class="r">${num2(r.price)}</td><td>${escapeHtml(r.shop)}</td></tr>`).join('');
+  return `${shops}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Item</th><th>How many</th><th class="r">฿</th><th>Where</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function cookLogTotals(log) {
+  const t = log.totals;
+  const bit = (n, v) => `<div><span>${n}</span><strong>${v}</strong></div>`;
+  return `${bit('Batches', t.batches)}${bit('Portions', t.portions)}${bit('Cost', money(t.cost))}${t.perPortion === null ? '' : bit('Per portion', money(t.perPortion))}`;
+}
+function cookLogTable(log) {
+  const dishes = log.byDish.length ? `<details class="sum-more"><summary>By dish</summary>${log.byDish.map((d) => `<div class="sum-row"><span>${escapeHtml(d.dish)}<small>${d.batches} ${d.batches === 1 ? 'batch' : 'batches'}${d.perPortion === null ? '' : `, ${money(d.perPortion)} a portion`}</small></span><span>${d.portions} portions</span></div>`).join('')}</details>` : '';
+  const rows = log.rows.map((r) => `<tr${r.lowYield ? ' class="warn"' : ''}><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.dish)}${r.sizes ? `<small>${escapeHtml(r.sizes)}</small>` : ''}${r.lowYield ? '<small>Low yield, check the margin</small>' : ''}</td><td class="r">${r.portions}</td><td class="r">${num2(r.total)}</td><td class="r">${r.perPortion === null ? '' : num2(r.perPortion)}</td></tr>`).join('');
+  return `${dishes}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Dish</th><th class="r">Portions</th><th class="r">Cost ฿</th><th class="r">Per portion ฿</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 // ---- Mode 2: Weekly Receipts (typed) ----
 
 function renderReceipts() {
@@ -113,9 +165,11 @@ function renderReceipts() {
         <p class="intro-body">Type your shopping with a date, then one line per item with the quantity and price. Items go into the Expense Log, kept separate from your live Price Log. A batch cooked on or after that date uses the price.</p>
       </div>
       <div class="sum-grid" id="spendSummary"></div>
+      <div class="shop-box" id="shopBox"><h2>Shopping plan</h2><div id="shopPlan"></div></div>
       <textarea id="receiptText" rows="8" placeholder="18/10&#10;minced pork 1000g 110thb&#10;onion 2kg 90thb" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="receiptSubmit" disabled>Type a receipt first</button>
       <div id="receiptResult"></div>
+      <div class="log-box" id="receiptLog"></div>
     </section>
   `);
   main.appendChild(section);
@@ -123,7 +177,13 @@ function renderReceipts() {
   const input = section.querySelector('#receiptText');
   const submitBtn = section.querySelector('#receiptSubmit');
   const resultDiv = section.querySelector('#receiptResult');
-  const reloadSpend = summaryLoader(section.querySelector('#spendSummary'), '/api/summary/spend', spendCard);
+  if (window.ShoppingPlan) window.ShoppingPlan.load(section.querySelector('#shopPlan'), {});
+  const reloadSpend0 = summaryLoader(section.querySelector('#spendSummary'), '/api/summary/spend', spendCard);
+  const reloadLog = monthlyLog(section.querySelector('#receiptLog'), {
+    title: 'What I bought, by month', api: '/api/receipts/log', totalsOf: receiptLogTotals, draw: receiptLogTable,
+    links: [{ label: 'Download CSV', query: '' }, { label: 'Price Log format', query: 'format=pricelog' }],
+  });
+  const reloadSpend = () => { reloadSpend0(); reloadLog(); };
 
   input.addEventListener('input', () => {
     const has = input.value.trim().length > 0;
@@ -180,19 +240,23 @@ async function renderBatchCook() {
     <section class="section">
       <div class="intro">
         <h1 class="intro-title">Batch Cook</h1>
-        <p class="intro-body">Pick the dish and date. Ingredients fill in from the recipe in Merlin's numbers. Change any quantity that was different today, and leave the rest. Prices are the latest purchase on or before the cook date. This does the same job as a cook note in the LINE group.</p>
+        <a class="primary-button" href="recipes.html" style="display:inline-block;width:auto;text-decoration:none;margin:0 0 10px;padding:8px 16px">View recipes</a>
+        <p class="intro-body">Two ways to log. One: log it all at once, when you already know the portions. Two: save the ingredients when you cook, then add the portions after you have packed them (they wait in the box below). Pick the dish and date. Ingredients fill in from the recipe in Merlin's numbers. Change any quantity that was different today, and leave the rest. Prices are the latest purchase on or before the cook date. This does the same job as a cook note in the LINE group.</p>
       </div>
       <div class="sum-grid" id="cookSummary"></div>
+      <div id="openBatches"></div>
       <label class="label">Paste a cook note or any command</label>
       <textarea id="noteText" rows="10" placeholder="7/10&#10;Bolo&#10;Meat 1000&#10;O 446&#10;G 60&#10;yield 21" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="noteSubmit" disabled>Paste a note first</button>
       <div id="noteResult"></div>
       <p class="intro-body" style="margin-top:18px">Or fill in one batch by hand:</p>
       <label class="label">Dish</label>
+      <a href="recipes.html" id="recipeLink" style="float:right;font-size:14px;color:var(--accent)">View this recipe</a>
       <select class="select" id="dishSelect">${dishes.map((d) => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('')}</select>
       <label class="label">Date cooked (DD/MM/YYYY)</label>
       <input class="input" id="cookDate" value="${todayBangkokDMY()}" />
       <div id="templateArea"></div>
+      <div class="log-box" id="cookLog"></div>
     </section>
   `);
   main.appendChild(section);
@@ -200,7 +264,22 @@ async function renderBatchCook() {
   const noteInput = section.querySelector('#noteText');
   const noteBtn = section.querySelector('#noteSubmit');
   const noteResult = section.querySelector('#noteResult');
-  const reloadCooking = summaryLoader(section.querySelector('#cookSummary'), '/api/summary/cooking', cookingCard);
+  const reloadCooking0 = summaryLoader(section.querySelector('#cookSummary'), '/api/summary/cooking', cookingCard);
+  const reloadCookLog = monthlyLog(section.querySelector('#cookLog'), {
+    title: 'What I cooked, by month', api: '/api/cook/log', totalsOf: cookLogTotals, draw: cookLogTable,
+    links: [{ label: 'Download CSV', query: '' }, { label: 'Download every ingredient line', query: 'detail=1' }],
+  });
+  const openBox = section.querySelector('#openBatches');
+  async function loadOpen() {
+    try {
+      const res = await fetch('/api/cook/open');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      drawOpen(openBox, data.open || [], loadOpen, reloadCooking);
+    } catch (err) { openBox.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`; }
+  }
+  const reloadCooking = () => { reloadCooking0(); reloadCookLog(); loadOpen(); };
+  loadOpen();
   const noteLabel = () => { const has = noteInput.value.trim().length > 0; noteBtn.disabled = !has; noteBtn.textContent = has ? 'Log cook note' : 'Paste a note first'; };
   noteInput.addEventListener('input', noteLabel);
   noteBtn.addEventListener('click', async () => {
@@ -238,10 +317,60 @@ async function renderBatchCook() {
       area.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
     }
   }
-  dishSelect.addEventListener('change', load);
+  const recipeLink = section.querySelector('#recipeLink');
+  const setLink = () => { recipeLink.href = `recipes.html#${encodeURIComponent(dishSelect.value)}`; };
+  setLink();
+  dishSelect.addEventListener('change', () => { setLink(); load(); });
   dateInput.addEventListener('change', load);
   if (dishes.length) load();
   else area.innerHTML = '<div class="empty-state">No dishes found.</div>';
+}
+
+// Batches cooked and saved, waiting for the portions to be counted.
+function drawOpen(box, open, reload, onLogged) {
+  if (!open.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="sum-card" style="margin:0 0 14px"><div class="sum-label">Waiting for portions</div><div id="openList"></div></div>';
+  const list = box.querySelector('#openList');
+  open.forEach((o) => {
+    const node = el(`
+      <div class="open-batch">
+        <div><b>${escapeHtml(o.dish)}</b>, cooked ${escapeHtml(o.date)}</div>
+        <small>${o.lines.length ? escapeHtml(o.lines.slice(0, 6).join(', ')) + (o.lines.length > 6 ? ', ...' : '') : 'recipe quantities'}</small>
+        <div class="size-row">${o.sized
+          ? `<span class="size-name">Regular</span><input class="size-input" type="number" data-size="Regular" /><span class="size-name">Large</span><input class="size-input" type="number" data-size="Large" />`
+          : `<span class="size-name">Portions made</span><input class="size-input" type="number" data-yield />`}
+          <button class="stock-count-button" type="button" data-act="log">Log portions</button>
+          <button class="stock-count-button" type="button" data-act="drop" style="background:transparent;color:var(--flag);border:1px solid var(--line)">Drop</button>
+        </div>
+        <div class="open-result"></div>
+      </div>`);
+    const result = node.querySelector('.open-result');
+    node.querySelector('[data-act="log"]').addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      const sizes = [...node.querySelectorAll('[data-size]')].map((i) => ({ name: i.dataset.size, count: Number(i.value) || 0 })).filter((z) => z.count > 0);
+      const y = node.querySelector('[data-yield]');
+      const body = { key: o.key, yield: y ? Number(y.value) || undefined : undefined, sizes };
+      if (!body.yield && !sizes.length) { result.innerHTML = '<div class="error-item">Enter how many portions it made.</div>'; return; }
+      btn.disabled = true; result.innerHTML = '<div class="loading">Logging…</div>';
+      try {
+        const r = await fetch('/api/cook/open/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Request failed');
+        const bad = data.status !== 'logged';
+        result.innerHTML = `<div class="${bad ? 'error-item' : 'result-headline'}" style="white-space:pre-wrap">${escapeHtml(data.text)}</div>`;
+        if (!bad) setTimeout(onLogged, 2500);
+      } catch (err) { result.innerHTML = `<div class="error-item" style="white-space:pre-wrap">${escapeHtml(err.message)}</div>`; btn.disabled = false; }
+    });
+    node.querySelector('[data-act="drop"]').addEventListener('click', async () => {
+      if (!confirm(`Drop the ${o.dish} batch cooked on ${o.date}? Nothing will be logged.`)) return;
+      try {
+        const r = await fetch('/api/cook/open/drop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: o.key }) });
+        const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Request failed');
+        reload();
+      } catch (err) { result.innerHTML = `<div class="error-item">${escapeHtml(err.message)}</div>`; }
+    });
+    list.appendChild(node);
+  });
 }
 
 function renderCookForm(container, recipe, dateInput, onLogged) {
@@ -281,6 +410,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     <div class="cost-preview"><span>Per portion</span><strong id="tPer">add servings yielded</strong></div>
     <div id="tSizes"></div>
     <button class="primary-button" id="logBatch">Log this batch</button>
+    <button class="primary-button" id="saveOpen" type="button" style="background:var(--card);color:var(--accent);border:2px solid var(--accent);margin-top:8px">Save ingredients now, add portions later</button>
     <div id="batchResult"></div>
   `;
 
@@ -410,6 +540,26 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     }
   });
 
+  $('saveOpen').addEventListener('click', async () => {
+    const res = $('batchResult');
+    // Every ingredient as it stands now is saved, so the batch is frozen as cooked even if the recipe changes before you count the portions.
+    const lines = rows.filter((r) => r.type === 'Ingredient').map((r) => ({ name: r.name, qty: r.qty !== undefined ? r.qty : r.original })).filter((l) => Number(l.qty) >= 0);
+    const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
+    const body = { dish: recipe.tab, date: dateInput.value, lines, packaging, sizes: [], yield: undefined };
+    res.innerHTML = '<div class="loading">Saving…</div>';
+    $('saveOpen').disabled = true;
+    try {
+      const r = await fetch('/api/cook/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Request failed');
+      const bad = data.status !== 'parked';
+      res.innerHTML = `<div class="result-card"><div class="${bad ? 'error-item' : 'result-headline'}" style="white-space:pre-wrap">${escapeHtml(data.text)}</div></div>`;
+      if (!bad && onLogged) onLogged();
+    } catch (err) {
+      res.innerHTML = `<div class="result-card"><div class="error-item" style="white-space:pre-wrap">${escapeHtml(err.message)}</div></div>`;
+    } finally { $('saveOpen').disabled = false; }
+  });
+
   drawRows();
 }
 
@@ -434,6 +584,14 @@ async function renderStock() {
         <h1 class="intro-title">Stock Counts</h1>
         <p class="intro-body">Packaging, cans and counted packs. Tap a number to recount; your number wins from that point on.</p>
       </div>
+      <div class="intro" style="margin-top:0">
+        <h1 class="intro-title" style="font-size:18px">Ready to eat</h1>
+        <p class="intro-body">Cooked and portioned, ready to serve. Until you count, this is portions cooked minus portions sold. Tap a number to type what is really in the fridge. Cooks and sales dated after that day then move it. Anything older than 5 days is flagged for a flash sale.</p>
+      </div>
+      <div class="stock-list" id="readyList"><div class="loading">Loading…</div></div>
+      <div class="intro" style="margin-top:18px">
+        <h1 class="intro-title" style="font-size:18px">Packaging and cans</h1>
+      </div>
       <div class="stock-list" id="stockList"></div>
       <div class="intro" style="margin-top:18px">
         <h1 class="intro-title" style="font-size:18px">Ingredient stock</h1>
@@ -451,6 +609,8 @@ async function renderStock() {
     list.innerHTML = '<div class="empty-state">No stock items yet — add your first one below.</div>';
   }
   stock.forEach((item) => list.appendChild(renderStockRow(item)));
+
+  loadReady(section.querySelector('#readyList'));
 
   fetch('/api/stock/ingredients').then((r) => r.json()).then((d) => {
     const box = section.querySelector('#ingredientList');
@@ -489,6 +649,37 @@ async function renderStock() {
     if (count == null) return;
     saveStock(name, Number(count), unit).then(() => renderStock()).catch(() => {});
   });
+}
+
+
+// Ready to eat: one row per batch dish. Tap the number to count it.
+async function loadReady(box) {
+  try {
+    const res = await fetch('/api/stock/ready');
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+    box.innerHTML = '';
+    d.items.forEach((i) => {
+      const basis = i.basis === 'counted' ? `counted ${i.countedOn}` : i.basis === 'estimated' ? 'estimated from cooks and sales' : 'nothing cooked yet';
+      const age = i.left > 0 && i.ageDays !== null ? ` · cooked ${i.ageDays === 0 ? 'today' : i.ageDays + (i.ageDays === 1 ? ' day ago' : ' days ago')}` : '';
+      const flag = i.stale ? ` <span style="color:#b3261e;font-weight:600">OVER ${d.staleDays} DAYS, flash sale?</span>` : '';
+      const neg = i.negative ? ' · sales are ahead of cooks, please count' : '';
+      const row = el(`<div class="stock-row"><div><div class="stock-name">${escapeHtml(i.dish)}${flag}</div><div class="stock-meta">${escapeHtml(basis)}${escapeHtml(age)}${escapeHtml(neg)}</div></div><button class="stock-count-button">${i.left}</button></div>`);
+      row.querySelector('button').addEventListener('click', async () => {
+        const n = prompt(`How many portions of ${i.dish} are ready to eat right now?`, String(i.left));
+        if (n === null || !n.trim() || !Number.isInteger(Number(n)) || Number(n) < 0) return;
+        try {
+          const r = await fetch('/api/stock/ready-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dish: i.dish, count: Number(n) }) });
+          const out = await r.json();
+          if (!r.ok) throw new Error(out.error || 'Not saved');
+          loadReady(box);
+        } catch (err) { alert(`Not saved: ${err.message}`); }
+      });
+      box.appendChild(row);
+    });
+  } catch (err) {
+    box.innerHTML = `<div class="empty-state">Ready to eat not available: ${escapeHtml(err.message)}</div>`;
+  }
 }
 
 // Recount one ingredient. Known pack size: type packs. Unknown: ask the size of one pack and its word once, then packs.

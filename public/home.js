@@ -52,5 +52,7 @@ async function load() {
   } catch (err) { s.className = 'status err'; s.textContent = err.message; }
 }
 
-$('reload').addEventListener('click', load);
+const loadShop = (refresh) => window.ShoppingPlan && window.ShoppingPlan.load($('shopPlan'), { compact: true, refresh });
+$('reload').addEventListener('click', () => { load(); loadShop(true); });
 load();
+loadShop(false);

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merlin's Dish — Business Analysis</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .wide { max-width: 1000px; }
+    .status { font-size: 14px; color: var(--muted); min-height: 20px; margin-bottom: 8px; white-space: pre-line; }
+    .status.err { color: var(--flag); }
+    .toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; margin: 4px 0 12px; }
+    .toggle button { font: inherit; font-size: 14px; padding: 8px 18px; border: 0; background: var(--card); color: var(--ink); cursor: pointer; }
+    .toggle button.on { background: var(--blue); color: #fff; font-weight: 600; }
+    .chart-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; }
+    .chart-card h2 { font-size: 15px; margin: 0 0 2px; }
+    .chart-card .why { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+    .chart-card svg { width: 100%; height: auto; display: block; overflow: visible; }
+    .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+    .notes { font-size: 14px; margin: 0 0 14px; padding-left: 18px; }
+    .ideas li { margin-bottom: 4px; }
+    .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+    th:first-child, td:first-child { text-align: left; }
+    th { font-weight: 600; color: var(--muted); }
+    @media (max-width: 600px) { .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <a class="logo-mark" href="home.html" aria-label="Merlin's Dish, go to The Pit"><img src="logo.png?v=33" alt="Merlin's Dish" /></a>
+        <div>
+          <div class="title">Business Analysis</div>
+          <div class="subtitle">How each week and month is performing, from October.</div>
+        </div>
+      </div>
+    </header>
+    <nav class="tab-bar" id="tabBar">
+      <a class="tab-button tab-link" href="commands.html">Commands</a>
+      <a class="tab-button tab-link" href="home.html">Home</a>
+      <a class="tab-button tab-link" href="marketing.html">Marketing</a>
+      <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
+      <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
+      <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
+      <a class="tab-button tab-link" href="reports.html">Numbers</a>
+      <a class="tab-button tab-link active" href="analysis.html">Analysis</a>
+    </nav>
+    <main class="main wide">
+      <div class="status" id="status">Loading…</div>
+      <div class="toggle" id="toggle"><button data-k="weeks" class="on">Weekly</button><button data-k="months">Monthly</button></div>
+      <div class="toggle" id="range" style="margin-left:8px"><button data-r="oct" class="on">From October</button><button data-r="start">Since the start (Nov 2025)</button></div>
+      <ul class="notes" id="notes"></ul>
+      <div id="charts"></div>
+      <h2 style="font-size:16px">The numbers behind the graphs</h2>
+      <div class="tablewrap" id="tableBox"></div>
+      <div id="mix"></div>
+      <div id="deep"></div>
+      <div id="check"></div>
+    </main>
+  </div>
+  <script src="analysis.js"></script>
+</body>
+</html>
