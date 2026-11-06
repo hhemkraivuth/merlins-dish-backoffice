@@ -204,3 +204,11 @@ body {
 .stock-line { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .stock-line:last-of-type { border-bottom: 0; }
 .muted { color: #6b6f7a; font-size: 13px; margin: 8px 0 0; }
+
+.shop-drop { border: 1px solid var(--line); border-radius: 10px; margin: 10px 0; background: var(--card); }
+.shop-drop > summary { cursor: pointer; padding: 12px 14px; font-weight: 700; list-style: none; }
+.shop-drop > summary::-webkit-details-marker { display: none; }
+.shop-drop > summary::before { content: '▸ '; color: var(--blue); }
+.shop-drop[open] > summary::before { content: '▾ '; }
+.shop-drop > summary small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.shop-drop .log-scroll { padding: 0 8px 10px; }

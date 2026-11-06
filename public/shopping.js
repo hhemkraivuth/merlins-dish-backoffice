@@ -34,10 +34,10 @@
     }
     const demand = p.demand.filter((d) => d.perMonth).map((d) => `<tr><td>${esc(d.dish)}</td><td class="r">${d.perMonth}</td><td>${esc(d.basis)}</td></tr>`).join('');
     box.innerHTML = head
-      + `<h3 class="shop-h">Fresh runs <small>${f.runs.length ? esc(f.runs.join(', ')) : ''}</small></h3>`
-      + (f.items.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${freshRows(f.items)}</tbody></table></div>` : '<p class="note">No fresh items in the plan.</p>')
-      + `<h3 class="shop-h">Bulk trip, ${esc(b.tripDate ? b.tripDate.day : 'none needed')}</h3>`
-      + (b.groups.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${bulkRows(b.groups)}</tbody></table></div>` : '<p class="note">Nothing to bulk buy.</p>')
+      + `<details class="shop-drop"><summary>Fresh run <small>${f.runs.length ? esc(f.runs.join(', ')) : ''} · ${f.items.length} items · ${baht(f.estCost)}</small></summary>`
+      + (f.items.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${freshRows(f.items)}</tbody></table></div>` : '<p class="note">No fresh items in the plan.</p>') + `</details>`
+      + `<details class="shop-drop"><summary>Bulk trip <small>${esc(b.tripDate ? b.tripDate.day : 'none needed')} · ${b.groups.reduce((n, g) => n + g.items.length, 0)} items · ${baht(b.estCost)}</small></summary>`
+      + (b.groups.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${bulkRows(b.groups)}</tbody></table></div>` : '<p class="note">Nothing to bulk buy.</p>') + `</details>`
       + (b.enough.length ? `<details class="sum-more"><summary>Already stocked for the month (${b.enough.length})</summary>${b.enough.map((e) => `<div class="sum-row"><span>${esc(e.name)}</span><span>lasts to ${esc(e.until)}</span></div>`).join('')}</details>` : '')
       + `<details class="sum-more"><summary>How this was worked out</summary><ul class="shop-warn">${p.assumptions.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>`
       + (demand ? `<div class="log-scroll"><table class="log-table"><thead><tr><th>Dish</th><th class="r">Portions a month</th><th>Basis</th></tr></thead><tbody>${demand}</tbody></table></div>` : '') + `</details>`
