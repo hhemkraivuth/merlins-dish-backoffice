@@ -61,6 +61,7 @@ function defaultDeps() {
       deductStock,
       loadLotBook: lotDeps.loadLotBook,
       saveLots: lotDeps.saveLots,
+      openBatches: require('../lib/openBatches').api(),
     },
     lots: lotDeps,
     swap: {

@@ -55,4 +55,42 @@ function startDriveImportTimer(run, { every, log = console } = {}) {
   return setInterval(tick, every || mins * 60000);
 }
 
-module.exports = { startHuddleTimer, startDriveImportTimer };
+
+// Weekly Drive export timer. Off unless WEEKLY_EXPORT_AUTO=on. WEEKLY_EXPORT_TIME is Bangkok time, HH:MM (default 20:00).
+// Runs once every Sunday and saves the week that just finished (Sunday to Saturday). Catches up if the app was down or
+// restarting then: it exports for the most recent Sunday that has passed its time and was not saved yet.
+// "Already exported" lives in `store` (App State tab), so a deploy never repeats it.
+// run(sunday) gets "YYYY-MM-DD" of that Sunday. A failed run is tried again up to 3 times, at least 10 minutes apart.
+const WEEKLY_KEY = 'weekly_export_last';
+const RETRY_GAP_MS = 10 * 60000;
+
+function startWeeklyExportTimer(run, { now = () => Date.now(), every = 60000, log = console, store = memoryStore() } = {}) {
+  if (String(process.env.WEEKLY_EXPORT_AUTO || '').toLowerCase() !== 'on') return null;
+  const at = /^\d{1,2}:\d{2}$/.test(process.env.WEEKLY_EXPORT_TIME || '') ? process.env.WEEKLY_EXPORT_TIME : '20:00';
+  const [h, m] = at.split(':').map(Number);
+  let doneDay = null;
+  let busy = false;
+  const tries = new Map(); // sunday -> { n, last }
+  const tick = async () => {
+    if (busy) return;
+    const b = new Date(now() + 7 * 3600 * 1000);
+    let back = b.getUTCDay(); // days since the last Sunday
+    if (back === 0 && b.getUTCHours() * 60 + b.getUTCMinutes() < h * 60 + m) back = 7; // today is Sunday but not time yet
+    const due = new Date(b.getTime() - back * 86400000).toISOString().slice(0, 10);
+    if (doneDay === due) return;
+    const t = tries.get(due) || { n: 0, last: 0 };
+    if (t.n >= 3 || now() - t.last < RETRY_GAP_MS) return;
+    busy = true;
+    try {
+      let last;
+      try { last = await store.get(WEEKLY_KEY); } catch (err) { log.error('Weekly export: could not check the last export, not running.', err.message); return; }
+      if (last >= due) { doneDay = due; return; }
+      tries.set(due, { n: t.n + 1, last: now() });
+      try { await run(due); await store.set(WEEKLY_KEY, due); doneDay = due; log.log(`Weekly export saved for ${due}`); }
+      catch (err) { log.error('Weekly export failed:', err.message); }
+    } finally { busy = false; }
+  };
+  return setInterval(tick, every);
+}
+
+module.exports = { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer };

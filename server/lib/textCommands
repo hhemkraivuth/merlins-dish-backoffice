@@ -13,6 +13,7 @@ const { processReceiptUndo } = require('./receiptUndo');
 const { processAlias } = require('./ingredientAlias');
 const { processSwap } = require('./swapCommand');
 const { bangkokToday } = require('./dates');
+const { processOpenCommand } = require('./openBatches');
 
 async function runCommands(text, deps, nowMs = Date.now()) {
   const t = String(text || '').trim();
@@ -26,6 +27,9 @@ async function runCommands(text, deps, nowMs = Date.now()) {
     || (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(t, day, deps.receipt))
     || (deps.lots && await processLots(t, day, deps.lots))
     || (deps.stock && await processStock(t, deps.stock))
+    || (deps.note && deps.note.openBatches && await processOpenCommand(t, {
+      listOpen: deps.note.openBatches.list, findOpen: deps.note.openBatches.find, removeOpen: deps.note.openBatches.remove, loadShorthand: deps.note.loadShorthand,
+    }))
     || await processNote(t, deps.note);
 }
 

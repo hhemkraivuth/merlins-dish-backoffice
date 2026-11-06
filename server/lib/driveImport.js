@@ -112,4 +112,4 @@ async function importFromDrive() {
   } finally { running = false; }
 }
 
-module.exports = { importFromDrive, runDriveImport, summaryText, listReady, folderIds, isCsvLike };
+module.exports = { driveClient, FOLDER_MIME, importFromDrive, runDriveImport, summaryText, listReady, folderIds, isCsvLike };

@@ -42,6 +42,28 @@ function parseSizeShort(line) {
   return out;
 }
 
+// "bolo yield 21", "bolo 7/10 yield 21", "dbs 7/10 7r 4l portions": a dish word, an optional date, then only the portions.
+// Used to finish a batch that was saved without its yield. Returns a batch with no ingredient lines, or null.
+function completionLine(line, shorthand, currentDate, today) {
+  const words = line.split(/\s+/);
+  for (let n = 1; n <= Math.min(3, words.length - 1); n++) {
+    const tab = shorthand.dishes.get(dishKey(words.slice(0, n).join(' ')));
+    if (!tab) continue;
+    let rest = words.slice(n);
+    let date = currentDate;
+    if (rest.length > 1 && DATE_LINE.test(rest[0])) { date = parseDate(rest[0], today); rest = rest.slice(1); if (!date) return null; }
+    const tail = rest.join(' ');
+    const batch = { dishTab: tab, dishWord: words.slice(0, n).join(' '), date, yield: null, lines: [], sizes: [], sizeCounts: [], cookedWeight: null };
+    const y = tail.match(YIELD_A) || tail.match(YIELD_B);
+    if (y) { batch.yield = Number(y[1]); return batch; }
+    const sz = tail.match(SIZE_LINE);
+    if (sz) { batch.sizes.push({ name: /^l/i.test(sz[1]) ? 'Large' : 'Regular', count: Number(sz[2]), weight: Number(sz[3].replace(',', '.')) }); return batch; }
+    const ss = parseSizeShort(tail);
+    if (ss) { batch.sizeCounts = ss; return batch; }
+  }
+  return null;
+}
+
 function dishKey(s) {
   return String(s || '').toLowerCase().replace(/\s+/g, '');
 }
@@ -66,6 +88,10 @@ function parseNote(text, shorthand, today = bangkokToday()) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim());
   for (let line of lines) {
     if (!line) continue;
+
+    let comp = completionLine(line, shorthand, currentDate, today);
+    if (!comp) { const dm = line.match(/^(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?)\s+(.+)$/); if (dm) { const d = parseDate(dm[1], today); if (d) comp = completionLine(dm[2], shorthand, d, today); } }
+    if (comp) { if (comp.date) currentDate = comp.date; current = comp; batches.push(current); continue; }
 
     // "7/10 bolo" on one line
     const firstSpace = line.search(/\s/);

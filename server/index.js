@@ -10,7 +10,10 @@ const stockCountsRoute = require('./routes/stockCounts');
 const lineRoute = require('./routes/line');
 const cookRoute = require('./routes/cook');
 const ledgerRoute = require('./routes/ledger');
-const { startHuddleTimer, startDriveImportTimer } = require('./lib/scheduler');
+const logsRoute = require('./routes/logs');
+const shoppingRoute = require('./routes/shopping');
+const analysisRoute = require('./routes/analysis');
+const { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer } = require('./lib/scheduler');
 const appState = require('./lib/appState');
 
 const app = express();
@@ -33,6 +36,17 @@ if (String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on') {
   app.post('/api/receipts/batch', upload.array('receipts', 60), receiptsRoute.handleBatch);
 }
 
+// Monthly logs with CSV downloads, and the ready to eat stock box
+app.get('/api/receipts/log', logsRoute.receiptsJson);
+app.get('/api/receipts/log.csv', logsRoute.receiptsCsv);
+app.get('/api/cook/log', logsRoute.cookJson);
+app.get('/api/cook/log.csv', logsRoute.cookCsv);
+app.post('/api/export/weekly', logsRoute.weeklyExportRoute);
+app.get('/api/shopping/plan', shoppingRoute.planJson);
+app.get('/api/analysis', analysisRoute.analysisJson);
+app.get('/api/stock/ready', logsRoute.readyJson);
+app.post('/api/stock/ready-count', logsRoute.readyCount);
+
 // Mode 3: Batch Cook
 app.get('/api/batch-cook/dishes', batchCookRoute.listDishes);
 app.get('/api/batch-cook/template/:dish', batchCookRoute.getTemplate);
@@ -43,6 +57,9 @@ app.post('/api/batch-cook/submit', batchCookRoute.submitBatch);
 app.get('/api/cook/dishes', cookRoute.dishes);
 app.get('/api/cook/recipe', cookRoute.recipe);
 app.post('/api/cook/submit', cookRoute.submit);
+app.get('/api/cook/open', cookRoute.openList);
+app.post('/api/cook/open/complete', cookRoute.openComplete);
+app.post('/api/cook/open/drop', cookRoute.openDrop);
 app.post('/api/cook/note', cookRoute.note);
 
 // Mode 4: Stock Counts
@@ -80,4 +97,5 @@ app.listen(PORT, () => {
   console.log(`Merlin's Dish back-office app running on port ${PORT}`);
   startHuddleTimer(ledgerRoute.sendHuddle, { store: { get: appState.getState, set: appState.setState } });
   startDriveImportTimer(ledgerRoute.sendDriveImport);
+  startWeeklyExportTimer(logsRoute.sendWeeklyExport, { store: { get: appState.getState, set: appState.setState } });
 });

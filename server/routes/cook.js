@@ -4,7 +4,7 @@
 const { defaultShorthand, applyShorthandRows } = require('../lib/aliases');
 const { normName } = require('../lib/priceBook');
 const { bangkokToday, parseDate } = require('../lib/dates');
-const { runBatch } = require('../lib/cookService');
+const { runBatch, handleBatch } = require('../lib/cookService');
 
 const SIZED = new Set(['Red Wine Beef Stew', 'Dark beer Stew']);
 const fmtDMY = (d) => d.toISOString().slice(0, 10).split('-').reverse().join('/');
@@ -29,6 +29,7 @@ function defaultDeps() {
     deductStock,
     loadLotBook: () => lots.loadLotBook(bangkokToday()),
     saveLots: lots.saveLots,
+    openBatches: require('../lib/openBatches').api(),
   };
 }
 
@@ -116,13 +117,62 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       };
       const shorthand = await deps.loadShorthand();
       const priceBook = await deps.loadPriceBook();
-      const out = await runBatch(batch, deps, shorthand, priceBook, { today: bangkokToday(), source: 'Web' });
+      const out = await handleBatch(batch, deps, shorthand, priceBook, { today: bangkokToday(), source: 'Web' });
       if (out.status === 'logged' && deps.tidy) { try { await deps.tidy(); } catch (err) { console.error('tidy failed:', err.message); } }
       res.json({ status: out.status, text: out.text, result: out.result || null });
     } catch (err) {
       console.error('Batch cook submit failed:', err);
       res.status(500).json({ error: `I couldn't log that batch. Nothing was changed.\nReason: ${err.message}` });
     }
+  }
+
+
+  // ---- Open batches (cooked, waiting for the portions to be counted) ----
+  async function openList(req, res) {
+    try {
+      const deps = getDeps();
+      const open = await deps.openBatches.list();
+      res.json({ open: open.map((o) => ({
+        key: o.key, dish: o.dishTab, date: fmtDMY(o.date), sized: SIZED.has(o.dishTab), source: o.source,
+        lines: (o.payload.lines || []).map((l) => `${l.token} ${l.qty}${l.unit || ''}`),
+      })) });
+    } catch (err) { console.error('Open batches failed:', err); res.status(500).json({ error: `Couldn't read the open batches: ${err.message}` }); }
+  }
+
+  async function openComplete(req, res) {
+    try {
+      const deps = getDeps();
+      const b = req.body || {};
+      const open = (await deps.openBatches.list()).find((o) => o.key === String(b.key || ''));
+      if (!open) return res.status(404).json({ error: 'That open batch is no longer there. It may already be logged. Refresh the list.' });
+      const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : NaN; };
+      const sizeCounts = (b.sizes || []).map((z) => ({ name: z.name, count: num(z.count) })).filter((z) => z.count > 0);
+      const yieldN = b.yield ? num(b.yield) : null;
+      if (!(yieldN > 0) && !sizeCounts.length) return res.status(400).json({ error: 'Enter how many portions the batch made.' });
+      if (yieldN !== null && !(yieldN > 0)) return res.status(400).json({ error: 'Portions must be a number above zero.' });
+      const batch = deps.openBatches.toBatch(open, { yield: yieldN > 0 ? yieldN : null, sizeCounts });
+      const shorthand = await deps.loadShorthand();
+      const priceBook = await deps.loadPriceBook();
+      const out = await runBatch(batch, deps, shorthand, priceBook, { today: bangkokToday(), source: 'Web' });
+      if (out.status === 'logged' || out.status === 'duplicate') {
+        try { await deps.openBatches.remove(open.key); } catch (err) { out.text += `\nLogged, but I could not clear it from Open Batches (${err.message}).`; }
+        if (out.status === 'logged' && deps.tidy) { try { await deps.tidy(); } catch (err) { console.error('tidy failed:', err.message); } }
+      }
+      res.json({ status: out.status, text: out.text, result: out.result || null });
+    } catch (err) {
+      console.error('Open batch complete failed:', err);
+      res.status(500).json({ error: `I couldn't log that batch. Nothing was changed.\nReason: ${err.message}` });
+    }
+  }
+
+  async function openDrop(req, res) {
+    try {
+      const deps = getDeps();
+      const key = String((req.body && req.body.key) || '');
+      if (!(await deps.openBatches.list()).some((o) => o.key === key)) return res.status(404).json({ error: 'That open batch is no longer there.' });
+      await deps.openBatches.remove(key);
+      res.json({ ok: true });
+    } catch (err) { console.error('Open batch drop failed:', err); res.status(500).json({ error: `Couldn't drop it: ${err.message}` }); }
   }
 
   // Anything you could type in the LINE group: cook notes (one or many batches), receipts, undo, swap, stock, rider fees, reports.
@@ -142,7 +192,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
     }
   }
 
-  return { dishes, recipe, submit, note };
+  return { dishes, recipe, submit, note, openList, openComplete, openDrop };
 }
 
 let d = null;

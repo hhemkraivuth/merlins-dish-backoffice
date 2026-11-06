@@ -23,6 +23,12 @@ const HELP = [
   '',
   'Ingredients you leave out stay at the recipe quantity.',
   '',
+  'Two steps: cooked now, packed later. Send the note without a yield and it is saved as an open batch:',
+  '7/10',
+  'Bolo',
+  'Meat 1000',
+  'When the portions are packed, send: bolo 7/10 yield 21 (stews: dbs 7/10 7r 4l portions). "open" lists batches waiting, "drop bolo 7/10" throws one away.',
+  '',
   'Receipts: type them with a date, then one line per item with the quantity and price.',
   '18/10',
   'minced pork 1000g 110thb',
@@ -160,6 +166,58 @@ async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LI
   return { status: 'logged', result, key, text: formatBatchReply(result, 'Logged to the Cook Log.', stockLines) };
 }
 
+
+// One batch from a note or the web form. Two step logging:
+//   no portions yet  -> parked as an open batch (deps.openBatches), nothing costed or taken off stock
+//   portions only    -> completes the matching open batch (by dish, and by date when a date was given)
+//   anything else    -> logged straight away, as before
+async function handleBatch(batch, deps, shorthand, priceBook, { today, source = 'LINE' } = {}) {
+  const ob = deps.openBatches;
+  const hasSizes = !!((batch.sizes && batch.sizes.length) || (batch.sizeCounts && batch.sizeCounts.length));
+  const hasYield = !!batch.yield || hasSizes;
+  const dateGiven = !!batch.date;
+  if (!ob) return runBatch(batch, deps, shorthand, priceBook, { today, source });
+
+  let open = null; let matches = []; let others = [];
+  if (hasYield && !(batch.lines && batch.lines.length)) {
+    try { ({ matches, others } = await ob.find(batch.dishTab, dateGiven ? batch.date : null)); }
+    catch (err) { return { status: 'error', text: `I couldn't read the open batches (${err.message}), so nothing was logged for ${batch.dishTab}.` }; }
+    open = matches[0] || null;
+  }
+
+  if (open) {
+    const merged = ob.toBatch(open, {
+      yield: batch.yield, sizeCounts: batch.sizeCounts || [], sizes: (batch.sizes && batch.sizes.length) ? batch.sizes : open.payload.sizes,
+      cookedWeight: batch.cookedWeight || open.payload.cookedWeight,
+    });
+    const out = await runBatch(merged, deps, shorthand, priceBook, { today, source });
+    if (out.status === 'logged' || out.status === 'duplicate') {
+      try { await ob.remove(open.key); } catch (err) { out.text += `\nThe batch is logged, but I could not clear it from Open Batches (${err.message}). Send "drop ${batch.dishWord || batch.dishTab} ${formatDMY(open.date).slice(0, 5)}".`; }
+    }
+    out.text = `Completed the batch cooked on ${formatDMY(open.date)}.${matches.length > 1 ? ` ${matches.length} open ${batch.dishTab} batches matched, so I used the latest. Send "open" to see the rest.` : ''}\n${out.text}`;
+    return out;
+  }
+
+  if (!hasYield) {
+    const out = await runBatch(batch, deps, shorthand, priceBook, { today, source });
+    if (out.status !== 'nolog') return out;
+    let parked;
+    try { parked = await ob.park(batch, { source }); }
+    catch (err) { return { status: 'error', text: `I couldn't save the open batch (${err.message}). Nothing was logged.` }; }
+    const word = batch.dishWord || batch.dishTab;
+    const head = parked.status === 'same'
+      ? 'This batch is already saved as an open batch. Nothing added.'
+      : `Saved as an open batch, waiting for portions. Nothing is costed or taken off stock yet.\nWhen packed, send: ${word} ${formatDMY(batch.date).slice(0, 5)} yield 21${parked.sameDay ? `\n(${parked.sameDay + 1} open ${batch.dishTab} batches on this date, so send the date and I will use the latest.)` : ''}`;
+    return { status: 'parked', result: out.result, key: parked.key, text: formatBatchReply(out.result, head).replace(/\nBatch .*per portion not calculated/, '\nIngredients so far are below, per portion comes with the yield.') };
+  }
+
+  const out = await runBatch(batch, deps, shorthand, priceBook, { today, source });
+  if (others.length && hasYield && !(batch.lines && batch.lines.length)) {
+    out.text += `\nNote: ${batch.dishTab} also has an open batch from ${others.map((o) => formatDMY(o.date)).join(', ')}. If you meant that one, send the date it was cooked.`;
+  }
+  return out;
+}
+
 // deps: { loadShorthand(), loadRecipe(tab), loadPriceBook(), isLogged(key), writeBatch(result, key), batchKey(...), today? }
 async function processNote(text, deps) {
   const today = deps.today || bangkokToday();
@@ -185,7 +243,7 @@ async function processNote(text, deps) {
 
   let anyLogged = false;
   for (const batch of batches) {
-    const out = await runBatch(batch, cached, shorthand, priceBook, { today, source: 'LINE' });
+    const out = await handleBatch(batch, cached, shorthand, priceBook, { today, source: 'LINE' });
     if (out.status === 'logged') anyLogged = true;
     replies.push(out.text);
   }
@@ -439,4 +497,4 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
   return replies;
 }
 
-module.exports = { processNote, processReceipt, processTypedReceipt, runBatch, formatBatchReply, HELP };
+module.exports = { processNote, processReceipt, processTypedReceipt, runBatch, handleBatch, formatBatchReply, HELP };
