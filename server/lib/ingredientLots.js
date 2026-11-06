@@ -66,14 +66,33 @@ class LotBook {
     for (const list of this.lots.values()) list.sort((a, b) => a.date - b.date || a.seq - b.seq);
   }
 
+  // Blends (see blends.js): a recipe name made of several stocked ingredients in fixed shares.
+  setBlends(map) { this.blends = map instanceof Map ? map : new Map(); }
+  blendOf(name) { return this.blends && this.blends.get(normName(name)) || null; }
   isUntracked(name) { return this.untracked.has(looseKey(name)); }
-  hasLots(name) { return this.lots.has(normName(name)); }
+  hasLots(name) { const b = this.blendOf(name); return b ? b.parts.some((p) => this.lots.has(normName(p.name))) : this.lots.has(normName(name)); }
   names() { return [...this.lots.values()].map((l) => l[0].name); }
-  lotsFor(name) { return this.lots.get(normName(name)) || []; }
-  totalRemaining(name) { return this.lotsFor(name).reduce((s, l) => s + Math.max(l.remaining, 0), 0); }
+  lotsFor(name) { const b = this.blendOf(name); return b ? b.parts.flatMap((p) => this.lots.get(normName(p.name)) || []) : (this.lots.get(normName(name)) || []); }
+  // A blend is limited by whichever part runs out first: what is left of the blend = the smallest (part left / its share).
+  totalRemaining(name) {
+    const b = this.blendOf(name);
+    if (b) return Math.min(...b.parts.map((p) => this.totalRemaining(p.name) / p.share));
+    return this.lotsFor(name).reduce((s, l) => s + Math.max(l.remaining, 0), 0);
+  }
 
   // Takes qty from the oldest eligible lots. Returns { parts: [{ lot, qty, unitCost }], short }.
   allocate(name, qty, unit, onDate) {
+    const blend = this.blendOf(name);
+    if (blend) {
+      // Each part is taken from its own lots in proportion. Parts that have no stock at all are costed by the caller as "short".
+      const parts = []; let short = 0;
+      for (const p of blend.parts) {
+        if (!this.lots.has(normName(p.name))) { short += qty * p.share; continue; }
+        const r = this.allocate(p.name, qty * p.share, unit, onDate);
+        parts.push(...r.parts); short += r.short;
+      }
+      return { parts, short };
+    }
     const u = baseUnit(unit);
     const parts = [];
     let need = qty;
@@ -127,7 +146,9 @@ async function loadLotBook(today) {
   await cookLog.ensureTab(UNTRACKED_TAB, ['Ingredient'], DEFAULT_UNTRACKED.map((n) => [n]));
   const [rows, un] = await Promise.all([readTab(LOTS_TAB), readTab(UNTRACKED_TAB)]);
   const untracked = un.slice(1).map((r) => String(r[0] || '').trim()).filter(Boolean);
-  return new LotBook(rows, untracked, today);
+  const book = new LotBook(rows, untracked, today);
+  try { book.setBlends(await require('./blends').loadBlends()); } catch (err) { /* no blends, every ingredient is costed on its own */ }
+  return book;
 }
 
 async function loadUntracked() {

@@ -564,112 +564,175 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
 }
 
 // ---- Mode 4: Stock Counts ----
+// Counted items (cans, bottles, packaging) and ingredient stock, sorted into Drinks / Packaging / Ingredients / Other.
+// Anything at 0 or below 2 is red and listed first. Tap any row to edit its name, quantity, unit and category.
+
+const STOCK_CATS = ['Drinks', 'Packaging', 'Ingredients', 'Other'];
+const RED_BELOW = 2;
+const STOCK_UNITS = ['can', 'bottle', 'bag', 'pack', 'pcs', 'set', 'box'];
+
+const catOf = (item) => item.category || item.guess || '';
+const unitOptions = (cur) => (STOCK_UNITS.includes(cur) || !cur ? STOCK_UNITS : [...STOCK_UNITS, cur]).map((u) => `<option${u === cur ? ' selected' : ''}>${escapeHtml(u)}</option>`).join('');
+const catOptions = (cur, blankText) => `${blankText ? `<option value="">${escapeHtml(blankText)}</option>` : ''}${STOCK_CATS.map((c) => `<option${c === cur ? ' selected' : ''}>${c}</option>`).join('')}`;
+
+async function stockPost(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* keep empty */ }
+  if (!res.ok) { alert(`Not saved: ${data.error || 'Request failed'}`); throw new Error(data.error || 'Request failed'); }
+  return data;
+}
 
 async function renderStock() {
   main.innerHTML = '<div class="loading">Loading stock…</div>';
-  let stock = [];
+  let stock = []; let ingredients = []; let blends = [];
   try {
-    const res = await fetch('/api/stock');
-    const data = await res.json();
-    stock = data.stock || [];
+    const [r1, r2, r3] = await Promise.all([fetch('/api/stock'), fetch('/api/stock/ingredients').catch(() => null), fetch('/api/blends').catch(() => null)]);
+    stock = ((await r1.json()).stock) || [];
+    if (r2 && r2.ok) ingredients = ((await r2.json()).items) || [];
+    if (r3 && r3.ok) blends = ((await r3.json()).blends) || [];
   } catch (err) {
     main.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
     return;
   }
+
+  // One list of rows for both kinds of stock. qty is what the red rule and the sorting use.
+  const rows = [
+    ...stock.map((item) => ({ kind: 'counted', name: item.itemName, qty: item.currentCount, unit: item.unit, cat: catOf(item), saved: Boolean(item.category), item })),
+    ...ingredients.map((i) => ({ kind: 'ingredient', name: i.name, qty: i.pack ? i.pack.packs : null, unit: i.pack ? i.pack.word : i.unit, cat: 'Ingredients', saved: true, item: i })),
+  ];
+  const isRed = (r) => (r.qty !== null ? r.qty < RED_BELOW : Boolean(r.item.low));
+  const byQty = (a, b) => (a.qty ?? 1e9) - (b.qty ?? 1e9) || a.name.localeCompare(b.name);
+  const red = rows.filter(isRed).sort(byQty);
+  const rest = rows.filter((r) => !isRed(r));
 
   main.innerHTML = '';
   const section = el(`
     <section class="section">
       <div class="intro">
         <h1 class="intro-title">Stock Counts</h1>
-        <p class="intro-body">Packaging, cans and counted packs. Tap a number to recount; your number wins from that point on.</p>
+        <p class="intro-body">Tap any row to edit its name, quantity, unit or category. Red means 0 or below ${RED_BELOW}: fill it asap, it goes first on the shopping list.</p>
       </div>
-      <div class="intro" style="margin-top:18px">
-        <h1 class="intro-title" style="font-size:18px">Packaging and cans</h1>
-      </div>
-      <div class="stock-list" id="stockList"></div>
-      <div class="intro" style="margin-top:18px">
-        <h1 class="intro-title" style="font-size:18px">Ingredient stock</h1>
-        <p class="intro-body">What is left of each ingredient, built from receipts and cook notes. Tap a number to recount. Where a pack size is known it counts in packs (cans, bags), otherwise in g or ml.</p>
-      </div>
-      <div class="stock-list" id="ingredientList"><div class="loading">Loading…</div></div>
+      <div id="stockRed"></div>
+      <div id="stockCats"></div>
       <div class="intro" style="margin-top:18px">
         <h1 class="intro-title" style="font-size:18px">Add stock</h1>
-        <p class="intro-body">Type the name, the count and pick the unit, then Add. The form stays open for the next item. Typing a name that already exists updates its count.</p>
+        <p class="intro-body">Name, count, unit and category, then Add. The form stays open for the next item. A name that already exists updates its count.</p>
       </div>
-      <form class="stock-row" id="addStockForm" style="display:grid;grid-template-columns:1fr 80px 100px;gap:8px;align-items:center">
+      <form class="stock-row" id="addStockForm" style="display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center">
         <input class="stock-edit-input" id="addName" list="stockNames" placeholder="Item name" autocomplete="off" required style="width:auto" />
         <input class="stock-edit-input" id="addCount" type="number" inputmode="decimal" step="any" placeholder="Count" required style="width:auto" />
-        <select class="stock-edit-input" id="addUnit" style="width:auto">
-          <option>can</option><option>bottle</option><option>bag</option><option>pack</option><option>pcs</option><option>set</option><option>box</option>
-        </select>
+        <select class="stock-edit-input" id="addUnit" style="width:auto">${unitOptions('can')}</select>
+        <select class="stock-edit-input" id="addCat" style="width:auto">${catOptions('', 'Category (auto)')}</select>
         <button class="primary-button" type="submit" style="grid-column:1 / -1">Add</button>
       </form>
       <datalist id="stockNames"></datalist>
       <div id="addMsg" class="stock-meta" style="margin:6px 2px"></div>
       <details style="margin-top:10px">
         <summary class="stock-meta" style="cursor:pointer">Add many at once</summary>
-        <p class="stock-meta" style="margin:6px 0">One item per line: name, count, unit. Example: coke zero 11 can. The unit is optional (defaults to can).</p>
-        <textarea id="bulkText" rows="6" placeholder="coke zero 11 can&#10;coke original 9 can&#10;paper bags 40 pcs" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea>
+        <p class="stock-meta" style="margin:6px 0">One item per line: name, count, unit. Example: coke zero 11 can. The unit is optional (defaults to can). The category is worked out from the name, and anything unknown lands in "Needs a category".</p>
+        <textarea id="bulkText" rows="6" placeholder="coke zero 11 can&#10;red wine Ti 3 bottle&#10;paper bags 40 pcs" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea>
         <button class="primary-button" id="bulkBtn" type="button" style="margin-top:8px">Add all</button>
       </details>
       <button class="primary-button" id="seedPkgBtn" style="margin-top:12px">Add the 4 packaging items (at 0)</button>
+      <div class="intro" style="margin-top:26px">
+        <h1 class="intro-title" style="font-size:18px">Blends</h1>
+        <p class="intro-body">When one recipe ingredient is a mix of two brands (for example red wine, half Ti and half Familia), set the parts here. A batch then takes each brand from its own stock in those parts and costs the real mix. The parts are a ratio: 3 tsp and 5 tsp is just 3 and 5.</p>
+      </div>
+      <div id="blendList"></div>
+      <form class="stock-row" id="blendForm" style="display:block">
+        <input class="stock-edit-input" id="blendName" placeholder="Blend name, as the recipe calls it (e.g. Red wine)" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px" />
+        <div id="blendParts"></div>
+        <button class="small-button" id="blendMore" type="button" style="margin:6px 0">+ Another ingredient</button>
+        <button class="primary-button" type="submit" style="display:block;width:100%">Save blend</button>
+      </form>
     </section>
   `);
   main.appendChild(section);
 
-  const list = section.querySelector('#stockList');
-  if (!stock.length) {
-    list.innerHTML = '<div class="empty-state">No stock items yet — add your first one below.</div>';
-  }
-  stock.forEach((item) => list.appendChild(renderStockRow(item)));
-
-  fetch('/api/stock/ingredients').then((r) => r.json()).then((d) => {
-    const box = section.querySelector('#ingredientList');
-    if (d.error) { box.innerHTML = `<div class="empty-state">${escapeHtml(d.error)}</div>`; return; }
-    const items = d.items || [];
-    if (!items.length) { box.innerHTML = '<div class="empty-state">No ingredient stock yet. It appears after a receipt (without "prices only") or an "opening" count in LINE.</div>'; return; }
-    box.innerHTML = '';
-    items.forEach((i) => {
-      const row = el(`
-      <div class="stock-row">
+  // ---- rows
+  function drawRow(r, redRow) {
+    const rowEl = el(`
+      <div class="stock-row"${redRow ? ' style="background:#fdecea;border-color:#e8b4ae"' : ''}>
         <div>
-          <div class="stock-name">${escapeHtml(i.name)}${i.low ? ' <span style="color:#b3261e;font-weight:600">LOW</span>' : ''}</div>
-          <div class="stock-meta">${i.pack ? escapeHtml(i.left + i.unit) + ' · ' : 'tap to count in packs · '}oldest bought ${escapeHtml(i.oldest)}${i.level ? ' · alert below ' + escapeHtml(i.level) : ''}</div>
+          <div class="stock-name"${redRow ? ' style="color:#b3261e"' : ''}>${escapeHtml(r.name)}${redRow ? ' <span style="font-weight:700">· FILL ASAP</span>' : ''}</div>
+          <div class="stock-meta">${r.kind === 'counted'
+    ? `${escapeHtml(r.unit || '')}${redRow ? ` · ${escapeHtml(r.cat || 'no category')}` : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}${!r.saved && r.cat ? ' · category guessed' : ''}`
+    : `${r.item.pack ? escapeHtml(r.item.left + r.item.unit) + ' · ' : 'tap to count in packs · '}${r.item.oldest ? 'oldest bought ' + escapeHtml(r.item.oldest) : 'used up'}${r.item.level ? ' · alert below ' + escapeHtml(r.item.level) : ''}`}</div>
         </div>
-        <button class="stock-count-button">${escapeHtml(i.pack ? i.pack.label : i.left + i.unit)}</button>
+        <button class="stock-count-button"${redRow ? ' style="background:#b3261e;color:#fff;border-color:#b3261e"' : ''}>${escapeHtml(r.kind === 'ingredient' ? (r.item.pack ? r.item.pack.label : r.item.left + r.item.unit) : String(r.qty))}</button>
       </div>`);
-      row.querySelector('button').addEventListener('click', () => recountIngredient(i));
-      box.appendChild(row);
-    });
-  }).catch((err) => { section.querySelector('#ingredientList').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`; });
+    rowEl.querySelector('.stock-count-button').addEventListener('click', () => (r.kind === 'ingredient' ? recountIngredient(r.item) : openEdit(rowEl, r)));
+    return rowEl;
+  }
 
-  section.querySelector('#seedPkgBtn').addEventListener('click', async () => {
-    try {
-      const res = await fetch('/api/stock/seed-packaging', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Request failed');
-      alert(data.added.length ? `Added at 0: ${data.added.join(', ')}. Now set the real counts.` : 'All 4 packaging items are already there. Nothing changed.');
-      renderStock();
-    } catch (err) { alert(`Nothing was added: ${err.message}`); }
+  function openEdit(rowEl, r) {
+    const form = el(`
+      <form class="stock-row" style="display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center;border-color:var(--ink,#294bd4)">
+        <input class="stock-edit-input" name="name" value="${escapeHtml(r.name)}" style="width:auto" required />
+        <input class="stock-edit-input" name="count" type="number" step="any" inputmode="decimal" value="${r.qty}" style="width:auto" required />
+        <select class="stock-edit-input" name="unit" style="width:auto">${unitOptions(r.unit)}</select>
+        <select class="stock-edit-input" name="cat" style="width:auto">${catOptions(r.cat, 'Category')}</select>
+        <div style="grid-column:1 / -1;display:flex;gap:8px"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
+      </form>`);
+    rowEl.replaceWith(form);
+    form.querySelector('[name=name]').focus();
+    form.querySelector('[data-cancel]').addEventListener('click', () => renderStock());
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = form.elements;
+      try {
+        await stockPost('/api/stock/edit', { oldName: r.name, newName: f.name.value.trim(), unit: f.unit.value, count: Number(f.count.value), category: f.cat.value });
+        renderStock();
+      } catch (err) { /* already shown */ }
+    });
+  }
+
+  const redBox = section.querySelector('#stockRed');
+  if (red.length) {
+    redBox.appendChild(el('<div class="intro" style="margin-top:14px"><h1 class="intro-title" style="font-size:18px;color:#b3261e">Fill asap</h1></div>'));
+    const list = el('<div class="stock-list"></div>');
+    red.forEach((r) => list.appendChild(drawRow(r, true)));
+    redBox.appendChild(list);
+  }
+
+  const catBox = section.querySelector('#stockCats');
+  [...STOCK_CATS, ''].forEach((cat) => {
+    const inCat = rest.filter((r) => r.cat === cat).sort(byQty);
+    if (!inCat.length && cat) return;
+    if (!inCat.length) return;
+    catBox.appendChild(el(`<div class="intro" style="margin-top:18px"><h1 class="intro-title" style="font-size:18px">${cat || 'Needs a category'}</h1>${cat ? '' : '<p class="intro-body">I could not tell where these go. Pick a category once and they are sorted from then on.</p>'}</div>`));
+    const list = el('<div class="stock-list"></div>');
+    inCat.forEach((r) => {
+      const rowEl = drawRow(r, false);
+      if (!cat) {
+        const sel = el(`<select class="stock-edit-input" style="width:auto;margin-left:8px">${catOptions('', 'Pick one')}</select>`);
+        sel.addEventListener('change', async () => { if (!sel.value) return; try { await stockPost('/api/stock/edit', { oldName: r.name, category: sel.value }); renderStock(); } catch (err) { /* shown */ } });
+        rowEl.insertBefore(sel, rowEl.querySelector('.stock-count-button'));
+      }
+      list.appendChild(rowEl);
+    });
+    catBox.appendChild(list);
   });
+  if (!rows.length) catBox.appendChild(el('<div class="empty-state">No stock yet. Add your first item below.</div>'));
+
+  // ---- add stock
   const names = section.querySelector('#stockNames');
-  stock.forEach((it) => { const o = document.createElement('option'); o.value = it.itemName; names.appendChild(o); });
+  [...new Set([...stock.map((x) => x.itemName), ...ingredients.map((x) => x.name)])].forEach((n) => { const o = document.createElement('option'); o.value = n; names.appendChild(o); });
   const msg = section.querySelector('#addMsg');
-  const addForm = section.querySelector('#addStockForm');
-  addForm.addEventListener('submit', async (e) => {
+  const say = (t) => { const m = document.querySelector('#addMsg'); if (m) m.textContent = t; };
+  section.querySelector('#addStockForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = section.querySelector('#addName').value.trim();
     const count = Number(section.querySelector('#addCount').value);
     const unit = section.querySelector('#addUnit').value;
+    const category = section.querySelector('#addCat').value;
     if (!name || !Number.isFinite(count)) return;
     try {
-      await saveStock(name, count, unit);
+      await saveStock(name, count, unit, category);
       await renderStock();
-      const m = document.querySelector('#addMsg');
-      if (m) m.textContent = `Saved: ${name} ${count} ${unit}`;
-      const n = document.querySelector('#addName');
-      if (n) n.focus();
+      say(`Saved: ${name} ${count} ${unit}`);
+      const n = document.querySelector('#addName'); if (n) n.focus();
     } catch (err) { /* already shown */ }
   });
   section.querySelector('#bulkBtn').addEventListener('click', async () => {
@@ -681,8 +744,49 @@ async function renderStock() {
       try { await saveStock(m[1].trim(), Number(m[2]), m[3] || 'can'); done.push(m[1].trim()); } catch (e) { bad.push(line); break; }
     }
     await renderStock();
-    const mm = document.querySelector('#addMsg');
-    if (mm) mm.textContent = `Saved ${done.length}.` + (bad.length ? ` Not read: ${bad.join(' | ')}` : '');
+    say(`Saved ${done.length}.` + (bad.length ? ` Not read: ${bad.join(' | ')}` : ''));
+  });
+  section.querySelector('#seedPkgBtn').addEventListener('click', async () => {
+    try {
+      const data = await stockPost('/api/stock/seed-packaging', {});
+      alert(data.added.length ? `Added at 0: ${data.added.join(', ')}. Now set the real counts.` : 'All 4 packaging items are already there. Nothing changed.');
+      renderStock();
+    } catch (err) { /* shown */ }
+  });
+
+  // ---- blends
+  const listEl = section.querySelector('#blendList');
+  if (!blends.length) listEl.appendChild(el('<div class="empty-state">No blends yet.</div>'));
+  blends.forEach((b) => {
+    const rowEl = el(`<div class="stock-row"><div><div class="stock-name">${escapeHtml(b.name)}</div><div class="stock-meta">${b.parts.map((p) => `${escapeHtml(p.name)} ${escapeHtml(String(p.parts))} part${p.parts === 1 ? '' : 's'} (${p.share}%)`).join(' + ')}</div></div><div style="display:flex;gap:6px"><button class="small-button" data-edit>Edit</button><button class="small-button" data-del>Delete</button></div></div>`);
+    rowEl.querySelector('[data-edit]').addEventListener('click', () => fillBlend(b));
+    rowEl.querySelector('[data-del]').addEventListener('click', async () => {
+      if (!confirm(`Delete the ${b.name} blend? The ingredients and their stock stay as they are.`)) return;
+      try { await stockPost('/api/blends/delete', { name: b.name }); renderStock(); } catch (err) { /* shown */ }
+    });
+    listEl.appendChild(rowEl);
+  });
+  const partsBox = section.querySelector('#blendParts');
+  const addPart = (name = '', parts = '') => {
+    const r = el(`<div style="display:grid;grid-template-columns:1fr 80px;gap:8px;margin-bottom:6px"><input class="stock-edit-input" data-n list="stockNames" placeholder="Ingredient (as in stock)" value="${escapeHtml(name)}" style="width:auto" /><input class="stock-edit-input" data-p type="number" step="any" inputmode="decimal" placeholder="Parts" value="${escapeHtml(String(parts))}" style="width:auto" /></div>`);
+    partsBox.appendChild(r);
+  };
+  function fillBlend(b) {
+    section.querySelector('#blendName').value = b.name;
+    partsBox.innerHTML = '';
+    b.parts.forEach((p) => addPart(p.name, p.parts));
+    section.querySelector('#blendForm').scrollIntoView({ behavior: 'smooth' });
+  }
+  addPart(); addPart();
+  section.querySelector('#blendMore').addEventListener('click', () => addPart());
+  section.querySelector('#blendForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const parts = [...partsBox.children].map((r) => ({ name: r.querySelector('[data-n]').value.trim(), parts: Number(r.querySelector('[data-p]').value) })).filter((p) => p.name && p.parts > 0);
+    try {
+      await stockPost('/api/blends', { name: section.querySelector('#blendName').value.trim(), parts });
+      await renderStock();
+      say('Blend saved.');
+    } catch (err) { /* shown */ }
   });
 }
 
@@ -696,11 +800,9 @@ async function recountIngredient(i) {
       const g = prompt(`${i.name} left in ${i.unit}:`, String(i.left));
       if (g === null || !Number.isFinite(Number(g))) return;
       try {
-        const res = await fetch('/api/stock/ingredient-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: i.name, base: Number(g) }) });
-        const d = await res.json();
-        if (!res.ok) throw new Error(d.error || 'Not saved');
+        await stockPost('/api/stock/ingredient-count', { name: i.name, base: Number(g) });
         renderStock();
-      } catch (e) { alert(`Not saved: ${e.message}`); }
+      } catch (e) { /* shown */ }
       return;
     }
     size = ans.trim();
@@ -711,11 +813,9 @@ async function recountIngredient(i) {
   const n = prompt(`How many ${label}s of ${i.name} are left?`, i.pack ? String(i.pack.packs) : '');
   if (n === null || !n.trim() || !Number.isFinite(Number(n))) return;
   try {
-    const res = await fetch('/api/stock/ingredient-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: i.name, packs: Number(n), size, word }) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Not saved');
+    await stockPost('/api/stock/ingredient-count', { name: i.name, packs: Number(n), size, word });
     renderStock();
-  } catch (err) { alert(`Not saved: ${err.message}`); }
+  } catch (err) { /* shown */ }
 }
 
 // ISO timestamp -> "15/10/2026 22:26" in Bangkok time
@@ -727,39 +827,11 @@ function formatStamp(value) {
   return `${g('day')}/${g('month')}/${g('year')} ${g('hour')}:${g('minute')}`;
 }
 
-function renderStockRow(item) {
-  const row = el(`
-    <div class="stock-row">
-      <div>
-        <div class="stock-name">${escapeHtml(item.itemName)}</div>
-        <div class="stock-meta">${escapeHtml(item.unit)} · last updated ${escapeHtml(formatStamp(item.lastUpdated))}${item.lastUpdatedBy ? ' · ' + escapeHtml(item.lastUpdatedBy) : ''}</div>
-      </div>
-      <button class="stock-count-button">${item.currentCount}</button>
-    </div>
-  `);
-  row.querySelector('.stock-count-button').addEventListener('click', () => {
-    const editGroup = el(`
-      <div class="stock-edit-group">
-        <input class="stock-edit-input" type="number" value="${item.currentCount}" />
-        <button class="small-button">Save</button>
-      </div>
-    `);
-    const btn = row.querySelector('.stock-count-button');
-    row.replaceChild(editGroup, btn);
-    const input = editGroup.querySelector('input');
-    input.focus();
-    editGroup.querySelector('button').addEventListener('click', async () => {
-      try { await saveStock(item.itemName, Number(input.value), item.unit); renderStock(); } catch (e) { /* already shown */ }
-    });
-  });
-  return row;
-}
-
-async function saveStock(itemName, newCount, unit) {
+async function saveStock(itemName, newCount, unit, category) {
   const res = await fetch('/api/stock/update', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ itemName, newCount, unit }),
+    body: JSON.stringify({ itemName, newCount, unit, category: category || '' }),
   });
   if (!res.ok) {
     let msg = 'Request failed';

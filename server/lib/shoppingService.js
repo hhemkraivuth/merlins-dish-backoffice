@@ -22,7 +22,11 @@ async function live(tab, a1, warnings) {
 }
 
 async function getPlan({ force = false } = {}) {
-  if (!force && cache.data && Date.now() - cache.at < TTL) return cache.data;
+  // What is running out is never cached: a recount shows on the list straight away.
+  if (!force && cache.data && Date.now() - cache.at < TTL) {
+    try { cache.data.urgent = await require('./lowStock').loadUrgent(); } catch (err) { /* keep the last one */ }
+    return cache.data;
+  }
   const warnings = [];
   const [master, priceLog, shelf, ledger, expense, cookLog, sizes, lines] = await Promise.all([
     live('Master Log', 'A:K', warnings), live('Price Log', 'A:H', warnings), live('Shelf Life', 'A:B', []).catch(() => []),
@@ -44,6 +48,7 @@ async function getPlan({ force = false } = {}) {
     cookLogRows: cookLog, sizeRows: sizes, lineRows: lines,
     priceLogRows: priceLog, expenseRows: expense, shelfRows: [...shelf, ...shelfOwn], stock,
   });
+  try { result.urgent = await require('./lowStock').loadUrgent(); } catch (err) { result.urgent = []; warnings.push(`Could not work out what is running out (${err.message}).`); }
   result.warnings = [...warnings, ...result.warnings];
   cache = { at: Date.now(), data: result };
   return result;

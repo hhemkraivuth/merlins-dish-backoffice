@@ -18,6 +18,15 @@
       <td class="r">${esc(i.needText)}</td><td class="r">${have(i)}</td>
       <td class="r"><b>${esc(i.buyText)}</b><small>${esc(i.packText)}</small></td><td>${best(i)}</td><td class="r">${baht(i.estCost)}</td></tr>`).join('')).join('');
   }
+  // Running out (0 or below 2): first thing on the list, in red, 0 first.
+  function urgentBox(items) {
+    if (!items || !items.length) return '';
+    const left = (u) => `${u.qty === 0 ? 'none left' : `${u.qty} ${esc(u.unit)} left`}`;
+    return `<div class="shop-urgent" style="background:#fdecea;border:1px solid #e8b4ae;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <div style="color:#b3261e;font-weight:700;margin-bottom:6px">Buy first: running out (${items.length})</div>
+      ${items.map((u) => `<div class="sum-row" style="color:#b3261e"><span><b>${esc(u.name)}</b>${u.category ? ` <small>${esc(u.category)}</small>` : ''}</span><span><b>${left(u)}</b></span></div>`).join('')}
+    </div>`;
+  }
   const HEAD = '<thead><tr><th>Item</th><th class="r">Need</th><th class="r">Have</th><th class="r">Buy</th><th>Best price ever</th><th class="r">Est.</th></tr></thead>';
 
   // compact: the Home box shows the two trips and the totals; the full list is on the Receipts page.
@@ -27,13 +36,14 @@
       <div class="shop-trip"><span>Bulk trip</span><b>${esc(when(b.tripDate))}</b><small>${b.groups.length ? `${baht(b.estCost)} across ${b.groups.length} shop${b.groups.length > 1 ? 's' : ''}, covers ${b.coverDays} days` : 'Nothing to bulk buy'}</small></div>
       <div class="shop-trip"><span>Fresh run</span><b>${esc(when(f.nextRun))}</b><small>${f.items.length ? `${baht(f.estCost)}, then every ${f.cycleDays} days` : 'No fresh items found'}</small></div>
       <div class="shop-trip"><span>Trips this month</span><b>${t.planned.total} planned</b><small>${esc(t.lastMonthLabel)}: ${t.lastMonth} trips. This month so far: ${t.thisMonthSoFar}</small></div></div>`;
+    const urgent = urgentBox(p.urgent);
     const warn = p.warnings.length ? `<ul class="shop-warn">${p.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '';
     if (compact) {
-      box.innerHTML = head + `<a class="shop-link" href="/#receipts">Full shopping list on the Receipts page</a>` + (warn ? `<details class="sum-more"><summary>Notes</summary>${warn}</details>` : '');
+      box.innerHTML = urgent + head + `<a class="shop-link" href="/#receipts">Full shopping list on the Receipts page</a>` + (warn ? `<details class="sum-more"><summary>Notes</summary>${warn}</details>` : '');
       return;
     }
     const demand = p.demand.filter((d) => d.perMonth).map((d) => `<tr><td>${esc(d.dish)}</td><td class="r">${d.perMonth}</td><td>${esc(d.basis)}</td></tr>`).join('');
-    box.innerHTML = head
+    box.innerHTML = urgent + head
       + `<details class="shop-drop"><summary>Fresh run <small>${f.runs.length ? esc(f.runs.join(', ')) : ''} · ${f.items.length} items · ${baht(f.estCost)}</small></summary>`
       + (f.items.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${freshRows(f.items)}</tbody></table></div>` : '<p class="note">No fresh items in the plan.</p>') + `</details>`
       + `<details class="shop-drop"><summary>Bulk trip <small>${esc(b.tripDate ? b.tripDate.day : 'none needed')} · ${b.groups.reduce((n, g) => n + g.items.length, 0)} items · ${baht(b.estCost)}</small></summary>`

@@ -1,4 +1,4 @@
-const { getAllStock, setStockCount } = require('../lib/stockCounts');
+const { getAllStock, setStockCount, editStock } = require('../lib/stockCounts');
 
 async function listStock(req, res) {
   try {
@@ -12,15 +12,26 @@ async function listStock(req, res) {
 
 async function updateStock(req, res) {
   try {
-    const { itemName, newCount, unit } = req.body;
+    const { itemName, newCount, unit, category } = req.body;
     if (!itemName || newCount == null) {
       return res.status(400).json({ error: 'itemName and newCount are required' });
     }
-    const result = await setStockCount(itemName, Number(newCount), unit);
+    const result = await setStockCount(itemName, Number(newCount), unit, 'Manual', category);
     res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
+  }
+}
+
+async function editStockRoute(req, res) {
+  try {
+    const b = req.body || {};
+    if (!b.oldName) return res.status(400).json({ error: 'oldName is required' });
+    res.json(await editStock(b));
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: err.message });
   }
 }
 
@@ -34,30 +45,37 @@ async function seedPackagingRoute(req, res) {
   }
 }
 
-// Ingredient stock from the receipts (the stock lots), read only. Counts are corrected from LINE with "count".
+// Ingredient stock from the receipts (the stock lots). Counts are corrected from LINE with "count" or from the Stock page in packs.
+// Used up ingredients stay in the list at 0 so they show red.
 async function listIngredientStock(req, res) {
   try {
-    const { bangkokToday } = require('../lib/dates');
-    const lots = require('../lib/ingredientLots');
-    const book = await lots.loadLotBook(bangkokToday());
-    let levels = new Map();
-    try { levels = await require('../lib/reorderLevels').loadLevels(); } catch (err) { /* levels are optional */ }
-    const { normName } = require('../lib/priceBook');
-    const { loadPackSizes, packView } = require('../lib/packSizes');
-    let sizes = new Map();
-    try { sizes = await loadPackSizes(); } catch (err) { /* pack sizes are optional */ }
-    const items = book.names().map((name) => {
-      const live = book.lotsFor(name).filter((l) => l.remaining > 1e-6);
-      if (!live.length) return null;
-      const lv = levels.get(normName(name));
-      const left = book.totalRemaining(name);
-      return { name, left: Math.round(left * 100) / 100, unit: live[0].unit, oldest: live[0].date, low: Boolean(lv && lv.unit === live[0].unit && left < lv.qty), level: lv ? lv.text : '', pack: packView(left, live[0].unit, sizes.get(normName(name))) };
-    }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
-    res.json({ items: items.map((i) => ({ ...i, oldest: (() => { const t = i.oldest instanceof Date ? i.oldest.toISOString().slice(0, 10) : String(i.oldest || ''); const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : t; })() })) });
+    const items = await require('../lib/lowStock').ingredientStockItems();
+    const dmy = (d) => { const t = d instanceof Date ? d.toISOString().slice(0, 10) : String(d || ''); const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : t; };
+    res.json({ items: items.map((i) => ({ ...i, oldest: dmy(i.oldest) })) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+}
+
+// Blends: one recipe ingredient made of two or more stocked ingredients in fixed parts.
+async function listBlends(req, res) {
+  try {
+    const m = await require('../lib/blends').loadBlends();
+    res.json({ blends: [...m.values()].map((b) => ({ name: b.name, parts: b.parts.map((p) => ({ name: p.name, parts: p.parts, share: Math.round(p.share * 1000) / 10 })) })) });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+}
+async function saveBlendRoute(req, res) {
+  try {
+    const b = req.body || {};
+    res.json(await require('../lib/blends').saveBlend(b.name, b.parts));
+  } catch (err) { console.error(err); res.status(400).json({ error: err.message }); }
+}
+async function deleteBlendRoute(req, res) {
+  try {
+    await require('../lib/blends').deleteBlend((req.body || {}).name);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(400).json({ error: err.message }); }
 }
 
 // Recount one ingredient in packs (cans, bags, bottles). Same correction as "count" in LINE, but typed as a pack number.
@@ -102,4 +120,4 @@ async function countIngredientPacks(req, res) {
   }
 }
 
-module.exports = { listStock, updateStock, seedPackagingRoute, listIngredientStock, countIngredientPacks };
+module.exports = { listStock, updateStock, editStockRoute, seedPackagingRoute, listIngredientStock, countIngredientPacks, listBlends, saveBlendRoute, deleteBlendRoute };

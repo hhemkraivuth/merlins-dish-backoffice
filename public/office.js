@@ -45,18 +45,23 @@
       <circle cx="4.2" cy="2.6" r=".5" fill="${P.ink}"/><circle cx="7.8" cy="2.6" r=".5" fill="${P.ink}"/>`;
   }
   function giraffe() {
+    // Same overall height as before. The neck is 3.6 shorter, the chef's hat 3.6 taller (a tall toque, not a turban),
+    // and the body is the same size as a pig's.
     const body = '#f2c46d', spot = '#b9824a';
     return `
       <rect x="3" y="9" width="2.4" height="3" rx="1.2" fill="${P.boot}"/><rect x="6.6" y="9" width="2.4" height="3" rx="1.2" fill="${P.boot}"/>
       <rect x="2" y="6" width="8" height="5" rx="1.6" fill="#ffffff"/>
-      <rect x="4.6" y="-9" width="2.8" height="16" rx="1.4" fill="${body}"/>
-      <circle cx="5.4" cy="-6.4" r=".7" fill="${spot}"/><circle cx="6.6" cy="-3.6" r=".7" fill="${spot}"/><circle cx="5.4" cy="-.8" r=".7" fill="${spot}"/><circle cx="6.6" cy="2.2" r=".7" fill="${spot}"/>
-      <rect x="1.6" y="-14.2" width="8.8" height="6.4" rx="3" fill="${body}"/>
-      <ellipse cx="6" cy="-10" rx="2.4" ry="1.5" fill="#f8dfae"/>
-      <circle cx="5.2" cy="-10" r=".35" fill="${P.ink}"/><circle cx="6.8" cy="-10" r=".35" fill="${P.ink}"/>
-      <circle cx="4" cy="-11.8" r=".5" fill="${P.ink}"/><circle cx="8" cy="-11.8" r=".5" fill="${P.ink}"/>
-      <circle cx="2" cy="-13" r=".8" fill="${spot}"/><circle cx="10" cy="-13" r=".8" fill="${spot}"/>
-      <rect x="3" y="-17.4" width="6" height="3.2" rx="1.2" fill="#ffffff"/><rect x="2.4" y="-15" width="7.2" height="1.4" rx=".7" fill="#ffffff"/>`;
+      <rect x="4.6" y="-5.4" width="2.8" height="12.8" rx="1.4" fill="${body}"/>
+      <circle cx="5.4" cy="-2.8" r=".7" fill="${spot}"/><circle cx="6.6" cy="0" r=".7" fill="${spot}"/><circle cx="5.4" cy="2.8" r=".7" fill="${spot}"/><circle cx="6.6" cy="5.4" r=".7" fill="${spot}"/>
+      <rect x="1.6" y="-10.6" width="8.8" height="6.4" rx="3" fill="${body}"/>
+      <ellipse cx="6" cy="-6.4" rx="2.4" ry="1.5" fill="#f8dfae"/>
+      <circle cx="5.2" cy="-6.4" r=".35" fill="${P.ink}"/><circle cx="6.8" cy="-6.4" r=".35" fill="${P.ink}"/>
+      <circle cx="4" cy="-8.2" r=".5" fill="${P.ink}"/><circle cx="8" cy="-8.2" r=".5" fill="${P.ink}"/>
+      <circle cx="2" cy="-9.4" r=".8" fill="${spot}"/><circle cx="10" cy="-9.4" r=".8" fill="${spot}"/>
+      <rect x="3.6" y="-14.6" width="4.8" height="4.2" rx=".8" fill="#ffffff"/>
+      <ellipse cx="6" cy="-15.4" rx="3.9" ry="2" fill="#ffffff"/><circle cx="3.2" cy="-14.6" r="1.6" fill="#ffffff"/><circle cx="8.8" cy="-14.6" r="1.6" fill="#ffffff"/>
+      <rect x="4.9" y="-14.2" width=".35" height="3.2" fill="#dfe2ea"/><rect x="5.85" y="-14.2" width=".35" height="3.2" fill="#dfe2ea"/><rect x="6.8" y="-14.2" width=".35" height="3.2" fill="#dfe2ea"/>
+      <rect x="3.3" y="-11.4" width="5.4" height="1.3" rx=".6" fill="#eceef3"/>`;
   }
 
   function room() {
