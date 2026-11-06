@@ -29,6 +29,16 @@ function card(t) {
   </section>`;
 }
 
+// "06/11/2026" -> "Friday 6 November 2026"
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function longDate(dmy) {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(dmy || ''));
+  if (!m) return dmy || 'The Pit';
+  const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  return `${DAYS[d.getUTCDay()]} ${+m[1]} ${MONTHS[+m[2] - 1]} ${m[3]}`;
+}
+
 let officeDrawn = false;
 async function load() {
   const s = $('status');
@@ -37,7 +47,7 @@ async function load() {
     const res = await fetch('/api/pit');
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
-    $('today').textContent = d.today;
+    $('today').textContent = longDate(d.today);
     $('teams').innerHTML = d.teams.map(card).join('');
     if (!officeDrawn && window.PigOffice) {
       officeDrawn = true;
@@ -52,7 +62,26 @@ async function load() {
   } catch (err) { s.className = 'status err'; s.textContent = err.message; }
 }
 
-const loadShop = (refresh) => window.ShoppingPlan && window.ShoppingPlan.load($('shopPlan'), { compact: true, refresh });
-$('reload').addEventListener('click', () => { load(); loadShop(true); });
+// Same full list as the Weekly Receipts page.
+const loadShop = (refresh) => window.ShoppingPlan && window.ShoppingPlan.load($('shopPlan'), { compact: false, refresh });
+
+// What is left, from the customer bot (read only), taken at 03:00 each day.
+async function loadStock(refresh) {
+  const box = $('stockLeft');
+  try {
+    const res = await fetch(`/api/stock-left${refresh ? '?refresh=1' : ''}`);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+    const snap = d.snapshot;
+    if (!snap) { box.innerHTML = `<p class="muted">${esc(d.note || 'No stock snapshot yet.')} Set BOT_URL on Railway to the customer bot address so BOH can read it.</p>`; return; }
+    const when = new Date(snap.takenAt).toLocaleString('en-AU', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+    const rows = snap.items.length
+      ? snap.items.map((i) => `<div class="stock-line"><span>${esc(i.name)}</span><b>${i.soldOut ? 'Sold out' : i.left}</b></div>`).join('')
+      : '<p class="muted">The bot has no counts set. Use "setstock" or "left" in the bot group.</p>';
+    box.innerHTML = `${rows}<p class="muted">As at ${esc(when)} Bangkok time.${d.note ? ' ' + esc(d.note) : ''}</p>`;
+  } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; }
+}
+$('reload').addEventListener('click', () => { load(); loadShop(true); loadStock(true); });
 load();
+loadStock(false);
 loadShop(false);

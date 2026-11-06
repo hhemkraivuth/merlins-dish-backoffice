@@ -200,3 +200,7 @@ body {
 .open-batch:first-child { border-top: 0; }
 .open-batch small { display: block; font-size: 12px; color: var(--muted); margin: 2px 0 6px; }
 .open-batch .open-result { margin-top: 6px; font-size: 14px; }
+
+.stock-line { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.stock-line:last-of-type { border-bottom: 0; }
+.muted { color: #6b6f7a; font-size: 13px; margin: 8px 0 0; }

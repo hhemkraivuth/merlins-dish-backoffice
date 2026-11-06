@@ -16,6 +16,10 @@
     .chart-card h2 { font-size: 15px; margin: 0 0 2px; }
     .chart-card .why { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
     .chart-card svg { width: 100%; height: auto; display: block; overflow: visible; }
+    .readout { font-size: 13px; min-height: 38px; padding: 6px 10px; margin: 0 0 6px; background: #fbf3e8; border-radius: 8px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: center; }
+    .readout span i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+    .readout b { color: var(--ink); }
+    .cc svg { cursor: crosshair; }
     .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
     .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
     .notes { font-size: 14px; margin: 0 0 14px; padding-left: 18px; }
@@ -35,7 +39,7 @@
         <a class="logo-mark" href="home.html" aria-label="Merlin's Dish, go to The Pit"><img src="logo.png?v=33" alt="Merlin's Dish" /></a>
         <div>
           <div class="title">Business Analysis</div>
-          <div class="subtitle">How each week and month is performing, from October.</div>
+          <div class="subtitle">How each month and week is performing, from the first order in Nov 2025.</div>
         </div>
       </div>
     </header>
@@ -45,15 +49,15 @@
       <a class="tab-button tab-link" href="marketing.html">Marketing</a>
       <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
       <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
-      <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
       <a class="tab-button tab-link" href="reports.html">Numbers</a>
       <a class="tab-button tab-link active" href="analysis.html">Analysis</a>
     </nav>
     <main class="main wide">
       <div class="status" id="status">Loading…</div>
-      <div class="toggle" id="toggle"><button data-k="weeks" class="on">Weekly</button><button data-k="months">Monthly</button></div>
-      <div class="toggle" id="range" style="margin-left:8px"><button data-r="oct" class="on">From October</button><button data-r="start">Since the start (Nov 2025)</button></div>
+      <div class="toggle" id="toggle"><button data-k="weeks">Weekly (Sun to Sat)</button><button data-k="months" class="on">Monthly</button></div>
+      <div class="toggle" id="range" style="margin-left:8px"><button data-r="oct">From October</button><button data-r="start" class="on">Since the start (Nov 2025)</button></div>
       <ul class="notes" id="notes"></ul>
+      <div id="when"></div>
       <div id="charts"></div>
       <h2 style="font-size:16px">The numbers behind the graphs</h2>
       <div class="tablewrap" id="tableBox"></div>

@@ -1,50 +1,44 @@
+// The recipe (how to) for each batch dish, from the Recipe: Mein Hans Edition doc. No prices or costs here:
+// those already show under "Ingredients used" on the Batch Cook page.
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const baht = (n) => `฿${Number(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const num = (n) => Number(n).toLocaleString('en-AU', { maximumFractionDigits: 2 });
-let current = '';
+let DOC = null;
 
-function lines(title, arr) {
-  if (!arr.length) return '';
-  const total = arr.reduce((s, l) => s + (l.qty || 0) * (l.unitCost || 0), 0);
-  return `<h2 class="sec">${title}</h2><div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Cost</th></tr></thead><tbody>${arr.map((l) => `<tr>
-    <td>${esc(l.name)}${l.note ? `<small>${esc(l.note)}</small>` : ''}</td><td class="r">${num(l.qty)} ${esc(l.unit)}</td>
-    <td class="r">${l.unitCost != null ? `${baht(l.unitCost)}/${esc(l.unit || 'unit')}` : ''}${l.priceDate ? `<small>${esc(l.priceDate)}</small>` : ''}</td>
-    <td class="r">${baht((l.qty || 0) * (l.unitCost || 0))}</td></tr>`).join('')}<tr><td colspan="3"><b>Total ${title.toLowerCase()}</b></td><td class="r"><b>${baht(total)}</b></td></tr></tbody></table></div>`;
+// Batch Cook dish names that differ a little from the doc's.
+const key = (n) => String(n || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\b(beef|comfort|the)\b/g, '').replace(/[^a-z0-9]+/g, '');
+
+const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').replace(/\*\*/g, '');
+function body(lines) {
+  let html = ''; let list = '';
+  const close = () => { if (list) { html += `</${list}>`; list = ''; } };
+  for (const raw of lines) {
+    const l = raw.replace(/\\/g, '');
+    const bullet = /^\s*[*-]\s+(.*)$/.exec(l);
+    const step = /^\s*(\d+)\.\s*(.*)$/.exec(l);
+    if (bullet) { if (list !== 'ul') { close(); html += '<ul>'; list = 'ul'; } html += `<li>${inline(bullet[1])}</li>`; }
+    else if (step) { if (list !== 'ol') { close(); html += '<ol>'; list = 'ol'; } html += `<li>${inline(step[2])}</li>`; }
+    else { close(); const t = l.trim(); html += /^\**\s*[IV]+\./.test(t) ? `<h3>${esc(t.replace(/\*/g, ''))}</h3>` : `<p>${inline(t)}</p>`; }
+  }
+  close(); return html;
 }
 
-async function show(dish) {
-  current = dish; location.hash = encodeURIComponent(dish);
-  [...$('chips').children].forEach((b) => b.classList.toggle('on', b.dataset.d === dish));
-  $('status').className = 'status'; $('status').textContent = 'Loading the recipe…'; $('recipe').innerHTML = '';
-  try {
-    const res = await fetch(`/api/cook/recipe?dish=${encodeURIComponent(dish)}`);
-    const r = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(r.error || `Request failed (${res.status})`);
-    if (current !== dish) return;
-    const sum = (a) => a.reduce((s, l) => s + (l.qty || 0) * (l.unitCost || 0), 0);
-    const total = sum(r.ingredients) + sum(r.packaging) + sum(r.utility);
-    const w = r.portionWeights || {};
-    $('status').textContent = `Prices are the latest purchase on ${r.date}. The recipe itself comes from Merlin's numbers.`;
-    $('recipe').innerHTML = `<h2 style="margin:6px 0">${esc(r.dish)}</h2><div class="facts">
-      ${r.usualYield ? `<div><span>Usual yield</span><b>${r.usualYield}</b></div>` : ''}
-      ${r.sellingPrice ? `<div><span>Selling price</span><b>${baht(r.sellingPrice)}</b></div>` : ''}
-      ${w.Regular ? `<div><span>Regular portion</span><b>${w.Regular} g</b></div>` : ''}${w.Large ? `<div><span>Large portion</span><b>${w.Large} g</b></div>` : ''}
-      <div><span>Batch cost at today's prices</span><b>${baht(total)}</b></div>
-      ${r.usualYield ? `<div><span>Per portion</span><b>${baht(total / r.usualYield)}</b></div>` : ''}</div>`
-      + lines('Ingredients', r.ingredients) + lines('Packaging', r.packaging) + lines('Utility', r.utility);
-  } catch (err) { $('status').className = 'status err'; $('status').textContent = err.message; }
+function show(i) {
+  const d = DOC.dishes[i];
+  [...$('chips').children].forEach((b, n) => b.classList.toggle('on', n === i));
+  history.replaceState(null, '', `#${encodeURIComponent(d.dish)}`);
+  $('recipe').innerHTML = `<h2 style="margin:6px 0 2px">${esc(d.title)}</h2><p class="upd">Updated ${esc(d.updated)}</p><div class="how">${body(d.lines)}</div>`;
 }
 
 (async function init() {
   try {
-    const res = await fetch('/api/cook/dishes');
-    const d = await res.json();
-    if (!res.ok) throw new Error(d.error || 'Request failed');
-    $('chips').innerHTML = d.dishes.map((x) => `<button data-d="${esc(x.name)}">${esc(x.name)}</button>`).join('');
-    $('chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(b.dataset.d); });
-    const want = decodeURIComponent((location.hash || '').slice(1));
-    const first = d.dishes.find((x) => x.name === want) || d.dishes[0];
-    if (first) show(first.name);
-  } catch (err) { $('status').className = 'status err'; $('status').textContent = `Could not load dishes: ${err.message}`; }
+    const res = await fetch('/api/recipes');
+    DOC = await res.json();
+    if (!res.ok) throw new Error(DOC.error || 'Request failed');
+    $('chips').innerHTML = DOC.dishes.map((x, n) => `<button data-n="${n}">${esc(x.dish)}</button>`).join('');
+    $('chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(Number(b.dataset.n)); });
+    $('status').textContent = `${DOC.edition}. ${DOC.note}`;
+    const want = key(decodeURIComponent((location.hash || '').slice(1)));
+    const at = DOC.dishes.findIndex((x) => key(x.dish) === want);
+    show(at >= 0 ? at : 0);
+  } catch (err) { $('status').className = 'status err'; $('status').textContent = `Could not load the recipes: ${err.message}`; }
 })();
