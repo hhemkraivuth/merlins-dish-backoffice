@@ -55,3 +55,18 @@ test('grammar.parseReply keeps unchanged keys and reports changes', () => {
   assert.strictEqual(r.changed, true);
   assert.throws(() => parseReply('nope', orig));
 });
+
+test('menuBible.merge: seed, edits and deletes', () => {
+  const mb = require('../lib/menuBible');
+  const seed = { categories: ['Stews'], items: [{ name: 'Red Wine Beef Stew', category: 'Stews', th: 'a', en: 'b' }, { name: 'Dark Beer Stew', category: 'Stews', th: 'c', en: 'd' }] };
+  const rows = [['Item', 'Category', 'Fields', 'Saved', 'Deleted'],
+    ['Red Wine Beef Stew', 'Stews', JSON.stringify({ th: 'a2', en: 'b' }), '2026-11-07T00:00:00Z', ''],
+    ['Dark Beer Stew', '', '', '2026-11-07T01:00:00Z', '1'],
+    ['Cheesecake', 'Dessert', JSON.stringify({ en: 'Sweet' }), '2026-11-07T02:00:00Z', '']];
+  const out = mb.merge(seed, rows);
+  assert.deepStrictEqual(out.items.map((i) => i.name), ['Red Wine Beef Stew', 'Cheesecake']);
+  assert.strictEqual(out.items[0].th, 'a2');
+  assert.ok(out.categories.includes('Dessert'));
+  const real = mb.merge(require('../data/menuBible.json'));
+  assert.ok(real.items.length >= 30);
+});

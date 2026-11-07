@@ -83,7 +83,8 @@ function drawProfit(months) {
   };
   const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : c[4] && c[4](m) ? 'pos' : ''}">${c[1](m)}</td>`).join('');
   t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`
-    + `<tr style="font-weight:600"><td colspan="3">Left in the bank, after money taken out <input id="bankAmt" inputmode="decimal" value="${commas(BANK.amount)}" style="width:110px" aria-label="Left in the bank" /> as at <input id="bankDate" value="${esc(BANK.asOf)}" placeholder="DD/MM/YYYY" style="width:100px" aria-label="Date" /> <button class="borrowsave" id="bankSave">Save</button></td><td class="${BANK.amount < 0 ? 'neg' : 'pos'}">${baht(BANK.amount)}</td><td colspan="${PROFIT.length - 4}"></td></tr>`;
+    + `<tr style="font-weight:600"><td colspan="3">Left in the bank, after money taken out <input id="bankAmt" inputmode="decimal" value="${commas(BANK.amount)}" style="width:110px" aria-label="Left in the bank" /> as at <input id="bankDate" value="${esc(BANK.asOf)}" placeholder="DD/MM/YYYY" style="width:100px" aria-label="Date" /> <button class="borrowsave" id="bankSave">Save</button></td><td class="${BANK.amount < 0 ? 'neg' : 'pos'}">${baht(BANK.amount)}</td><td colspan="${PROFIT.length - 4}"></td></tr>`
+    + `<tr style="font-weight:600"><td colspan="3" title="Total monthly net profit less everything borrowed (taken out) so far">Net profit not yet taken out (net profit less borrowed)</td><td class="${total.margin - total.borrowed < 0 ? 'neg' : 'pos'}">${baht(total.margin - total.borrowed)}</td><td colspan="${PROFIT.length - 4}"></td></tr>`;
   wireBorrowed(t);
   const bs = $('bankSave');
   if (bs) bs.addEventListener('click', async () => {

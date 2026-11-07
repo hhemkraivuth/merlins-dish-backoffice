@@ -69,7 +69,12 @@
     for (let y = 12; y < H; y += 8) for (let x = ((y / 8) % 2) * 8; x < W; x += 16) s += `<rect x="${x}" y="${y}" width="8" height="8" rx="1.2" fill="#cfd1d8"/>`;
     s += `<rect width="${W}" height="12" fill="#e63d23"/><rect y="10" width="${W}" height="2" fill="#f8cc1a"/>`;
     [30, 90, 150].forEach((x) => { s += `<rect x="${x}" y="2" width="14" height="7" rx="1.4" fill="#bfe1ee"/><rect x="${x + 6}" y="2" width="1" height="7" fill="#8fc0d4"/>`; });
-    [[184, 98], [184, 74], [2, 98], [2, 74], [2, 50]].forEach(([x, y]) => { s += `<rect x="${x}" y="${y}" width="6" height="8" rx="2.4" fill="#4c6b4f"/><rect x="${x + 1}" y="${y + 8}" width="4" height="5" rx="1" fill="#7c5c3e"/>`; });
+    [[184, 98], [184, 80], [2, 98], [2, 74], [2, 50]].forEach(([x, y]) => { s += `<rect x="${x}" y="${y}" width="6" height="8" rx="2.4" fill="#4c6b4f"/><rect x="${x + 1}" y="${y + 8}" width="4" height="5" rx="1" fill="#7c5c3e"/>`; });
+    // Herbs next to the kitchen counter, the same height as the other plants: rosemary (dark, needly, a few pale blue flowers) and basil (bright, broad leaves).
+    s += `<rect x="185" y="64" width="6" height="8" rx="2.4" fill="#3b5e45"/><rect x="186.2" y="65" width=".5" height="6" fill="#6f9a7a"/><rect x="187.6" y="64.6" width=".5" height="6.4" fill="#6f9a7a"/><rect x="189" y="65" width=".5" height="6" fill="#6f9a7a"/><circle cx="186" cy="65.6" r=".6" fill="#a9c7ee"/><circle cx="190" cy="66.4" r=".6" fill="#a9c7ee"/><rect x="186" y="72" width="4" height="5" rx="1" fill="#b5654a"/>`;
+    s += `<rect x="177" y="64" width="6" height="8" rx="2.8" fill="#5fae4a"/><ellipse cx="178.6" cy="67" rx="1.7" ry="2.3" fill="#7cc864"/><ellipse cx="181.4" cy="66" rx="1.7" ry="2.4" fill="#4a9a3a"/><rect x="178" y="72" width="4" height="5" rx="1" fill="#b5654a"/>`;
+    // A picture frame on the back wall: the pig and giraffe drawing on a dark mat.
+    s += `<rect x="62.6" y=".6" width="10.8" height="11.4" rx="1" fill="#a06c47"/><rect x="63.6" y="1.6" width="8.8" height="9.4" rx=".5" fill="#1b2559"/><image href="/pig-giraffe.png" x="64.2" y="2.1" width="7.6" height="8.4" preserveAspectRatio="xMidYMid meet"/><rect x="62.6" y=".6" width="10.8" height="1" rx=".5" fill="#c08a60"/>`;
     s += `<rect x="70" y="100" width="52" height="14" rx="5" fill="#294bd4" opacity=".18"/>`;
     return s;
   }
@@ -90,7 +95,9 @@
   }
   function desk([x, y], i) {
     if (i === KITCHEN) return kitchen();
-    return `<rect x="${x}" y="${y + 12}" width="28" height="2" rx="1" fill="#5c3f28"/><rect x="${x}" y="${y}" width="28" height="12" rx="2" fill="#8a5a3b"/><rect x="${x}" y="${y}" width="28" height="2" rx="1" fill="#a06c47"/>
+    // a chair in front of every desk except the kitchen
+    const chair = `<rect x="${x + 6.5}" y="${y + 16}" width="15" height="10" rx="3" fill="#4a5568"/><rect x="${x + 7}" y="${y + 24}" width="14" height="3.4" rx="1.7" fill="#5f6b80"/>`;
+    return chair + `<rect x="${x}" y="${y + 12}" width="28" height="2" rx="1" fill="#5c3f28"/><rect x="${x}" y="${y}" width="28" height="12" rx="2" fill="#8a5a3b"/><rect x="${x}" y="${y}" width="28" height="2" rx="1" fill="#a06c47"/>
       <rect x="${x + 9}" y="${y + 1}" width="10" height="7" rx="1.2" fill="#2a2622"/><rect x="${x + 10}" y="${y + 2}" width="8" height="5" rx=".8" fill="${SCREEN[i % 5]}"/><rect x="${x + 13}" y="${y + 8}" width="2" height="2" fill="#2a2622"/>
       <rect x="${x + 21}" y="${y + 6}" width="4" height="3" rx=".6" fill="#d9d2c4"/>`;
   }
