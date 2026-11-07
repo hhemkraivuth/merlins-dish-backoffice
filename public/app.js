@@ -375,6 +375,225 @@ function drawOpen(box, open, reload, onLogged) {
 
 function renderCookForm(container, recipe, dateInput, onLogged) {
   // Each row: { type, name, unit, unitCost, priceDate, original, input }
+  const rows = [];
+  const row = (l, type) => ({ type, name: l.name, unit: l.unit || '', unitCost: l.unitCost, priceDate: l.priceDate, note: l.note, original: l.qty, extra: false });
+  recipe.ingredients.forEach((l) => rows.push(row(l, 'Ingredient')));
+  recipe.packaging.forEach((l) => rows.push(row(l, 'Packaging')));
+  if (recipe.sized) rows.forEach((r) => { if (r.type === 'Packaging') { r.original = 0; r.qty = undefined; } });
+  recipe.utility.forEach((l) => rows.push(row(l, 'Utility')));
+
+  container.innerHTML = `
+    <div class="subheading">Ingredients</div>
+    <div class="recipe-table" id="ingRows"></div>
+    <datalist id="catalogueList">${Object.keys(recipe.catalogue).map((n) => `<option value="${escapeHtml(n)}"></option>`).join('')}</datalist>
+    <div class="size-row">
+      <input class="input" id="extraName" list="catalogueList" placeholder="Add an ingredient not in the recipe" />
+      <input class="size-input" id="extraQty" type="number" placeholder="g" />
+      <button class="stock-count-button" id="extraAdd" type="button">Add</button>
+    </div>
+    <div class="subheading">Packaging and utilities</div>
+    <div class="recipe-table" id="otherRows"></div>
+    <label class="label">Servings yielded</label>
+    <input class="input" type="number" id="yieldInput" placeholder="${recipe.sized ? 'fills from the packed counts below' : 'e.g. 21'}" />
+    ${recipe.sized ? `
+      <div class="subheading">Pack-out (Regular in 16oz cups, Large in 26oz cups)</div>
+      <div class="size-row"><span class="size-name">Regular: weight (g)</span><input class="size-input" type="number" id="regWeight" value="${(recipe.portionWeights && recipe.portionWeights.Regular) || ''}" /></div>
+      <div class="size-row"><span class="size-name">Regular: count packed</span><input class="size-input" type="number" id="regCount" /></div>
+      <div class="size-row"><span class="size-name">Large: weight (g)</span><input class="size-input" type="number" id="lgWeight" value="${(recipe.portionWeights && recipe.portionWeights.Large) || ''}" /></div>
+      <div class="size-row"><span class="size-name">Large: count packed</span><input class="size-input" type="number" id="lgCount" /></div>
+      <label class="label">Total cooked weight (g, optional)</label>
+      <input class="input" type="number" id="cookedWeight" placeholder="blank = total of what was packed" />` : ''}
+    <div class="cost-preview"><span>Ingredients</span><strong id="tIng"></strong></div>
+    <div class="cost-preview"><span>Packaging</span><strong id="tPkg"></strong></div>
+    <div class="cost-preview"><span>Utilities</span><strong id="tUtl"></strong></div>
+    <div class="cost-preview"><span>Batch cost</span><strong id="tTotal"></strong></div>
+    <div class="cost-preview"><span>Per portion</span><strong id="tPer">add servings yielded</strong></div>
+    <div id="tSizes"></div>
+    <button class="primary-button" id="logBatch">Log this batch</button>
+    <button class="primary-button" id="saveOpen" type="button" style="background:var(--card);color:var(--accent);border:2px solid var(--accent);margin-top:8px">Save ingredients now, add portions later</button>
+    <div id="batchResult"></div>
+  `;
+
+  const $ = (id) => container.querySelector('#' + id);
+  const ingBox = $('ingRows');
+  const otherBox = $('otherRows');
+  const yieldInput = $('yieldInput');
+
+  function drawRows() {
+    ingBox.innerHTML = '';
+    otherBox.innerHTML = '';
+    rows.forEach((r, idx) => {
+      const unitLabel = r.type === 'Ingredient' ? (r.unit || 'g') : r.unit;
+      const priceTxt = r.unitCost != null ? `${baht(r.unitCost)}/${escapeHtml(r.unit || 'unit')}${r.priceDate ? ' · ' + r.priceDate : ''}${r.note ? ' · ' + escapeHtml(r.note) : ''}` : 'no price';
+      const node = el(`
+        <div class="recipe-row" data-idx="${idx}">
+          <span class="recipe-name">${escapeHtml(r.name)}${r.extra ? ' <em>(added)</em>' : ''}</span>
+          <input class="size-input qty" type="number" step="any" value="${r.qty !== undefined ? r.qty : r.original}"${r.type === 'Utility' ? ' disabled title="Set by the recipe tab and the servings yielded"' : ''} />
+          <span class="recipe-qty">${escapeHtml(unitLabel)}</span>
+          <span class="recipe-price">${priceTxt}</span>
+          <span class="recipe-qty line-cost"></span>
+        </div>`);
+      const inp = node.querySelector('.qty');
+      inp.addEventListener('input', () => { r.qty = inp.value === '' ? '' : Number(inp.value); r.edited = true; refresh(); });
+      (r.type === 'Ingredient' ? ingBox : otherBox).appendChild(node);
+    });
+    refresh();
+  }
+
+  function yieldN() {
+    const y = Number(yieldInput.value);
+    if (y > 0) return y;
+    if (recipe.sized) return sizeList().reduce((a, z) => a + z.count, 0) || 0;
+    return 0;
+  }
+  function sizeList() {
+    if (!recipe.sized) return [];
+    const out = [];
+    const reg = { name: 'Regular', weight: Number($('regWeight').value), count: Number($('regCount').value) };
+    const lg = { name: 'Large', weight: Number($('lgWeight').value), count: Number($('lgCount').value) };
+    [reg, lg].forEach((z) => { if (z.weight > 0 && z.count > 0) out.push(z); });
+    return out;
+  }
+
+  // Packaging and reheating follow the yield until you type your own number
+  function qtyOf(r) {
+    if (r.edited) return Number(r.qty) || 0;
+    if (r.type === 'Packaging' && recipe.sized) {
+      // Regular is packed in a 16oz cup, Large in a 26oz cup
+      const cupOf = { Regular: /16oz/i, Large: /26oz/i };
+      return sizeList().filter((z) => cupOf[z.name].test(r.name)).reduce((a, z) => a + z.count, 0);
+    }
+    if (r.type === 'Packaging' && yieldN() > 0) return yieldN();
+    if (r.type === 'Utility' && /reheat/i.test(r.name) && yieldN() > 0) return yieldN();
+    return r.qty !== undefined ? Number(r.qty) : r.original;
+  }
+
+  function refresh() {
+    let ing = 0, pkg = 0, utl = 0;
+    rows.forEach((r, idx) => {
+      const q = qtyOf(r);
+      const cost = q * (r.unitCost || 0);
+      if (r.type === 'Ingredient') ing += cost; else if (r.type === 'Packaging') pkg += cost; else utl += cost;
+      const node = container.querySelector(`.recipe-row[data-idx="${idx}"]`);
+      if (!node) return;
+      node.querySelector('.line-cost').textContent = baht(cost);
+      node.classList.toggle('changed', r.edited && q !== r.original);
+      const inp = node.querySelector('.qty');
+      if (!r.edited && document.activeElement !== inp) inp.value = q;
+    });
+    const total = ing + pkg + utl;
+    $('tIng').textContent = baht(ing); $('tPkg').textContent = baht(pkg); $('tUtl').textContent = baht(utl); $('tTotal').textContent = baht(total);
+    const y = yieldN();
+    $('tPer').textContent = y > 0 ? baht(total / y) : 'add servings yielded';
+    const sz = sizeList();
+    if (recipe.sized) {
+      const packed = sz.reduce((a, z) => a + z.count * z.weight, 0);
+      const cooked = Number($('cookedWeight').value) > 0 ? Number($('cookedWeight').value) : packed;
+      const perG = total / (cooked || 1);
+      $('tSizes').innerHTML = cooked > 0 && sz.length
+        ? `<div class="cost-preview"><span>Cost per gram (whole batch)</span><strong>฿${perG.toFixed(4)}</strong></div>` + sz.map((z) => `<div class="cost-preview"><span>${z.name} ${z.weight}g</span><strong>${baht(z.weight * perG)}</strong></div>`).join('')
+        : '';
+    }
+  }
+
+  yieldInput.addEventListener('input', refresh);
+  if (recipe.sized) ['regWeight', 'regCount', 'lgWeight', 'lgCount', 'cookedWeight'].forEach((id) => $(id).addEventListener('input', refresh));
+
+  $('extraAdd').addEventListener('click', () => {
+    const name = $('extraName').value.trim();
+    const qty = Number($('extraQty').value);
+    const res = $('batchResult');
+    if (!name || !(qty > 0)) { res.innerHTML = '<div class="result-card"><div class="error-item">Type an ingredient name and a quantity in grams to add it.</div></div>'; return; }
+    const known = recipe.catalogue[name];
+    if (!known) { res.innerHTML = `<div class="result-card"><div class="error-item">"${escapeHtml(name)}" isn't in the Price Tracker, so it can't be costed. Pick one from the list.</div></div>`; return; }
+    res.innerHTML = '';
+    rows.splice(recipe.ingredients.length, 0, { type: 'Ingredient', name, unit: 'g', unitCost: known.unitCost, priceDate: known.priceDate, note: '', original: 0, qty, edited: true, extra: true });
+    recipe.ingredients.push({});
+    $('extraName').value = ''; $('extraQty').value = '';
+    drawRows();
+  });
+
+  $('logBatch').addEventListener('click', async () => {
+    const res = $('batchResult');
+    const lines = rows.filter((r) => r.type === 'Ingredient' && r.edited && (r.extra || Number(r.qty) !== r.original)).map((r) => ({ name: r.name, qty: r.qty }));
+    const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
+    const body = {
+      dish: recipe.tab, date: dateInput.value,
+      yield: Number(yieldInput.value) || undefined,
+      lines, packaging, sizes: sizeList(),
+      cookedWeight: recipe.sized ? Number($('cookedWeight').value) || undefined : undefined,
+    };
+    if (!yieldN()) { res.innerHTML = '<div class="result-card"><div class="error-item">Add the servings yielded first. Nothing was logged.</div></div>'; return; }
+    res.innerHTML = '<div class="loading">Logging…</div>';
+    $('logBatch').disabled = true;
+    try {
+      const r = await fetch('/api/cook/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Request failed');
+      const bad = data.status !== 'logged';
+      res.innerHTML = `<div class="result-card"><div class="${bad ? 'error-item' : 'result-headline'}" style="white-space:pre-wrap">${escapeHtml(data.text)}</div></div>`;
+      if (!bad && onLogged) onLogged();
+    } catch (err) {
+      res.innerHTML = `<div class="result-card"><div class="error-item" style="white-space:pre-wrap">${escapeHtml(err.message)}</div></div>`;
+    } finally {
+      $('logBatch').disabled = false;
+    }
+  });
+
+  $('saveOpen').addEventListener('click', async () => {
+    const res = $('batchResult');
+    // Every ingredient as it stands now is saved, so the batch is frozen as cooked even if the recipe changes before you count the portions.
+    const lines = rows.filter((r) => r.type === 'Ingredient').map((r) => ({ name: r.name, qty: r.qty !== undefined ? r.qty : r.original })).filter((l) => Number(l.qty) >= 0);
+    const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
+    const body = { dish: recipe.tab, date: dateInput.value, lines, packaging, sizes: [], yield: undefined };
+    res.innerHTML = '<div class="loading">Saving…</div>';
+    $('saveOpen').disabled = true;
+    try {
+      const r = await fetch('/api/cook/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Request failed');
+      const bad = data.status !== 'parked';
+      res.innerHTML = `<div class="result-card"><div class="${bad ? 'error-item' : 'result-headline'}" style="white-space:pre-wrap">${escapeHtml(data.text)}</div></div>`;
+      if (!bad && onLogged) onLogged();
+    } catch (err) {
+      res.innerHTML = `<div class="result-card"><div class="error-item" style="white-space:pre-wrap">${escapeHtml(err.message)}</div></div>`;
+    } finally { $('saveOpen').disabled = false; }
+  });
+
+  drawRows();
+}
+
+
+// ---- Stock Counts ----
+const STOCK_CATS = ['Drinks', 'Packaging', 'Ingredients', 'Other'];
+const STOCK_UNITS = ['can', 'bottle', 'pcs', 'pack', 'box', 'bag', 'roll', 'kg', 'g', 'L', 'ml'];
+const unitOptions = (sel) => [...new Set([...STOCK_UNITS, ...(sel ? [sel] : [])])].map((u) => `<option value="${escapeHtml(u)}"${u === sel ? ' selected' : ''}>${escapeHtml(u)}</option>`).join('');
+const catOptions = (sel, placeholder = '') => (placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '') + STOCK_CATS.map((c) => `<option value="${c}"${c === sel ? ' selected' : ''}>${c}</option>`).join('');
+const catOf = (item) => item.category || item.guess || '';
+
+async function stockPost(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* no body */ }
+  if (!res.ok) {
+    alert(`Not saved: ${data.error || 'Request failed'}`);
+    throw new Error(data.error || 'Request failed');
+  }
+  return data;
+}
+
+async function renderStock() {
+  main.innerHTML = '<div class="loading">Loading stock…</div>';
+  let stock = []; let ingredients = []; let blends = [];
+  try {
+    const get = async (url) => { const r = await fetch(url); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Could not load ${url}`); return d; };
+    const [s, ing, bl] = await Promise.all([get('/api/stock'), get('/api/stock/ingredients').catch(() => ({ items: [] })), get('/api/blends').catch(() => ({ blends: [] }))]);
+    stock = s.stock || []; ingredients = ing.items || []; blends = bl.blends || [];
+  } catch (err) {
+    main.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
+    return;
+  }
+
   const rows = [
     ...stock.map((item) => ({ kind: 'counted', name: item.itemName, qty: item.currentCount, unit: item.unit, cat: catOf(item), saved: Boolean(item.category), item, red: item.red, days: item.daysLeft })),
     ...ingredients.map((i) => ({ kind: 'ingredient', name: i.name, qty: i.pack ? i.pack.packs : i.left, unit: i.pack ? i.pack.word : i.unit, cat: i.category || 'Ingredients', saved: true, item: i, red: i.red, days: i.daysLeft })),

@@ -50,6 +50,7 @@ const PROFIT = [
   ['Borrowed', (m) => (m.key ? (RAW ? (m.borrowed ?? '') : `<span class="borrowbox"><input class="borrow" data-key="${m.key}" data-saved="${m.borrowed ? Math.round(m.borrowed * 100) / 100 : ''}" inputmode="decimal" value="${m.borrowed ? commas(m.borrowed) : ''}" placeholder="0" aria-label="Borrowed in ${m.label}" /><button class="borrowsave" data-key="${m.key}" disabled>Save</button></span>`) : baht(m.borrowed))],
   ['Money to take out', (m) => (m.history ? dash() : baht(m.moneyToTakeOut))],
   ['Monthly net profit', (m) => baht(m.margin), false, (m) => m.margin < 0, (m) => m.margin >= 0],
+  ['Total earning', (m) => baht(m.line.net + m.line.delivery + m.grab.net)],
   ['Costs (approx)', (m) => baht(m.costs !== undefined ? m.costs : m.foodCost + m.line.rider + m.overheads)],
   ['Overheads', (m) => (m.history ? dash() : baht(m.overheads))],
   ['Rider fees', (m) => (m.history ? dash() : baht(m.line.rider))],
@@ -62,7 +63,6 @@ const PROFIT = [
   ['Marketing fee', (m) => baht(m.grab.marketing)],
   ['Other Grab fees', (m) => baht(m.grab.otherFees)],
   ['Net Grab earning', (m) => baht(m.grab.net)],
-  ['Total earning', (m) => baht(m.line.net + m.line.delivery + m.grab.net)],
 ];
 
 // 24171 -> 24,171 and 15069.12 -> 15,069.12 (two decimals only when there are some)
@@ -82,7 +82,8 @@ function drawProfit(months) {
     costs: sumOf((m) => (m.history ? m.costs : m.foodCost + m.line.rider + m.overheads)),
   };
   const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : c[4] && c[4](m) ? 'pos' : ''}">${c[1](m)}</td>`).join('');
-  t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`;
+  t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`
+    + `<tr style="font-weight:600"><td colspan="3" title="Total monthly net profit less everything borrowed">Left in the bank after the borrowed</td><td class="${total.margin - total.borrowed < 0 ? 'neg' : 'pos'}">${baht(total.margin - total.borrowed)}</td><td colspan="${PROFIT.length - 4}"></td></tr>`;
   wireBorrowed(t);
 }
 
