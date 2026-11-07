@@ -44,7 +44,7 @@ function applyShorthandRows(base, rows = []) {
       // Swap | <dish tab> | <recipe line> | <new ingredient> | <from YYYY-MM-DD, optional>
       const parts = String(r[1] || '').split('|').map((x) => x.trim());
       const fresh = String(r[2] || '').trim();
-      if (parts.length >= 2 && parts[0] && parts[1] && fresh) out.swaps.push({ dish: norm(parts[0]), old: norm(parts[1]), new: fresh, from: String(r[3] || '').trim() });
+      if (parts.length >= 2 && parts[0] && parts[1] && fresh) out.swaps.push({ dish: parts[0] === '*' ? '*' : norm(parts[0]), old: norm(parts[1]), new: fresh, from: String(r[3] || '').trim() });
       continue;
     }
     const type = String(r[0] || '').trim().toLowerCase();

@@ -42,12 +42,12 @@ function applySwaps(recipe, shorthand, batch, notes) {
   if (!all.length) return recipe;
   const tab = normName(batch.dishTab || recipe.dish);
   const day = batch.date instanceof Date ? batch.date.toISOString().slice(0, 10) : null;
-  const mine = all.filter((x) => x.dish === tab && (!x.from || !day || x.from <= day));
+  const mine = all.filter((x) => (x.dish === tab || x.dish === '*') && (!x.from || !day || x.from <= day));
   if (!mine.length) return recipe;
   const ingredients = recipe.ingredients.map((ing) => {
     const hits = mine.filter((x) => x.old === normName(ing.name));
     if (!hits.length) return ing;
-    const pick = hits.sort((a, b) => (a.from || '').localeCompare(b.from || '')).pop();
+    const pick = hits.sort((a, b) => (a.from || '').localeCompare(b.from || '') || (a.dish === '*' ? -1 : 1) - (b.dish === '*' ? -1 : 1)).pop();
     notes.push(`${ing.name} swapped to ${pick.new}`);
     return { ...ing, name: pick.new, sheetCost: null };
   });
@@ -99,9 +99,12 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
       flags.push(`${name}: only ${Math.round((qty - short) * 100) / 100}${unit || ''} was left in stock lots. The other ${Math.round(short * 100) / 100}${unit || ''} was costed at the latest price (${fallback.toFixed(3)}). Log the purchase or send a count.`);
     }
     const unitCost = cost / qty;
-    const label = parts.map((x) => `${fmtDate(x.lot.date)} ${Math.round(x.qty * 100) / 100}${unit || ''} @ ${x.unitCost.toFixed(3)}`).join(' + ');
+    // A blend (for example thyme, half one brand and half another) says so, and names the brand each part came from.
+    const blend = lotBook.blendOf ? lotBook.blendOf(name) : null;
+    const label = parts.map((x) => `${blend ? `${x.lot.name} ` : ''}${fmtDate(x.lot.date)} ${Math.round(x.qty * 100) / 100}${unit || ''} @ ${x.unitCost.toFixed(3)}`).join(' + ');
+    const blendNote = blend ? `Blend of ${blend.parts.map((p) => `${p.name} ${Math.round(p.share * 1000) / 10}%`).join(' + ')}. ` : '';
     for (const x of parts) lotUse.push({ name, lotId: x.lot.id, lotDate: x.lot.date, qty: x.qty, unitCost: x.unitCost, cost: x.qty * x.unitCost });
-    lines.push({ type: 'Ingredient', name, qty, unit, unitCost, priceDate: fmtDate(parts[0].lot.date), priceSource: `Stock lots (FIFO): ${label}${short > 0 ? ' + latest price for the rest' : ''}`, lineCost: cost, qtySource, staleDays: null });
+    lines.push({ type: 'Ingredient', name, qty, unit, unitCost, priceDate: fmtDate(parts[0].lot.date), priceSource: `${blendNote}Stock lots (FIFO): ${label}${short > 0 ? ' + latest price for the rest' : ''}`, lineCost: cost, qtySource, staleDays: null });
     return true;
   }
 

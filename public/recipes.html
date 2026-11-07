@@ -30,6 +30,16 @@
     .how ul, .how ol { padding-left: 22px; margin: 6px 0; }
     .how li { margin: 5px 0; line-height: 1.45; }
     .how p { margin: 6px 0; line-height: 1.45; }
+    .catlabel { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 6px 0 4px; }
+    .chiprow { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chips { flex-direction: column; gap: 6px; }
+    .linkbtn { background: none; border: 0; color: var(--blue); font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }
+    .newbtn { font: inherit; font-size: 14px; padding: 8px 14px; border: 1px dashed var(--line); border-radius: 999px; background: transparent; color: var(--ink); cursor: pointer; }
+    .fld { display: block; font-size: 13px; color: var(--muted); margin: 10px 0; }
+    .fld input, .fld select, .fld textarea { display: block; width: 100%; box-sizing: border-box; font: inherit; color: var(--ink); padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; margin-top: 4px; background: #fff; }
+    .btnrow { display: flex; gap: 14px; align-items: center; margin: 10px 0; }
+    .savebtn { font: inherit; font-weight: 600; background: var(--blue); color: #fff; border: 0; border-radius: 999px; padding: 10px 20px; cursor: pointer; }
+    .ver { display: flex; justify-content: space-between; font-size: 14px; padding: 6px 0; border-bottom: 1px solid var(--line); }
     @media print { .tab-bar, .header, .chips, .backrow { display: none; } }
   </style>
 </head>
@@ -45,21 +55,21 @@
       </div>
     </header>
     <nav class="tab-bar" id="tabBar">
-      <a class="tab-button tab-link" href="commands.html">Commands</a>
+      <a class="tab-button tab-link" href="commands.html">Index</a>
       <a class="tab-button tab-link" href="home.html">Home</a>
       <a class="tab-button tab-link" href="marketing.html">Marketing</a>
-      <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
-      <a class="tab-button tab-link active" href="/#batchcook">Batch Cook</a>
+      <a class="tab-button tab-link" href="/#receipts">Purchasing Receipts</a>
+      <a class="tab-button tab-link active" href="/#batchcook">Kitchen Production</a>
       <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
       <a class="tab-button tab-link" href="reports.html">Numbers</a>
       <a class="tab-button tab-link" href="analysis.html">Analysis</a>
     </nav>
     <main class="main wide">
-      <div class="backrow"><a class="back" href="/#batchcook">Back to Batch Cook</a></div>
+      <div class="backrow"><a class="back" href="/#batchcook">Back to Kitchen Production</a></div>
       <div class="chips" id="chips"></div>
       <div class="status" id="status"></div>
       <div id="recipe"></div>
-      <div class="backrow" style="margin-top:18px"><a class="back" href="/#batchcook">Back to Batch Cook</a></div>
+      <div class="backrow" style="margin-top:18px"><a class="back" href="/#batchcook">Back to Kitchen Production</a></div>
     </main>
   </div>
   <script src="recipes.js"></script>

@@ -88,10 +88,24 @@ app.get('/api/summary/spend', ledgerRoute.spendSummary);
 app.get('/api/summary/cooking', ledgerRoute.cookingSummary);
 app.post('/api/ledger/delete-range', ledgerRoute.deleteRange);
 app.post('/api/borrowed', ledgerRoute.saveBorrowed);
+app.post('/api/bank', ledgerRoute.saveBank);
+const swapLib = require('./lib/ingredientSwap');
+const swapDeps = () => {
+  const cookLog = require('./lib/cookLog'); const sheets = require('./lib/sheets'); const live = require('./lib/liveData');
+  return { readRows: () => cookLog.readShorthandRows(), loadCatalogue: live.loadCatalogue, saveSwap: async (row) => { await cookLog.readShorthandRows(); await sheets.appendRows(cookLog.SHORTHAND, [row], { raw: true }); }, deleteSwaps: (pred) => sheets.deleteRowsWhere(cookLog.SHORTHAND, pred) };
+};
+app.get('/api/ingredient-swaps', async (req, res) => { try { res.json({ swaps: swapLib.listSwaps(await swapDeps().readRows()) }); } catch (err) { res.status(500).json({ error: err.message }); } });
+app.post('/api/ingredient-swaps', async (req, res) => { try { res.json(await swapLib.addSwap(req.body || {}, swapDeps())); } catch (err) { res.status(/must look|Say which|already the same/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); } });
+app.post('/api/ingredient-swaps/delete', async (req, res) => { try { res.json(await swapLib.removeSwap(req.body || {}, swapDeps())); } catch (err) { res.status(500).json({ error: err.message }); } });
+const botAdmin = require('./lib/botAdmin');
+app.get('/api/index/state', async (req, res) => { try { res.json(await botAdmin.loadState()); } catch (err) { res.status(502).json({ error: err.message }); } });
+app.post(/^\/api\/index\/(.+)$/, async (req, res) => { try { res.json(await botAdmin.act(req.params[0], req.body)); } catch (err) { res.status(err.status || 500).json({ error: err.message }); } });
 app.post('/api/ledger/manual-orders', ledgerRoute.manualOrders);
 app.post('/api/ledger/row/delete', ledgerRoute.deleteRow);
 app.post('/api/ledger/row/update', ledgerRoute.updateRow);
-app.get('/api/recipes', (req, res) => res.json(require('./data/recipes.json')));
+const recipeStore = require('./lib/recipeStore');
+app.get('/api/recipes', async (req, res) => { try { res.json(await recipeStore.load(require('./data/recipes.json'))); } catch (err) { res.json({ ...recipeStore.merge(require('./data/recipes.json'), []), warning: `Edits could not be loaded (${err.message}). Showing the starting recipes.` }); } });
+app.post('/api/recipes/save', async (req, res) => { try { res.json(await recipeStore.save(require('./data/recipes.json'), req.body || {})); } catch (err) { res.status(/empty|needs a name/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); } });
 app.get('/api/stock-left', require('./routes/stockLeft').stockLeftJson);
 app.post('/api/huddle/run', ledgerRoute.runHuddle);
 

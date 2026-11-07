@@ -1,13 +1,16 @@
 // Business analysis: weekly and monthly performance from the Ledger-based reports, October onwards.
 // Pure functions. Weeks run Sunday to Saturday, the same as the Numbers page, so the two always agree.
 const { formatDMY, utc, parseDate, daysBetween } = require('./dates');
-const { batchDishOf, normName } = require('./dishes');
+const { batchDishOf, normName, NOT_A_PORTION } = require('./dishes');
 const { periodOf, hourOf, sellThrough, priceMoves } = require('./reports');
+const { historyMonths } = require('./history');
 
 const FROM = utc(2026, 10, 1);
+const MASTER_FROM = utc(2026, 8, 1);   // Aug and Sep 2026 come from the Master Log (no time of day, no cook batches)
 const START = utc(2025, 11, 1);       // the very first month of Merlin's Dish
 const GRAB_START = '2026-05';         // Grab operations begin
 const GRAB_CUT = 0.32;                // Grab's cut, used only when a dish has never sold on LINE
+const parseDMYs = (t) => { const [d, m, y] = String(t).split('/').map(Number); return utc(y, m, d); };
 const r1 = (n) => Math.round(n * 10) / 10;
 const pct = (a, b) => (b > 0 ? r1((a / b) * 100) : null);
 const change = (now, before) => (before > 0 ? r1(((now - before) / before) * 100) : null);
@@ -39,9 +42,17 @@ function shape(p, today, kind, ch, rep) {
 }
 
 // Items sold per month (portions), batch dishes by name, everything else by its ledger description.
-function inPeriod(d, per) { return d >= FROM && (!per || ((!per.from || d >= per.from) && (!per.to || d <= per.to))); }
-function itemMix(ledger, today, per = null) {
+function inPeriod(d, per, floor = FROM) { return d >= floor && (!per || ((!per.from || d >= per.from) && (!per.to || d <= per.to))); }
+function itemMix(ledger, today, per = null, masterEvents = []) {
   const months = new Map();
+  for (const e of masterEvents) {
+    if (!inPeriod(e.date, per, MASTER_FROM) || !(e.qty > 0) || NOT_A_PORTION.test(e.desc)) continue;
+    const key = `${e.date.getUTCFullYear()}-${String(e.date.getUTCMonth() + 1).padStart(2, '0')}`;
+    const name = batchDishOf(e.desc) || e.desc.replace(/\s*\(.*$/, '').trim();
+    if (!name) continue;
+    if (!months.has(key)) months.set(key, new Map());
+    const m = months.get(key); m.set(name, (m.get(name) || 0) + e.qty);
+  }
   for (const r of ledger) {
     if (!inPeriod(r.date, per) || r.type !== 'Order' || !(r.qty > 0)) continue;
     const key = `${r.date.getUTCFullYear()}-${String(r.date.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -81,7 +92,7 @@ function eventsFromRows(rows = [], { carryDate = false, from = null, to = null }
     // Money In is the price of ONE portion. Net Income is portions x price, so that is the sales figure.
     const qty = num0(r[5]); const money = num0(r[8]) || qty * num0(r[6]);
     if (!(qty > 0) && !(money > 0)) return;
-    out.push({ date, desc: String(r[1] || '').trim(), channel: channelFromText(r[2], r[3], date), branch: String(r[2] || '').trim(), orderFrom: String(r[3] || '').trim(), qty, money, orderNo: String(r[10] || '').trim() });
+    out.push({ date, desc: String(r[1] || '').trim(), channel: channelFromText(r[2], r[3], date), branch: String(r[2] || '').trim(), orderFrom: String(r[3] || '').trim(), qty, money, orderNo: String(r[10] || '').trim(), customer: String(r[9] || '').trim() });
   });
   return out;
 }
@@ -157,6 +168,57 @@ function monthlyResult(master = [], today) {
   return { months, lastDate: lastDate ? formatDMY(lastDate) : null };
 }
 
+// Aug and Sep from the Master Log. Sales, orders and channels come from the order rows; margin for a MONTH is the
+// Master Log's own monthly profit (history table). A week in Aug/Sep has no margin, food cost is not split out there.
+function masterRecipeCosts(master = []) {
+  const out = []; let last = null;
+  master.forEach((r, i) => {
+    if (!r || (i === 0 && /date/i.test(String(r[0] || '')))) return;
+    let date = parseDate(r[0]);
+    if (date) last = date; else if (String(r[0] ?? '').trim() === '' && String(r[1] || '').trim()) date = last;
+    if (!date || date < MASTER_FROM || date >= FROM || String(r[4] || '').trim().toLowerCase() !== 'recipe') return;
+    const v = Math.abs(num0(r[8]) || num0(r[5]) * num0(r[7])); if (v > 0) out.push({ date, cost: v });
+  });
+  return out;
+}
+function masterPeriods(masterEvents, type, today, per, recipeCosts = []) {
+  const firstSeen = new Map();
+  for (const e of [...masterEvents].sort((a, b) => a.date - b.date)) { const w = normName(e.customer); if (w && !firstSeen.has(w)) firstSeen.set(w, e.date.getTime()); }
+  const by = new Map();
+  const orders = new Map();
+  for (const e of masterEvents) {
+    if (e.date >= FROM || e.date < MASTER_FROM) continue;
+    const pr = periodOf(e.date, type); const key = pr.key;
+    if (!by.has(key)) by.set(key, { pr, gross: { grab: 0, line: 0, ig: 0 }, ord: { grab: new Set(), line: new Set(), ig: new Set() } });
+    const v = by.get(key); v.gross[e.channel] += e.money;
+    if (e.orderNo) {
+      const k = `${formatDMY(e.date)}|${e.orderNo}`;
+      if (!v.ord[e.channel].has(k) && e.customer && e.channel !== 'grab') { v.seen = v.seen || new Set(); if (!v.seen.has(k)) { v.seen.add(k); if (firstSeen.get(normName(e.customer)) < e.date.getTime()) v.rep = (v.rep || 0) + 1; else v.nw = (v.nw || 0) + 1; } }
+      v.ord[e.channel].add(k);
+    }
+  }
+  for (const c of recipeCosts) { if (c.date >= FROM || c.date < MASTER_FROM) continue; const v = by.get(periodOf(c.date, type).key); if (v) v.food = (v.food || 0) + c.cost; }
+  const hist = new Map(historyMonths().map((h) => [h.key, h]));
+  return [...by.values()].sort((a, b) => a.pr.from - b.pr.from).filter((v) => !per || ((!per.from || v.pr.to >= per.from) && (!per.to || v.pr.from <= per.to))).map((v) => {
+    const gross = v.gross.grab + v.gross.line + v.gross.ig;
+    const n = v.ord.grab.size + v.ord.line.size + v.ord.ig.size;
+    const h = type === 'month' ? hist.get(v.pr.key) : null;
+    const margin = h ? Math.round(h.margin) : null;
+    const grossH = h ? h.grab.gross + h.line.gross : gross;
+    return {
+      label: type === 'month' ? v.pr.label : `${formatDMY(v.pr.from).slice(0, 5)} to ${formatDMY(v.pr.to).slice(0, 5)}`,
+      from: formatDMY(v.pr.from), to: formatDMY(v.pr.to), inProgress: false, startsBeforeOct: true, fromMaster: true,
+      gross: Math.round(h ? grossH : gross), revenue: h ? Math.round(h.revenue) : null, foodCost: v.food ? Math.round(v.food) : null, margin, marginPct: h && grossH > 0 ? r1((margin / grossH) * 100) : null,
+      orders: n, lineOrders: v.ord.line.size + v.ord.ig.size, aov: n ? Math.round(gross / n) : null,
+      grabShare: pct(v.gross.grab, gross), discountPct: h ? pct(h.grab.discount, grossH) : null, grabFeePct: h && h.grab.gross ? pct(h.grab.commission + h.grab.marketing + h.grab.otherFees, h.grab.gross) : null, foodCostPct: v.food ? pct(v.food, gross) : null,
+      ads: h ? Math.round(h.ads) : null, overheads: null, portionsCooked: null,
+      grabOrders: v.ord.grab.size, igOrders: v.ord.ig.size, lineOnlyOrders: v.ord.line.size,
+      grabGross: Math.round(v.gross.grab), lineGross: Math.round(v.gross.line), igGross: Math.round(v.gross.ig),
+      newOrders: v.nw || 0, repeatOrders: v.rep || 0, repeatPct: (v.nw || v.rep) ? r1(((v.rep || 0) / ((v.nw || 0) + (v.rep || 0))) * 100) : null, adsPerDirectOrder: h && h.ads > 0 && (v.ord.line.size + v.ord.ig.size) ? Math.round(h.ads / (v.ord.line.size + v.ord.ig.size)) : null,
+    };
+  });
+}
+
 // Orders and sales per channel from the Ledger (October on), for the three lines with orders.
 function channelOrders(ledger, type) {
   const by = new Map();
@@ -193,7 +255,7 @@ function repeatCustomers(ledger, type) {
 }
 
 // ---- when orders come: weekday by hour ----------------------------------------------------------------
-function heatmap(ledger, per = null) {
+function heatmap(ledger, per = null, masterEvents = []) {
   const seen = new Set(); const grid = Array.from({ length: 7 }, () => ({})); let noTime = 0; let total = 0;
   for (const r of ledger) {
     if (r.type !== 'Order' || !inPeriod(r.date, per)) continue;
@@ -204,6 +266,13 @@ function heatmap(ledger, per = null) {
     const wd = r.date.getUTCDay(); // Sunday = 0
     grid[wd][hh] = (grid[wd][hh] || 0) + 1;
   }
+  // Aug and Sep (Master Log) have the date but not the time, so they count toward the weekday totals only.
+  const dayOnly = Array(7).fill(0); const mseen = new Set(); let masterOrders = 0;
+  for (const e of masterEvents) {
+    if (!inPeriod(e.date, per, MASTER_FROM) || e.date >= FROM || !e.orderNo) continue;
+    const k = `${formatDMY(e.date)}|${e.orderNo}`; if (mseen.has(k)) continue; mseen.add(k);
+    dayOnly[e.date.getUTCDay()] += 1; masterOrders += 1;
+  }
   // The day always runs 10:00 to 22:00, and stretches only if an order lands outside it.
   const seenHours = [...new Set(grid.flatMap((g) => Object.keys(g).map(Number)))];
   const lo = Math.min(10, ...seenHours); const hi = Math.max(22, ...seenHours);
@@ -211,8 +280,9 @@ function heatmap(ledger, per = null) {
   const max = Math.max(1, ...grid.flatMap((g) => Object.values(g)));
   // All seven days, Sunday on top to Saturday at the bottom, so it is ready if Merlin's Dish opens weekends.
   const order = [0, 1, 2, 3, 4, 5, 6];
-  return { days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], hours: cols, cells: order.map((i) => cols.map((h) => grid[i][h] || 0)), max, noTime, total,
-    perDay: order.map((i) => Object.values(grid[i]).reduce((x, y) => x + y, 0)) };
+  const noHourOf = (i) => dayOnly[i];
+  return { days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], hours: cols, cells: order.map((i) => cols.map((h) => grid[i][h] || 0)), max, noTime, total: total + masterOrders,
+    perDay: order.map((i) => Object.values(grid[i]).reduce((x, y) => x + y, 0) + noHourOf(i)), dayOnly, masterOrders };
 }
 
 // ---- cooked against sold, stock sitting, price creep, break-even --------------------------------------
@@ -273,20 +343,24 @@ function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master =
   const overlaps = (p) => !per || ((!per.from || p.to >= per.from) && (!per.to || p.from <= per.to));
   const chW = channelOrders(ledger, 'week'); const chM = channelOrders(ledger, 'month');
   const rpW = repeatCustomers(ledger, 'week'); const rpM = repeatCustomers(ledger, 'month');
-  const weeks = weekly.filter((p) => p.to >= FROM && overlaps(p)).map((p) => shape(p, today, 'week', chW.get(p.key), rpW.get(p.key)));
-  const months = monthly.filter((p) => p.to >= FROM && overlaps(p)).map((p) => shape(p, today, 'month', chM.get(p.key), rpM.get(p.key)));
-  const done = weeks.filter((w) => !w.inProgress && !w.startsBeforeOct && w.gross > 0);
+  const { events, masterEvents } = allEvents({ master, ledger });
+  const firstLedgerWeek = weekly.filter((p) => p.to >= FROM)[0];
+  const rc = masterRecipeCosts(master);
+  const mW = masterPeriods(masterEvents, 'week', today, per, rc).filter((w) => !firstLedgerWeek || parseDMYs(w.from) < firstLedgerWeek.from);
+  const mM = masterPeriods(masterEvents, 'month', today, per, rc);
+  const weeks = [...mW, ...weekly.filter((p) => p.to >= FROM && overlaps(p)).map((p) => shape(p, today, 'week', chW.get(p.key), rpW.get(p.key)))];
+  const months = [...mM, ...monthly.filter((p) => p.to >= FROM && overlaps(p)).map((p) => shape(p, today, 'month', chM.get(p.key), rpM.get(p.key)))];
+  const done = weeks.filter((w) => !w.inProgress && !w.startsBeforeOct && w.gross > 0 && !w.fromMaster);
   const best = done.length ? done.reduce((a, b) => (b.margin > a.margin ? b : a)) : null;
   const worst = done.length ? done.reduce((a, b) => (b.margin < a.margin ? b : a)) : null;
-  const last = weeks.filter((w) => !w.inProgress).slice(-2);
+  const last = weeks.filter((w) => !w.inProgress && !w.fromMaster).slice(-2);
   const notes = [];
   if (last.length === 2) notes.push({ title: 'Last finished week against the one before', text: `Gross ${change(last[1].gross, last[0].gross) ?? 'n/a'}%, margin ${change(last[1].margin, last[0].margin) ?? 'n/a'}%, orders ${last[1].orders} against ${last[0].orders}.` });
   if (best && worst && best !== worst) notes.push({ title: 'Best and weakest full week', text: `Best: ${best.label}, margin ฿${best.margin.toLocaleString('en-AU')}. Weakest: ${worst.label}, margin ฿${worst.margin.toLocaleString('en-AU')}.` });
-  const { events } = allEvents({ master, ledger });
   return {
-    today: formatDMY(today), from: formatDMY(FROM), weeks, months, mix: itemMix(ledger, today, per), notes, best: best && best.label, worst: worst && worst.label,
+    today: formatDMY(today), from: formatDMY(FROM), weeks, months, mix: itemMix(ledger, today, per, masterEvents), notes, best: best && best.label, worst: worst && worst.label,
     history: { ...buildHistory({ events, today }), result: withBoh(monthlyResult(master, today), months) },
-    heatmap: heatmap(ledger, per),
+    heatmap: heatmap(ledger, per, masterEvents),
     dishes: dishPerformance({ ledger, cookBatches, expense, today, per }),
     period: per ? { from: per.from ? formatDMY(per.from) : null, to: per.to ? formatDMY(per.to) : null } : null,
   };

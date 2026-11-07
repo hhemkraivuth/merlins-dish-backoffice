@@ -66,7 +66,8 @@ async function summary(req, res) {
   try {
     const { daily, weekly, monthly } = await svc.computeReports();
     const borrowed = await borrowedLib.loadBorrowed();
-    res.json({ daily: (daily || []).map(shape), weekly: weekly.map(shape), monthly: monthly.map(shape), profit: withHistory(monthly).map((m) => shape({ ...m, borrowed: borrowed.get(m.key) ?? null })) });
+    const bank = await borrowedLib.loadBank();
+    res.json({ bank, daily: (daily || []).map(shape), weekly: weekly.map(shape), monthly: monthly.map(shape), profit: withHistory(monthly).map((m) => shape({ ...m, borrowed: borrowed.get(m.key) ?? null })) });
   } catch (err) { fail(res, err); }
 }
 
@@ -135,6 +136,11 @@ async function updateRow(req, res) {
   catch (err) { const bad = /not a number|can't be edited|Nothing to change|No row key/.test(String(err.message)); if (bad) return res.status(400).json({ error: err.message }); fail(res, err); }
 }
 
+async function saveBank(req, res) {
+  try { res.json(await borrowedLib.saveBank(req.body && req.body.amount, req.body && req.body.asOf)); }
+  catch (err) { if (/must (look|be)/.test(String(err.message))) return res.status(400).json({ error: err.message }); fail(res, err); }
+}
+
 async function saveBorrowed(req, res) {
   try { res.json(await borrowedLib.saveBorrowed(req.body && req.body.month, req.body && req.body.amount)); }
   catch (err) { if (/must (look|be)/.test(String(err.message))) return res.status(400).json({ error: err.message }); fail(res, err); }
@@ -147,4 +153,4 @@ async function addMarketingNote(req, res) {
   try { await svc.addMarketingNote(req.body || {}); res.json({ ok: true }); } catch (err) { fail(res, err); }
 }
 
-module.exports = { marketing, addMarketingNote, driveImport, sendDriveImport, saveBorrowed, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary };
+module.exports = { marketing, addMarketingNote, driveImport, sendDriveImport, saveBorrowed, saveBank, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary };

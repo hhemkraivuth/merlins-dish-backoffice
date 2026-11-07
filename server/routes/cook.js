@@ -54,8 +54,21 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       const date = dateFrom(req.query.date);
       if (!date) return res.status(400).json({ error: 'That date is not valid. Use DD/MM/YYYY.' });
 
-      const [r, pb, catalogue] = await Promise.all([deps.loadRecipe(tab), deps.loadPriceBook(), deps.loadCatalogue().catch(() => [])]);
+      const [r, pb, catalogue, lotBook] = await Promise.all([deps.loadRecipe(tab), deps.loadPriceBook(), deps.loadCatalogue().catch(() => []), Promise.resolve(deps.loadLotBook ? deps.loadLotBook() : null).catch(() => null)]);
       const price = (name, fallback) => {
+        const blend = lotBook && lotBook.blendOf ? lotBook.blendOf(name) : null;
+        if (blend) {
+          let cost = 0; let ok = true; let newest = null;
+          for (const part of blend.parts) {
+            const q = pb.lookup(part.name, date);
+            if (!q || q.missing) { ok = false; break; }
+            cost += q.cost * part.share;
+            if (!newest || q.date > newest) newest = q.date;
+          }
+          const label = 'Blend: ' + blend.parts.map((x) => `${x.name} ${Math.round(x.share * 100)}%`).join(' + ');
+          if (ok) return { unitCost: cost, priceDate: newest ? fmtDMY(newest) : '', note: label, blend: blend.parts.map((x) => ({ name: x.name, share: x.share })) };
+          return { unitCost: fallback ?? 0, priceDate: '', note: label + ' (a part has no dated purchase)', blend: blend.parts.map((x) => ({ name: x.name, share: x.share })) };
+        }
         const p = pb.lookup(name, date);
         if (p && !p.missing) return { unitCost: p.cost, priceDate: fmtDMY(p.date), note: p.stale ? `old price (${p.staleDays} days)` : '' };
         return { unitCost: fallback ?? 0, priceDate: '', note: 'no dated purchase, tab cost used' };

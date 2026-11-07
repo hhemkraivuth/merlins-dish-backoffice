@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Merlin's Dish — All commands</title>
+  <title>Merlin's Dish — Index</title>
   <link rel="stylesheet" href="style.css" />
   <style>
     .wide { max-width: 900px; }
@@ -26,6 +26,20 @@
     
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
     .note { font-size: 13px; color: var(--muted); }
+    .ix { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 0 0 12px; }
+    .ix h3 { margin: 0 0 6px; font-size: 16px; }
+    .ix .sub { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+    .ix .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+    .ix label { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+    .ix input, .ix select, .ix textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; max-width: 100%; }
+    .ix textarea { width: 100%; box-sizing: border-box; min-height: 64px; }
+    .ix .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+    .ix .pill.on { background: #e3f3e6; color: #1f6a34; } .ix .pill.off { background: #fdecea; color: #b3261e; }
+    .ix .item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+    .ix .item:last-child { border-bottom: 0; }
+    .ix .item b { font-weight: 600; } .ix .price { font-weight: 700; white-space: nowrap; }
+    .ix .warn { background: #fff4e0; border: 1px solid #f0d49b; border-radius: 10px; padding: 9px 12px; font-size: 13px; margin: 0 0 12px; }
+    .ix button.link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
   </style>
 </head>
 <body>
@@ -34,26 +48,28 @@
       <div class="header-inner">
         <a class="logo-mark" href="home.html" aria-label="Merlin's Dish, go to The Pit"><img src="logo.png?v=33" alt="Merlin's Dish" /></a>
         <div>
-          <div class="title">All commands</div>
-          <div class="subtitle">Customer bot and back of house.</div>
+          <div class="title">Index</div>
+          <div class="subtitle">What the order app shows, and every command.</div>
         </div>
       </div>
     </header>
 
     <nav class="tab-bar" id="tabBar">
-      <a class="tab-button tab-link active" href="commands.html">Commands</a>
+      <a class="tab-button tab-link active" href="commands.html">Index</a>
       <a class="tab-button tab-link" href="home.html">Home</a>
       <a class="tab-button tab-link" href="marketing.html">Marketing</a>
-      <a class="tab-button tab-link" href="/#receipts">Weekly Receipts</a>
-      <a class="tab-button tab-link" href="/#batchcook">Batch Cook</a>
+      <a class="tab-button tab-link" href="/#receipts">Purchasing Receipts</a>
+      <a class="tab-button tab-link" href="/#batchcook">Kitchen Production</a>
       <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
       <a class="tab-button tab-link" href="reports.html">Numbers</a>
       <a class="tab-button tab-link" href="analysis.html">Analysis</a>
     </nav>
     <main class="main wide">
+      <div id="idx"><div class="loading">Loading the order app…</div></div>
 
+      <h2>Commands</h2>
       <section class="group" data-group="bot">
-      <h2>Customer bot (LINE OA)</h2>
+      <details class="sec" id="cmdBot"><summary>1. Customer bot (LINE OA)</summary><div style="padding:12px 16px 4px">
       <p class="where">Admin commands: type them in your own one to one chat with the OA, from the admin account. Group commands: type them in the BOH private group.</p>
 
       <details class="sec">
@@ -119,10 +135,10 @@
         <tr><td>help &nbsp; /&nbsp; staff</td><td>Hands the chat to you. The bot stays quiet until they type menu.</td></tr>
       </table>
       </details>
-      </section>
+      </div></details></section>
 
       <section class="group" data-group="boh">
-      <h2>Back of house (BOH private group)</h2>
+      <details class="sec" id="cmdBoh"><summary>2. Back of house (BOH private group)</summary><div style="padding:12px 16px 4px">
       <p class="where">Type these in the BOH LINE group. The BOH app answers.</p>
 
       <details class="sec">
@@ -177,10 +193,11 @@
         <tr><td>stock coke zero zero 5</td><td>Sets one count. Use the full item name.</td></tr>
       </table>
       </details>
-      </section>
+      </div></details></section>
 
       <p class="note">Dates are day/month (4/11). The numbers pages are at Numbers. Nothing here changes the customer bot unless you send it from the admin chat or the private group.</p>
     </main>
   </div>
+  <script src="index.js"></script>
 </body>
 </html>

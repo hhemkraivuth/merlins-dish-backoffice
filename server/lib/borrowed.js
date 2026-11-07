@@ -39,4 +39,26 @@ async function saveBorrowed(month, amount) {
   return { month: key, amount: value };
 }
 
-module.exports = { loadBorrowed, saveBorrowed, parseBorrowed, TAB, HEADERS, KNOWN };
+// The bank balance Lily read off the statement, and the date of that statement. Kept in App State, edited on the Numbers page.
+// Until she saves one, the 04/11/2026 statement balance from the October review is used.
+const BANK_KEY = 'bank_balance';
+const BANK_DEFAULT = { amount: 47543.59, asOf: '04/11/2026' };
+async function loadBank() {
+  try {
+    const raw = await require('./appState').getState(BANK_KEY);
+    const v = raw ? JSON.parse(raw) : null;
+    if (v && Number.isFinite(Number(v.amount))) return { amount: Number(v.amount), asOf: String(v.asOf || '') };
+  } catch (err) { /* fall back to the default */ }
+  return BANK_DEFAULT;
+}
+async function saveBank(amount, asOf) {
+  const n = num(amount);
+  if (n === null) throw new Error('The bank balance must be a number');
+  const d = String(asOf || '').trim();
+  if (d && !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(d)) throw new Error('The statement date must look like 04/11/2026');
+  const v = { amount: Math.round(n * 100) / 100, asOf: d };
+  await require('./appState').setState(BANK_KEY, JSON.stringify(v));
+  return v;
+}
+
+module.exports = { loadBank, saveBank, loadBorrowed, saveBorrowed, parseBorrowed, TAB, HEADERS, KNOWN };

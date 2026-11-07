@@ -161,7 +161,7 @@ function renderReceipts() {
   const section = el(`
     <section class="section">
       <div class="intro">
-        <h1 class="intro-title">Weekly Receipts</h1>
+        <h1 class="intro-title">Purchasing Receipts</h1>
         <p class="intro-body">Type your shopping with a date, then one line per item with the quantity and price. Items go into the Expense Log, kept separate from your live Price Log. A batch cooked on or after that date uses the price.</p>
       </div>
       <div class="sum-grid" id="spendSummary"></div>
@@ -239,7 +239,7 @@ async function renderBatchCook() {
   const section = el(`
     <section class="section">
       <div class="intro">
-        <h1 class="intro-title">Batch Cook</h1>
+        <h1 class="intro-title">Kitchen Production</h1>
         <a class="primary-button" href="recipes.html" style="display:inline-block;width:auto;text-decoration:none;margin:0 0 10px;padding:8px 16px">View recipes</a>
         <p class="intro-body">Two ways to log. One: log it all at once, when you already know the portions. Two: save the ingredients when you cook, then add the portions after you have packed them (they wait in the box below). Pick the dish and date. Ingredients fill in from the recipe in Merlin's numbers. Change any quantity that was different today, and leave the rest. Prices are the latest purchase on or before the cook date. This does the same job as a cook note in the LINE group.</p>
       </div>
@@ -584,11 +584,12 @@ async function stockPost(url, body) {
 
 async function renderStock() {
   main.innerHTML = '<div class="loading">Loading stock…</div>';
-  let stock = []; let ingredients = []; let blends = [];
+  let stock = []; let ingredients = []; let blends = []; let swaps = [];
   try {
     const get = async (url) => { const r = await fetch(url); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Could not load ${url}`); return d; };
     const [s, ing, bl] = await Promise.all([get('/api/stock'), get('/api/stock/ingredients').catch(() => ({ items: [] })), get('/api/blends').catch(() => ({ blends: [] }))]);
     stock = s.stock || []; ingredients = ing.items || []; blends = bl.blends || [];
+    swaps = (await get('/api/ingredient-swaps').catch(() => ({ swaps: [] }))).swaps || [];
   } catch (err) {
     main.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
     return;
@@ -634,6 +635,17 @@ async function renderStock() {
         <button class="primary-button" id="bulkBtn" type="button" style="margin-top:8px">Add all</button>
       </details>
       <button class="primary-button" id="seedPkgBtn" style="margin-top:12px">Add the 4 packaging items (at 0)</button>
+      <div class="intro" style="margin-top:26px">
+        <h1 class="intro-title" style="font-size:18px">Brand changes</h1>
+        <p class="intro-body">Changed brand? Tell recipes to use the new ingredient. The recipe itself is not touched: it still says the old name, but batches cooked from the start date take the new ingredient and its cost.</p>
+      </div>
+      <div id="swapList"></div>
+      <form class="stock-row" id="swapForm" style="display:block">
+        <input class="stock-edit-input" id="swapOld" list="stockNames" placeholder="Recipes now say (e.g. Polpa)" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px" />
+        <input class="stock-edit-input" id="swapNew" list="stockNames" placeholder="Use this instead (e.g. Pelati (Mutti Rosso))" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px" />
+        <label class="stock-meta" style="display:block;margin-bottom:8px">From this date <input class="stock-edit-input" id="swapFrom" type="date" style="width:auto" /></label>
+        <button class="primary-button" type="submit">Switch recipes to the new ingredient</button>
+      </form>
       <div class="intro" style="margin-top:26px">
         <h1 class="intro-title" style="font-size:18px">Blends</h1>
         <p class="intro-body">When one recipe ingredient is a mix of two brands (for example red wine, half Ti and half Familia), set the parts here. A batch then takes each brand from its own stock in those parts and costs the real mix. The parts are a ratio: 3 tsp and 5 tsp is just 3 and 5.</p>
@@ -699,10 +711,14 @@ async function renderStock() {
         <input class="stock-edit-input" name="packs" type="number" step="any" inputmode="decimal" placeholder="${i.pack ? escapeHtml(i.pack.word) + 's left' : 'Packs left'}" value="${i.pack ? i.pack.packs : ''}" style="width:auto" />
         <input class="stock-edit-input" name="size" placeholder="Size of one pack, e.g. 450${escapeHtml(i.unit)}" value="${i.pack ? escapeHtml(i.pack.size) : ''}" style="width:auto" />
         <input class="stock-edit-input" name="word" placeholder="Pack word" value="${i.pack ? escapeHtml(i.pack.word) : 'bottle'}" style="width:auto" />
-        <div style="grid-column:1 / -1;display:flex;gap:8px"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
+        <div style="grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-swap>Changed brand? Switch recipes</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
       </form>`);
     rowEl.replaceWith(form);
     form.querySelector('[data-cancel]').addEventListener('click', () => renderStock());
+    form.querySelector('[data-swap]').addEventListener('click', () => {
+      const o = document.querySelector('#swapOld'); o.value = r.name; document.querySelector('#swapNew').focus();
+      document.querySelector('#swapForm').scrollIntoView({ behavior: 'smooth' });
+    });
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = form.elements;
@@ -780,6 +796,29 @@ async function renderStock() {
       const data = await stockPost('/api/stock/seed-packaging', {});
       alert(data.added.length ? `Added at 0: ${data.added.join(', ')}. Now set the real counts.` : 'All 4 packaging items are already there. Nothing changed.');
       renderStock();
+    } catch (err) { /* shown */ }
+  });
+
+  // ---- brand changes
+  const swapBox = section.querySelector('#swapList');
+  const dmyOf = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : 'every batch');
+  if (!swaps.length) swapBox.appendChild(el('<div class="empty-state">No brand changes yet.</div>'));
+  swaps.forEach((w) => {
+    const rowEl = el(`<div class="stock-row"><div><div class="stock-name">${escapeHtml(w.line)} → ${escapeHtml(w.to)}</div><div class="stock-meta">${w.dish === '*' ? 'every dish' : escapeHtml(w.dish)} · from ${escapeHtml(dmyOf(w.from))}</div></div><button class="small-button" data-undo>Undo</button></div>`);
+    rowEl.querySelector('[data-undo]').addEventListener('click', async () => {
+      if (!confirm(`Go back to ${w.line} in recipes?`)) return;
+      try { await stockPost('/api/ingredient-swaps/delete', { line: w.line, from: w.from }); renderStock(); } catch (err) { /* shown */ }
+    });
+    swapBox.appendChild(rowEl);
+  });
+  section.querySelector('#swapFrom').value = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  section.querySelector('#swapForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const r = await stockPost('/api/ingredient-swaps', { old: section.querySelector('#swapOld').value, to: section.querySelector('#swapNew').value, from: section.querySelector('#swapFrom').value });
+      if (r.note) alert(r.note);
+      await renderStock();
+      say('Brand change saved. The recipe is unchanged.');
     } catch (err) { /* shown */ }
   });
 
