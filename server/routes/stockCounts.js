@@ -5,11 +5,13 @@ async function listStock(req, res) {
     const ls = require('../lib/lowStock');
     const { bangkokToday } = require('../lib/dates');
     const stock = await getAllStock();
+    const { brands, sizes } = await loadMeta();
     const usage = await ls.loadUsage(bangkokToday()).catch(() => null);
     res.json({ stock: stock.map((i) => {
       const category = i.category || i.guess || '';
       const days = ls.daysLeft({ name: i.itemName, count: i.currentCount, unit: i.unit, usage });
-      return { ...i, daysLeft: days === null ? null : Math.round(days), red: ls.statusOf({ count: i.currentCount, days, category }) };
+      const nk = normKey(i.itemName); const sz = sizes[nk] || {};
+      return { ...i, brand: brands[nk] || '', size: sz.size || null, sizeUnit: sz.unit || '', daysLeft: days === null ? null : Math.round(days), red: ls.statusOf({ count: i.currentCount, days, category }) };
     }), redDays: ls.RED_DAYS });
   } catch (err) {
     console.error(err);
@@ -75,6 +77,31 @@ async function listIngredientStock(req, res) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+}
+
+const normKey = (n) => require('../lib/priceBook').normName(n);
+const SIZE_KEY = 'stock_item_sizes';
+async function loadMeta() {
+  const st = require('../lib/appState'); const out = { brands: {}, sizes: {} };
+  try { out.brands = JSON.parse((await st.getState('stock_item_brands')) || '{}'); } catch (err) { /* none yet */ }
+  try { out.sizes = JSON.parse((await st.getState(SIZE_KEY)) || '{}'); } catch (err) { /* none yet */ }
+  return out;
+}
+// Brand and "how much is in one can, bottle, tin" for a counted stock item (coke, wine, packaging...). Ingredients keep their pack size in the lots.
+async function setItemMeta(req, res) {
+  try {
+    const { name, oldName, brand, size, unit } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Send the item name.' });
+    const st = require('../lib/appState'); const { brands, sizes } = await loadMeta();
+    const k = normKey(name);
+    if (oldName && normKey(oldName) !== k) { delete brands[normKey(oldName)]; delete sizes[normKey(oldName)]; }
+    const b = String(brand || '').trim().slice(0, 60);
+    if (b) brands[k] = b; else delete brands[k];
+    const n = Number(size);
+    if (Number.isFinite(n) && n > 0 && ['ml', 'g', 'L', 'kg'].includes(unit)) sizes[k] = { size: n, unit }; else delete sizes[k];
+    await st.setState('stock_item_brands', JSON.stringify(brands)); await st.setState(SIZE_KEY, JSON.stringify(sizes));
+    res.json({ name, brand: b, size: sizes[k] || null });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 }
 
 // The brand we buy for an ingredient (Stout: Chiangmai Winter). A label for the team only: recipes and costs never change.
@@ -173,4 +200,6 @@ async function countIngredientPacks(req, res) {
   }
 }
 
-module.exports = { listStock, updateStock, editStockRoute, seedPackagingRoute, listIngredientStock, countIngredientPacks, listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand };
+const wrapInv = (fn) => async (req, res) => { const done = res.json.bind(res); res.json = (b) => { if (res.statusCode < 400) { try { require('../lib/shoppingService').invalidate(); } catch (e) { /* ignore */ } } return done(b); }; return fn(req, res); };
+
+module.exports = { listStock, updateStock: wrapInv(updateStock), editStockRoute: wrapInv(editStockRoute), seedPackagingRoute, listIngredientStock, countIngredientPacks: wrapInv(countIngredientPacks), listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand, setItemMeta: wrapInv(setItemMeta) };

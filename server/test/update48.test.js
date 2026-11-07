@@ -60,3 +60,23 @@ test('menuBible.merge: seed, edits and deletes', () => {
   const real = mb.merge(require('../data/menuBible.json'));
   assert.ok(real.items.length >= 30);
 });
+
+test('countedToStock converts cans and bottles with a size, skips ones without', () => {
+  const { countedToStock } = require('../lib/countedStock');
+  const { normName } = require('../lib/priceBook');
+  const items = [
+    { itemName: 'Stout (Chiangmai Winter)', unit: 'can', currentCount: 39 },
+    { itemName: 'Red wine', unit: 'bottle', currentCount: 3 },
+    { itemName: 'Paper bags', unit: 'pcs', currentCount: 40 },
+    { itemName: 'Flour', unit: 'kg', currentCount: 2 },
+  ];
+  const sizes = { [normName('Stout (Chiangmai Winter)')]: { size: 490, unit: 'ml' } };
+  const r = countedToStock(items, sizes, normName);
+  assert.deepStrictEqual(r.stock.get(normName('Stout')), { left: 19110, unit: 'ml' });
+  assert.deepStrictEqual(r.stock.get(normName('Paper bags')), { left: 40, unit: 'piece' });
+  assert.deepStrictEqual(r.stock.get(normName('Flour')), { left: 2000, unit: 'g' });
+  assert.strictEqual(r.stock.has(normName('Red wine')), false);
+  assert.ok(r.warnings[0].includes('Red wine'));
+  const kept = countedToStock(items, sizes, normName, new Map([[normName('Flour'), { left: 1, unit: 'g' }]]));
+  assert.strictEqual(kept.stock.has(normName('Flour')), false);
+});

@@ -69,6 +69,7 @@ app.post('/api/stock/update', stockCountsRoute.updateStock);
 app.post('/api/stock/edit', stockCountsRoute.editStockRoute);
 app.post('/api/stock/ingredient-category', stockCountsRoute.setIngredientCategory);
 app.post('/api/stock/ingredient-brand', stockCountsRoute.setIngredientBrand);
+app.post('/api/stock/item-meta', stockCountsRoute.setItemMeta);
 app.get('/api/blends', stockCountsRoute.listBlends);
 app.post('/api/blends', stockCountsRoute.saveBlendRoute);
 app.post('/api/blends/delete', stockCountsRoute.deleteBlendRoute);

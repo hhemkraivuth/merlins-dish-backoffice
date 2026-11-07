@@ -566,7 +566,11 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
 
 // ---- Stock Counts ----
 const STOCK_CATS = ['Drinks', 'Packaging', 'Ingredients', 'Other'];
-const STOCK_UNITS = ['can', 'bottle', 'pcs', 'pack', 'box', 'bag', 'roll', 'kg', 'g', 'L', 'ml'];
+const STOCK_UNITS = ['can', 'bottle', 'tin', 'jar', 'pcs', 'pack', 'box', 'bag', 'roll', 'kg', 'g', 'L', 'ml'];
+const PACK_UNITS = ['can', 'bottle', 'tin', 'jar', 'pack', 'box', 'bag'];
+const SIZE_UNITS = ['ml', 'g', 'L', 'kg'];
+const sizeUnitOptions = (sel) => SIZE_UNITS.map((u) => `<option value="${u}"${u === sel ? ' selected' : ''}>${u}</option>`).join('');
+const sizeText = (it) => (it && it.size ? `${it.size}${it.sizeUnit}` : '');
 const unitOptions = (sel) => [...new Set([...STOCK_UNITS, ...(sel ? [sel] : [])])].map((u) => `<option value="${escapeHtml(u)}"${u === sel ? ' selected' : ''}>${escapeHtml(u)}</option>`).join('');
 const catOptions = (sel, placeholder = '') => (placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '') + STOCK_CATS.map((c) => `<option value="${c}"${c === sel ? ' selected' : ''}>${c}</option>`).join('');
 const catOf = (item) => item.category || item.guess || '';
@@ -617,13 +621,15 @@ async function renderStock() {
       <div id="stockCats"></div>
       <div class="intro" style="margin-top:18px">
         <h1 class="intro-title" style="font-size:18px">Add stock</h1>
-        <p class="intro-body">Name, count, unit and category, then Add. The form stays open for the next item. A name that already exists updates its count.</p>
+        <p class="intro-body">Name, count, unit, category and brand, then Add. For a can, bottle, tin or jar, also type how much is in one (ml or g). The form stays open for the next item. A name that already exists updates its count.</p>
       </div>
       <form class="stock-row" id="addStockForm" style="display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center">
         <input class="stock-edit-input" id="addName" list="stockNames" placeholder="Item name" autocomplete="off" required style="width:auto" />
         <input class="stock-edit-input" id="addCount" type="number" inputmode="decimal" step="any" placeholder="Count" required style="width:auto" />
         <select class="stock-edit-input" id="addUnit" style="width:auto">${unitOptions('can')}</select>
         <select class="stock-edit-input" id="addCat" style="width:auto">${catOptions('', 'Category (auto)')}</select>
+        <input class="stock-edit-input" id="addBrand" placeholder="Brand (e.g. Coca-Cola, Mutti)" maxlength="60" style="grid-column:1 / -1;width:auto" />
+        <div id="addSizeRow" style="grid-column:1 / -1;display:grid;grid-template-columns:1fr 80px;gap:8px"><input class="stock-edit-input" id="addSize" type="number" step="any" inputmode="decimal" placeholder="Size of one can, bottle or tin, e.g. 330" style="width:auto" /><select class="stock-edit-input" id="addSizeUnit" style="width:auto">${sizeUnitOptions('ml')}</select></div>
         <button class="primary-button" type="submit" style="grid-column:1 / -1">Add</button>
       </form>
       <datalist id="stockNames"></datalist>
@@ -665,9 +671,9 @@ async function renderStock() {
     const rowEl = el(`
       <div class="stock-row"${redRow ? ' style="background:#fdecea;border-color:#e8b4ae"' : ''}>
         <div>
-          <div class="stock-name"${redRow ? ' style="color:#b3261e"' : ''}>${escapeHtml(r.name)}${r.kind === 'ingredient' && r.item.brand ? ` <span class="stock-meta" style="font-weight:600">· ${escapeHtml(r.item.brand)}</span>` : ''}${redRow ? ' <span style="font-weight:700">· FILL ASAP</span>' : ''}</div>
+          <div class="stock-name"${redRow ? ' style="color:#b3261e"' : ''}>${escapeHtml(r.name)}${r.item.brand ? ` <span class="stock-meta" style="font-weight:600">· ${escapeHtml(r.item.brand)}</span>` : ''}${redRow ? ' <span style="font-weight:700">· FILL ASAP</span>' : ''}</div>
           <div class="stock-meta">${r.kind === 'counted'
-    ? `${escapeHtml(r.unit || '')}${redRow ? ` · ${escapeHtml(r.cat || 'no category')}` : ''}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}${!r.saved && r.cat ? ' · category guessed' : ''}`
+    ? `${escapeHtml(r.unit || '')}${sizeText(r.item) ? ` · ${escapeHtml(sizeText(r.item))} each, ${escapeHtml(String(Math.round(r.qty * r.item.size * 100) / 100))}${escapeHtml(r.item.sizeUnit)} in total` : ''}${redRow ? ` · ${escapeHtml(r.cat || 'no category')}` : ''}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}${!r.saved && r.cat ? ' · category guessed' : ''}`
     : `${r.item.pack ? escapeHtml(r.item.left + r.item.unit) + ' · ' : 'tap to count in packs · '}${r.item.oldest ? 'oldest bought ' + escapeHtml(r.item.oldest) : 'used up'}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''}${r.item.level ? ' · alert below ' + escapeHtml(r.item.level) : ''}`}</div>
         </div>
         <button class="stock-count-button"${redRow ? ' style="background:#b3261e;color:#fff;border-color:#b3261e"' : ''}>${escapeHtml(r.kind === 'ingredient' ? (r.item.pack ? r.item.pack.label : r.item.left + r.item.unit) : String(r.qty))}</button>
@@ -684,6 +690,8 @@ async function renderStock() {
         <input class="stock-edit-input" name="count" type="number" step="any" inputmode="decimal" value="${r.qty}" style="width:auto" required />
         <select class="stock-edit-input" name="unit" style="width:auto">${unitOptions(r.unit)}</select>
         <select class="stock-edit-input" name="cat" style="width:auto">${catOptions(r.cat, 'Category')}</select>
+        <input class="stock-edit-input" name="brand" placeholder="Brand" value="${escapeHtml(r.item.brand || '')}" maxlength="60" style="grid-column:1 / -1;width:auto" />
+        <div style="grid-column:1 / -1;display:grid;grid-template-columns:1fr 80px;gap:8px"><input class="stock-edit-input" name="size" type="number" step="any" inputmode="decimal" placeholder="Size of one ${escapeHtml(r.unit || 'can')}, e.g. 330" value="${r.item.size || ''}" style="width:auto" /><select class="stock-edit-input" name="sizeUnit" style="width:auto">${sizeUnitOptions(r.item.sizeUnit || 'ml')}</select></div>
         <div style="grid-column:1 / -1;display:flex;gap:8px"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
       </form>`);
     rowEl.replaceWith(form);
@@ -694,6 +702,7 @@ async function renderStock() {
       const f = form.elements;
       try {
         await stockPost('/api/stock/edit', { oldName: r.name, newName: f.name.value.trim(), unit: f.unit.value, count: Number(f.count.value), category: f.cat.value });
+        await stockPost('/api/stock/item-meta', { name: f.name.value.trim(), oldName: r.name, brand: f.brand.value, size: f.size.value, unit: f.sizeUnit.value });
         renderStock();
       } catch (err) { /* already shown */ }
     });
@@ -767,6 +776,8 @@ async function renderStock() {
   [...new Set([...stock.map((x) => x.itemName), ...ingredients.map((x) => x.name)])].forEach((n) => { const o = document.createElement('option'); o.value = n; names.appendChild(o); });
   const msg = section.querySelector('#addMsg');
   const say = (t) => { const m = document.querySelector('#addMsg'); if (m) m.textContent = t; };
+  const syncSize = () => { section.querySelector('#addSizeRow').style.display = PACK_UNITS.includes(section.querySelector('#addUnit').value) ? 'grid' : 'none'; };
+  section.querySelector('#addUnit').addEventListener('change', syncSize); syncSize();
   section.querySelector('#addStockForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = section.querySelector('#addName').value.trim();
@@ -776,6 +787,10 @@ async function renderStock() {
     if (!name || !Number.isFinite(count)) return;
     try {
       await saveStock(name, count, unit, category);
+      const brand = section.querySelector('#addBrand').value.trim();
+      const size = section.querySelector('#addSize').value;
+      if (brand || size) await stockPost('/api/stock/item-meta', { name, brand, size: PACK_UNITS.includes(unit) ? size : '', unit: section.querySelector('#addSizeUnit').value });
+      section.querySelector('#addBrand').value = ''; section.querySelector('#addSize').value = '';
       await renderStock();
       say(`Saved: ${name} ${count} ${unit}`);
       const n = document.querySelector('#addName'); if (n) n.focus();

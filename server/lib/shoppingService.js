@@ -42,6 +42,14 @@ async function getPlan({ force = false } = {}) {
       if (live.length) stock.set(normName(name), { left: book.totalRemaining(name), unit: live[0].unit });
     }
   } catch (err) { warnings.push(`Could not read the counted stock (${err.message}), so what is left is estimated from receipts.`); }
+  // Hand counted stock (cans, bottles, tins, packets) joins the receipts based stock, converted to ml, g or pieces.
+  try {
+    const { getAllStock } = require('./stockCounts'); const { normName } = require('./priceBook'); const st = require('./appState');
+    let sizes = {}; try { sizes = JSON.parse((await st.getState('stock_item_sizes')) || '{}'); } catch (err) { sizes = {}; }
+    const counted = require('./countedStock').countedToStock(await getAllStock(), sizes, normName, stock);
+    for (const [k, v] of counted.stock) stock.set(k, v);
+    warnings.push(...counted.warnings.slice(0, 6));
+  } catch (err) { warnings.push(`Could not read the Stock Counts tab (${err.message}).`); }
   const result = plan.buildShoppingPlan({
     today: bangkokToday(),
     sales: plan.combineSales({ master, ledger }),
@@ -54,4 +62,7 @@ async function getPlan({ force = false } = {}) {
   return result;
 }
 
-module.exports = { getPlan };
+// Called whenever stock changes, so the next look at the plan is rebuilt with the new counts.
+function invalidate() { cache = { at: 0, data: null }; }
+
+module.exports = { getPlan, invalidate };
