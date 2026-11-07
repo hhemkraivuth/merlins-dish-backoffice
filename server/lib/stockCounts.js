@@ -14,11 +14,32 @@ const { readTab, appendRows, updateRow } = require('./sheets');
 
 const STOCK_COUNTS_TAB = 'Stock Counts'; // Item Name | Unit | Current Count | Last Updated | Last Updated By | Category
 
-const CATEGORIES = ['Drinks', 'Packaging', 'Ingredients', 'Other'];
+// Meat comes first. Lily can add more with "Add category": those are kept in App State and joined to this list in memory.
+const CATEGORIES = ['Meat', 'Drinks', 'Packaging', 'Ingredients', 'Other'];
+const EXTRA_KEY = 'stock_extra_categories';
+async function loadCategories() {
+  try {
+    const extra = JSON.parse((await require('./appState').getState(EXTRA_KEY)) || '[]');
+    for (const c of extra) if (typeof c === 'string' && c && !CATEGORIES.includes(c)) CATEGORIES.splice(CATEGORIES.indexOf('Other'), 0, c);
+  } catch (err) { /* keep the built in list */ }
+  return CATEGORIES;
+}
+async function addCategory(name) {
+  const n = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 30);
+  if (!n) throw new Error('Type a category name.');
+  await loadCategories();
+  if (CATEGORIES.some((c) => c.toLowerCase() === n.toLowerCase())) throw new Error(`${n} already exists.`);
+  const st = require('./appState');
+  let extra = []; try { extra = JSON.parse((await st.getState(EXTRA_KEY)) || '[]'); } catch (err) { extra = []; }
+  extra.push(n); await st.setState(EXTRA_KEY, JSON.stringify(extra));
+  CATEGORIES.splice(CATEGORIES.indexOf('Other'), 0, n);
+  return n;
+}
 
 // A confident guess from the name. Anything it does not recognise returns '' and the page asks Lily once.
 // Wine and stout are cooking ingredients here, not drinks for sale.
 const GUESS = [
+  ['Meat', /\b(brisket|chuck|beef|pork|chicken|bacon|mince|thigh|shoulder|sausage|ham)s?\b/i],
   ['Ingredients', /\b(wine|stout|thyme|beer|stock|sauce|flour|salt|pepper|garlic|onion|butter|cream|cheese|pasta|tomato|beef|pork|chicken|bacon|herb)s?\b/i],
   ['Drinks', /\b(coke|pepsi|zero|root beer|a&w|soda|juice|water|lemonade|ginger|la croix|prebo|ben shaw|perrier|maison|sour hour|en ziero|ziero|juza|eden|old jamaica|fanta|sprite|tea|coffee|sparkling|cola)s?\b/i],
   ['Packaging', /\b(cup|lid|bag|box|utensil|fork|spoon|sticker|container|tape|napkin|label|bowl|straw|tissue|wrap|foil|sleeve|carton|set)s?\b/i],
@@ -30,6 +51,7 @@ function guessCategory(name) {
 }
 
 async function getAllStock() {
+  await loadCategories();
   const rows = await readTab(STOCK_COUNTS_TAB);
   const [header, ...data] = rows;
   return data.map((r, i) => ({
@@ -87,4 +109,4 @@ async function editStock({ oldName, newName, unit, count, category }, by = 'Manu
   return { itemName: name, unit: unit == null ? existing.unit : String(unit).trim(), currentCount: n, category: cat };
 }
 
-module.exports = { CATEGORIES, guessCategory, editStock, getAllStock, findStockRow, setStockCount, deductStock, STOCK_COUNTS_TAB };
+module.exports = { loadCategories, addCategory, CATEGORIES, guessCategory, editStock, getAllStock, findStockRow, setStockCount, deductStock, STOCK_COUNTS_TAB };

@@ -565,7 +565,10 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
 
 
 // ---- Stock Counts ----
-const STOCK_CATS = ['Drinks', 'Packaging', 'Ingredients', 'Other'];
+let STOCK_CATS = ['Meat', 'Drinks', 'Packaging', 'Ingredients', 'Other'];
+const gramsText = (n) => `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}g`;
+const bagsText = (bags) => (bags || []).map((g) => Number(g).toLocaleString('en-US')).join(' + ');
+const plainName = (n) => String(n || '').replace(/\s*\([^)]*\)\s*/g, ' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const STOCK_UNITS = ['can', 'bottle', 'tin', 'jar', 'pcs', 'pack', 'box', 'bag', 'roll', 'kg', 'g', 'L', 'ml'];
 const PACK_UNITS = ['can', 'bottle', 'tin', 'jar', 'pack', 'box', 'bag'];
 const SIZE_UNITS = ['ml', 'g', 'L', 'kg'];
@@ -591,8 +594,14 @@ async function renderStock() {
   let stock = []; let ingredients = []; let blends = []; let swaps = [];
   try {
     const get = async (url) => { const r = await fetch(url); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Could not load ${url}`); return d; };
+    // Once only: sets up the bagged meat items (Brisket, Chuck...) in the Meat category. Does nothing after the first time.
+    await fetch('/api/stock/seed-meat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => null);
     const [s, ing, bl] = await Promise.all([get('/api/stock'), get('/api/stock/ingredients').catch(() => ({ items: [] })), get('/api/blends').catch(() => ({ blends: [] }))]);
-    stock = s.stock || []; ingredients = ing.items || []; blends = bl.blends || [];
+    stock = s.stock || []; blends = bl.blends || [];
+    if (Array.isArray(s.categories) && s.categories.length) STOCK_CATS = s.categories;
+    // Bagged meat is counted in grams as one item, so the receipts based row for the same meat is hidden.
+    const bagged = new Set(stock.filter((x) => x.bags).map((x) => plainName(x.itemName)));
+    ingredients = (ing.items || []).filter((i) => !bagged.has(plainName(i.name)));
     swaps = (await get('/api/ingredient-swaps').catch(() => ({ swaps: [] }))).swaps || [];
   } catch (err) {
     main.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
@@ -620,14 +629,15 @@ async function renderStock() {
       <div id="stockRed"></div>
       <div id="stockCats"></div>
       <div class="intro" style="margin-top:18px">
-        <h1 class="intro-title" style="font-size:18px">Add stock</h1>
+        <h1 class="intro-title" style="font-size:18px">Add stock <button class="small-button" id="addCategoryBtn" type="button" style="margin-left:8px;font-weight:600">Add category</button></h1>
         <p class="intro-body">Name, count, unit, category and brand, then Add. For a can, bottle, tin or jar, also type how much is in one (ml or g). The form stays open for the next item. A name that already exists updates its count.</p>
       </div>
       <form class="stock-row" id="addStockForm" style="display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center">
         <input class="stock-edit-input" id="addName" list="stockNames" placeholder="Item name" autocomplete="off" required style="width:auto" />
-        <input class="stock-edit-input" id="addCount" type="number" inputmode="decimal" step="any" placeholder="Count" required style="width:auto" />
+        <input class="stock-edit-input" id="addCount" type="number" inputmode="decimal" step="any" placeholder="Count" style="width:auto" />
         <select class="stock-edit-input" id="addUnit" style="width:auto">${unitOptions('can')}</select>
         <select class="stock-edit-input" id="addCat" style="width:auto">${catOptions('', 'Category (auto)')}</select>
+        <div id="addBagRow" style="grid-column:1 / -1;display:none;grid-template-columns:1fr 110px;gap:8px"><input class="stock-edit-input" id="addBags" placeholder="Weight of each bag in grams, e.g. 1400, 180, 240" inputmode="decimal" style="width:auto" /><input class="stock-edit-input" id="addBatch" type="number" step="any" inputmode="decimal" placeholder="Batch g" style="width:auto" /></div>
         <input class="stock-edit-input" id="addBrand" placeholder="Brand (e.g. Coca-Cola, Mutti)" maxlength="60" style="grid-column:1 / -1;width:auto" />
         <div id="addSizeRow" style="grid-column:1 / -1;display:grid;grid-template-columns:1fr 80px;gap:8px"><input class="stock-edit-input" id="addSize" type="number" step="any" inputmode="decimal" placeholder="Size of one can, bottle or tin, e.g. 330" style="width:auto" /><select class="stock-edit-input" id="addSizeUnit" style="width:auto">${sizeUnitOptions('ml')}</select></div>
         <button class="primary-button" type="submit" style="grid-column:1 / -1">Add</button>
@@ -671,19 +681,58 @@ async function renderStock() {
     const rowEl = el(`
       <div class="stock-row"${redRow ? ' style="background:#fdecea;border-color:#e8b4ae"' : ''}>
         <div>
-          <div class="stock-name"${redRow ? ' style="color:#b3261e"' : ''}>${escapeHtml(r.name)}${r.item.brand ? ` <span class="stock-meta" style="font-weight:600">· ${escapeHtml(r.item.brand)}</span>` : ''}${redRow ? ' <span style="font-weight:700">· FILL ASAP</span>' : ''}</div>
+          <div class="stock-name"${redRow ? ' style="color:#b3261e"' : ''}>${escapeHtml(r.name)}${r.item.brand ? ` <span class="stock-meta" style="font-weight:600">· ${escapeHtml(r.item.brand)}</span>` : ''}${redRow ? ` <span style="font-weight:700">· ${r.item.bags && r.qty > 0 ? 'BELOW ONE BATCH' : 'FILL ASAP'}</span>` : ''}</div>
           <div class="stock-meta">${r.kind === 'counted'
-    ? `${escapeHtml(r.unit || '')}${sizeText(r.item) ? ` · ${escapeHtml(sizeText(r.item))} each, ${escapeHtml(String(Math.round(r.qty * r.item.size * 100) / 100))}${escapeHtml(r.item.sizeUnit)} in total` : ''}${redRow ? ` · ${escapeHtml(r.cat || 'no category')}` : ''}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}${!r.saved && r.cat ? ' · category guessed' : ''}`
+    ? (r.item.bags ? `${r.item.bags.length ? 'bags: ' + escapeHtml(bagsText(r.item.bags)) + 'g' : 'no bags yet'}${r.item.batch ? ' · one batch ' + escapeHtml(gramsText(r.item.batch)) : ''}${r.item.batch && r.qty < r.item.batch ? ' · not enough together for one batch' : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}` : `${escapeHtml(r.unit || '')}${sizeText(r.item) ? ` · ${escapeHtml(sizeText(r.item))} each, ${escapeHtml(String(Math.round(r.qty * r.item.size * 100) / 100))}${escapeHtml(r.item.sizeUnit)} in total` : ''}${redRow ? ` · ${escapeHtml(r.cat || 'no category')}` : ''}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}${!r.saved && r.cat ? ' · category guessed' : ''}`)
     : `${r.item.pack ? escapeHtml(r.item.left + r.item.unit) + ' · ' : 'tap to count in packs · '}${r.item.oldest ? 'oldest bought ' + escapeHtml(r.item.oldest) : 'used up'}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''}${r.item.level ? ' · alert below ' + escapeHtml(r.item.level) : ''}`}</div>
         </div>
-        <button class="stock-count-button"${redRow ? ' style="background:#b3261e;color:#fff;border-color:#b3261e"' : ''}>${escapeHtml(r.kind === 'ingredient' ? (r.item.pack ? r.item.pack.label : r.item.left + r.item.unit) : String(r.qty))}</button>
+        <button class="stock-count-button"${redRow ? ' style="background:#b3261e;color:#fff;border-color:#b3261e"' : ''}>${escapeHtml(r.kind === 'ingredient' ? (r.item.pack ? r.item.pack.label : r.item.left + r.item.unit) : r.item.bags ? gramsText(r.qty) : String(r.qty))}</button>
       </div>`);
     rowEl.style.cursor = 'pointer';
     rowEl.addEventListener('click', (e) => { if (e.target.closest('select,input')) return; if (r.kind === 'ingredient') openIngredientEdit(rowEl, r); else openEdit(rowEl, r); });
     return rowEl;
   }
 
+  // Bagged meat: one item counted in grams, bags typed as a list (1400, 180, 240...). The count is always their total.
+  function openBagEdit(rowEl, r) {
+    const it = r.item;
+    const form = el(`
+      <form class="stock-row" style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;border-color:var(--ink,#294bd4)">
+        <input class="stock-edit-input" name="name" value="${escapeHtml(r.name)}" style="width:auto" required />
+        <select class="stock-edit-input" name="cat" style="width:auto">${catOptions(r.cat)}</select>
+        <input class="stock-edit-input" name="bags" value="${escapeHtml((it.bags || []).join(', '))}" placeholder="Weight of each bag in grams, e.g. 1400, 180, 240" inputmode="decimal" style="grid-column:1 / -1;width:auto" />
+        <label class="stock-meta" style="grid-column:1 / -1">One batch uses (g) <input class="stock-edit-input" name="batch" type="number" step="any" inputmode="decimal" value="${it.batch || ''}" placeholder="e.g. 1600" style="width:110px" /></label>
+        <input class="stock-edit-input" name="brand" placeholder="Brand or supplier" value="${escapeHtml(it.brand || '')}" maxlength="60" style="grid-column:1 / -1;width:auto" />
+        <div class="stock-meta" id="bagTotal" style="grid-column:1 / -1"></div>
+        <div style="grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-combine>Combine for a batch</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
+      </form>`);
+    rowEl.replaceWith(form);
+    const f = form.elements;
+    const parse = () => String(f.bags.value).replace(/(\d),(\d{3})(?!\d)/g, '$1$2').split(/[\s,;+g]+/).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    const tick = () => { const t = parse().reduce((a, b) => a + b, 0); const b = Number(f.batch.value); form.querySelector('#bagTotal').textContent = `${parse().length} bag${parse().length === 1 ? '' : 's'}, ${gramsText(t)} together${b > 0 ? (t >= b ? ` · enough for ${Math.floor(t / b)} batch${Math.floor(t / b) === 1 ? '' : 'es'}` : ` · ${gramsText(b - t)} short of one batch`) : ''}`; };
+    ['input', 'change'].forEach((ev) => form.addEventListener(ev, tick)); tick();
+    form.querySelector('[data-cancel]').addEventListener('click', () => renderStock());
+    const save = async (bagsList) => {
+      const name = f.name.value.trim();
+      if (name.toLowerCase() !== r.name.toLowerCase()) await stockPost('/api/stock/edit', { oldName: r.name, newName: name, unit: 'g', category: f.cat.value });
+      await stockPost('/api/stock/bags', { name, bags: bagsList, batch: Number(f.batch.value) || 0, category: f.cat.value });
+      await stockPost('/api/stock/item-meta', { name, oldName: r.name, brand: f.brand.value, size: '', unit: 'g' });
+    };
+    form.addEventListener('submit', async (e) => { e.preventDefault(); try { await save(parse()); renderStock(); } catch (err) { /* shown */ } });
+    form.querySelector('[data-combine]').addEventListener('click', async () => {
+      try {
+        await save(parse());
+        const sg = await stockPost('/api/stock/bags/suggest', { name: f.name.value.trim(), batch: Number(f.batch.value) || undefined });
+        if (sg.short > 0) { alert(`Together the bags are ${gramsText(sg.short)} short of one batch (${gramsText(sg.batch)}). Nothing was used.`); renderStock(); return; }
+        if (!confirm(`Take these bags for one batch: ${sg.use.join(' + ')}g (${gramsText(sg.use.reduce((a, b) => a + b, 0))}, ${gramsText(sg.over)} over ${gramsText(sg.batch)}).\n\nOK takes them out of the count. Left over: ${sg.leave.length ? sg.leave.join(' + ') + 'g' : 'nothing'}.`)) { renderStock(); return; }
+        await stockPost('/api/stock/bags', { name: f.name.value.trim(), bags: sg.leave, batch: sg.batch, category: f.cat.value });
+        renderStock();
+      } catch (err) { /* shown */ }
+    });
+  }
+
   function openEdit(rowEl, r) {
+    if (r.item.bags) return openBagEdit(rowEl, r);
     const form = el(`
       <form class="stock-row" style="display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center;border-color:var(--ink,#294bd4)">
         <input class="stock-edit-input" name="name" value="${escapeHtml(r.name)}" style="width:auto" required />
@@ -778,14 +827,28 @@ async function renderStock() {
   const say = (t) => { const m = document.querySelector('#addMsg'); if (m) m.textContent = t; };
   const syncSize = () => { section.querySelector('#addSizeRow').style.display = PACK_UNITS.includes(section.querySelector('#addUnit').value) ? 'grid' : 'none'; };
   section.querySelector('#addUnit').addEventListener('change', syncSize); syncSize();
+  const syncMeat = () => { const m = section.querySelector('#addCat').value === 'Meat'; section.querySelector('#addBagRow').style.display = m ? 'grid' : 'none'; section.querySelector('#addCount').style.display = m ? 'none' : ''; section.querySelector('#addUnit').style.display = m ? 'none' : ''; if (m) section.querySelector('#addSizeRow').style.display = 'none'; else syncSize(); };
+  section.querySelector('#addCat').addEventListener('change', syncMeat); syncMeat();
+  section.querySelector('#addCategoryBtn').addEventListener('click', async () => {
+    const name = prompt('Name of the new category (for example Dairy, Sauces):');
+    if (!name || !name.trim()) return;
+    try { await stockPost('/api/stock/category', { name: name.trim() }); await renderStock(); say(`Category added: ${name.trim()}`); } catch (err) { /* shown */ }
+  });
   section.querySelector('#addStockForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = section.querySelector('#addName').value.trim();
     const count = Number(section.querySelector('#addCount').value);
     const unit = section.querySelector('#addUnit').value;
     const category = section.querySelector('#addCat').value;
-    if (!name || !Number.isFinite(count)) return;
+    const meat = category === 'Meat';
+    if (!name || (!meat && !Number.isFinite(count)) || (!meat && section.querySelector('#addCount').value === '')) return;
     try {
+      if (meat) {
+        await stockPost('/api/stock/bags', { name, bags: section.querySelector('#addBags').value, batch: Number(section.querySelector('#addBatch').value) || 0, category: 'Meat' });
+        const brandM = section.querySelector('#addBrand').value.trim();
+        if (brandM) await stockPost('/api/stock/item-meta', { name, brand: brandM, size: '', unit: 'g' });
+        await renderStock(); say(`Saved: ${name}, counted in grams`); return;
+      }
       await saveStock(name, count, unit, category);
       const brand = section.querySelector('#addBrand').value.trim();
       const size = section.querySelector('#addSize').value;

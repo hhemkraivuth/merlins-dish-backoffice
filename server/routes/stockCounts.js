@@ -7,11 +7,14 @@ async function listStock(req, res) {
     const stock = await getAllStock();
     const { brands, sizes } = await loadMeta();
     const usage = await ls.loadUsage(bangkokToday()).catch(() => null);
-    res.json({ stock: stock.map((i) => {
+    const bagMap = await require('../lib/stockBags').load().catch(() => ({}));
+    const categories = await require('../lib/stockCounts').loadCategories();
+    res.json({ categories, stock: stock.map((i) => {
       const category = i.category || i.guess || '';
       const days = ls.daysLeft({ name: i.itemName, count: i.currentCount, unit: i.unit, usage });
       const nk = normKey(i.itemName); const sz = sizes[nk] || {};
-      return { ...i, brand: brands[nk] || '', size: sz.size || null, sizeUnit: sz.unit || '', daysLeft: days === null ? null : Math.round(days), red: ls.statusOf({ count: i.currentCount, days, category }) };
+      const bg = bagMap[nk]; const batch = bg && bg.batch > 0 ? bg.batch : null;
+      return { ...i, brand: brands[nk] || '', size: sz.size || null, sizeUnit: sz.unit || '', daysLeft: days === null ? null : Math.round(days), bags: bg ? bg.bags : null, batch, red: ls.statusOf({ count: i.currentCount, days, category, belowBatch: Boolean(batch && i.currentCount < batch) }) };
     }), redDays: ls.RED_DAYS });
   } catch (err) {
     console.error(err);
@@ -200,6 +203,58 @@ async function countIngredientPacks(req, res) {
   }
 }
 
+// Bagged meat: the item is counted in grams and its bags are a list under it. Saving bags sets the count to their total.
+async function saveBags(req, res) {
+  try {
+    const bagsLib = require('../lib/stockBags'); const sc = require('../lib/stockCounts');
+    const { name, bags, batch, category } = req.body || {};
+    const nm = String(name || '').trim();
+    if (!nm) return res.status(400).json({ error: 'Send the item name.' });
+    const list = bagsLib.parseBags(bags); const map = await bagsLib.load(); const k = normKey(nm);
+    const b = Number(batch);
+    map[k] = { bags: list, batch: Number.isFinite(b) && b > 0 ? b : (map[k] && map[k].batch) || 0 };
+    await bagsLib.saveAll(map);
+    const existing = await sc.findStockRow(nm);
+    await sc.setStockCount(nm, bagsLib.total(list), 'g', 'Manual', category || (existing && existing.category) || 'Meat');
+    res.json({ name: nm, bags: list, total: bagsLib.total(list), batch: map[k].batch });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+}
+async function suggestBags(req, res) {
+  try {
+    const bagsLib = require('../lib/stockBags'); const { name, batch } = req.body || {};
+    const map = await bagsLib.load(); const e = map[normKey(name)];
+    if (!e) return res.status(404).json({ error: 'That item has no bags yet.' });
+    res.json({ name, batch: Number(batch) > 0 ? Number(batch) : e.batch, ...bagsLib.suggest(e.bags, Number(batch) > 0 ? Number(batch) : e.batch) });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+}
+async function addCategoryRoute(req, res) {
+  try { const name = await require('../lib/stockCounts').addCategory((req.body || {}).name); res.json({ name, categories: await require('../lib/stockCounts').loadCategories() }); }
+  catch (err) { res.status(400).json({ error: err.message }); }
+}
+// Once only: creates the bagged meat items in the Meat category and folds old rows like "Brisket 1,400g" into the bags.
+const MEAT = [['Brisket', 1600], ['Chuck', 0], ['Chicken thigh', 0], ['Pork mince', 0], ['Pork shoulder', 0], ['Bacon steak', 0], ['Bacon slice', 0]];
+async function seedMeat(req, res) {
+  try {
+    const bagsLib = require('../lib/stockBags'); const sc = require('../lib/stockCounts'); const st = require('../lib/appState');
+    if (await st.getState('meat_seeded') && !(req.body || {}).force) return res.json({ already: true });
+    const { deleteRowsWhere } = require('../lib/sheets');
+    const map = await bagsLib.load(); const all = await sc.getAllStock(); const moved = [];
+    for (const [nm, batch] of MEAT) {
+      const k = normKey(nm); const first = nm.split(' ')[0].toLowerCase();
+      const old = all.filter((r) => { const t = String(r.itemName || '').toLowerCase(); return t !== nm.toLowerCase() && t.startsWith(first) && /\d\s*g\b/.test(t) && (first === 'brisket' || first === 'chuck'); });
+      const bags = (map[k] && map[k].bags) || [];
+      for (const r of old) { const g = bagsLib.parseBags(String(r.itemName).replace(/^[^\d]*/, '')); bags.push(...(g.length ? g : [Number(r.currentCount)].filter((n) => n > 0))); moved.push(r.itemName); }
+      map[k] = { bags, batch: batch || (map[k] && map[k].batch) || 0 };
+      const have = await sc.findStockRow(nm);
+      await sc.setStockCount(nm, bagsLib.total(bags), 'g', 'Manual', 'Meat');
+      if (have && !have.category) { /* category set by setStockCount */ }
+    }
+    if (moved.length) { const set = new Set(moved.map((m) => m.toLowerCase())); await deleteRowsWhere(sc.STOCK_COUNTS_TAB, (r) => set.has(String(r[0] || '').toLowerCase())); }
+    await bagsLib.saveAll(map); await st.setState('meat_seeded', '1');
+    res.json({ created: MEAT.map((m) => m[0]), moved });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+}
+
 const wrapInv = (fn) => async (req, res) => { const done = res.json.bind(res); res.json = (b) => { if (res.statusCode < 400) { try { require('../lib/shoppingService').invalidate(); } catch (e) { /* ignore */ } } return done(b); }; return fn(req, res); };
 
-module.exports = { listStock, updateStock: wrapInv(updateStock), editStockRoute: wrapInv(editStockRoute), seedPackagingRoute, listIngredientStock, countIngredientPacks: wrapInv(countIngredientPacks), listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand, setItemMeta: wrapInv(setItemMeta) };
+module.exports = { listStock, updateStock: wrapInv(updateStock), editStockRoute: wrapInv(editStockRoute), seedPackagingRoute, listIngredientStock, countIngredientPacks: wrapInv(countIngredientPacks), listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand, setItemMeta: wrapInv(setItemMeta), saveBags: wrapInv(saveBags), suggestBags, addCategoryRoute, seedMeat: wrapInv(seedMeat) };

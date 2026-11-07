@@ -46,6 +46,8 @@ async function getPlan({ force = false } = {}) {
   try {
     const { getAllStock } = require('./stockCounts'); const { normName } = require('./priceBook'); const st = require('./appState');
     let sizes = {}; try { sizes = JSON.parse((await st.getState('stock_item_sizes')) || '{}'); } catch (err) { sizes = {}; }
+    // Bagged meat is counted in grams by hand, so its bag total replaces whatever the receipts say is left.
+    try { for (const k of Object.keys(await require('./stockBags').load())) stock.delete(require('./countedStock').baseNameOf(k, normName)); } catch (err) { /* no bags yet */ }
     const counted = require('./countedStock').countedToStock(await getAllStock(), sizes, normName, stock);
     for (const [k, v] of counted.stock) stock.set(k, v);
     warnings.push(...counted.warnings.slice(0, 6));

@@ -40,23 +40,29 @@ function daysLeft({ name, count, unit, usage, size }) {
 
 // Red when there is none, or when the use is known and it will not last RED_DAYS. With no use known, the old rule stands for
 // cans, drinks and packaging (below 2). An ingredient with no use known is only red at 0 (or at its own alert level).
-function statusOf({ count, days, category, low }) {
+function statusOf({ count, days, category, low, belowBatch }) {
   if (!(count > 0)) return true;
+  if (belowBatch) return true; // bagged meat: not enough together for one batch
   if (days !== null && days !== undefined) return days < RED_DAYS;
   if (low) return true;
-  return category === 'Ingredients' ? false : isRed(count);
+  return category === 'Ingredients' || category === 'Meat' ? false : isRed(count);
 }
 
 // manual: getAllStock() rows. ingredients: ingredientStockItems(). usage: from loadUsage().
 // Returns [{ name, qty, unit, kind, category, daysLeft }] with the soonest to run out first.
-function buildUrgent({ manual = [], ingredients = [], usage = null }) {
+function buildUrgent({ manual = [], ingredients = [], usage = null, bags = {} }) {
   const out = [];
+  const { normName } = require('./priceBook');
+  const baseOf = (n) => normName(String(n || '').replace(/\s*\([^)]*\)\s*/g, ' '));
+  const bagged = new Set(Object.keys(bags).map((k) => baseOf(k)));
   for (const m of manual) {
     const category = m.category || m.guess || '';
     const days = daysLeft({ name: m.itemName, count: m.currentCount, unit: m.unit, usage });
-    if (statusOf({ count: m.currentCount, days, category })) out.push({ name: m.itemName, qty: m.currentCount, unit: m.unit || '', kind: 'counted', category, daysLeft: days });
+    const bg = bags[normName(m.itemName)];
+    if (statusOf({ count: m.currentCount, days, category, belowBatch: Boolean(bg && bg.batch > 0 && m.currentCount < bg.batch) })) out.push({ name: m.itemName, qty: m.currentCount, unit: m.unit || '', kind: 'counted', category, daysLeft: days });
   }
   for (const i of ingredients) {
+    if (bagged.has(baseOf(i.name))) continue; // bagged meat is counted as one item in grams
     const packs = i.pack ? i.pack.packs : null;
     const days = i.daysLeft !== undefined ? i.daysLeft : daysLeft({ name: i.name, count: i.left, unit: i.unit, usage });
     if (statusOf({ count: i.left, days, category: 'Ingredients', low: i.low })) out.push({ name: i.name, qty: packs !== null ? packs : i.left, unit: packs !== null ? i.pack.word : i.unit, kind: 'ingredient', category: 'Ingredients', daysLeft: days });
@@ -125,7 +131,8 @@ async function loadUrgent() {
   const { bangkokToday } = require('./dates');
   const usage = await loadUsage(bangkokToday()).catch(() => null);
   const [manual, ingredients] = await Promise.all([getAllStock().catch(() => []), ingredientStockItems(usage).catch(() => [])]);
-  return buildUrgent({ manual, ingredients, usage });
+  let bags = {}; try { bags = await require('./stockBags').load(); } catch (err) { bags = {}; }
+  return buildUrgent({ manual, ingredients, usage, bags });
 }
 
 module.exports = { RED_BELOW, RED_DAYS, isRed, statusOf, daysLeft, sizeFromName, baseKey, usageFromLines, loadUsage, buildUrgent, ingredientStockItems, loadUrgent };

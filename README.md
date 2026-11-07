@@ -238,3 +238,11 @@ Stock now is estimated from receipts minus usual daily use, so keep logging rece
 - **Menu bible** (Index tab, above Commands): names and descriptions for every dish, pasta and drink (Thai, English, Grab name, Grab description and translation), from `server/data/menuBible.json`. Edit, add, delete and download. Every save is a new row in the Claude Log tab "Menu Bible Edits".
 - **Numbers**: a row "Net profit not yet taken out" (net profit less borrowed). **Pit**: rosemary and basil by the kitchen, chairs at the desks, framed pig and giraffe drawing (`public/pig-giraffe.png`).
 - **Shopping plan** now also counts hand counted stock (Stock Counts: cans, bottles, tins, packets) once converted to ml, g or pieces using the size of one. Items without a size are listed as a warning on the plan. Any stock change refreshes the plan straight away.
+
+## Update 53 notes: Meat and bags
+- The Stock page has a **Meat** category at the top: Brisket, Chuck, Chicken thigh, Pork mince, Pork shoulder, Bacon steak, Bacon slice. They are created once, the first time the Stock page opens (App State flag `meat_seeded`).
+- A meat item is counted in grams as one item. Its bags are a list (`1400, 180, 240`), kept in App State `stock_bags`, and the count is always their total. One batch weight is set per item (Brisket 1,600 g).
+- Red only when the total is below one batch (or nothing is left). Old rows such as "Brisket 1,400g" are folded into the bags and removed on the first open.
+- **Combine for a batch** finds the bags that reach the batch weight with the least over, asks, then removes them from the count.
+- The shopping plan reads the bag total for these items instead of the receipts. The receipts based row for the same meat is hidden from the list.
+- **Add category** (Stock page) adds your own category, kept in App State `stock_extra_categories`.
