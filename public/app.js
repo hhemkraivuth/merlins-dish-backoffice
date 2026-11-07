@@ -566,7 +566,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
 
 // ---- Stock Counts ----
 let STOCK_CATS = ['Meat', 'Drinks', 'Packaging', 'Ingredients', 'Other'];
-const gramsText = (n) => `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}g`;
+const gramsText = (n, u = 'g') => `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}${u === 'pcs' ? ' pcs' : 'g'}`;
 const bagsText = (bags) => (bags || []).map((g) => Number(g).toLocaleString('en-US')).join(' + ');
 const plainName = (n) => String(n || '').replace(/\s*\([^)]*\)\s*/g, ' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const STOCK_UNITS = ['can', 'bottle', 'tin', 'jar', 'pcs', 'pack', 'box', 'bag', 'roll', 'kg', 'g', 'L', 'ml'];
@@ -683,10 +683,10 @@ async function renderStock() {
         <div>
           <div class="stock-name"${redRow ? ' style="color:#b3261e"' : ''}>${escapeHtml(r.name)}${r.item.brand ? ` <span class="stock-meta" style="font-weight:600">· ${escapeHtml(r.item.brand)}</span>` : ''}${redRow ? ` <span style="font-weight:700">· ${r.item.bags && r.qty > 0 ? 'BELOW ONE BATCH' : 'FILL ASAP'}</span>` : ''}</div>
           <div class="stock-meta">${r.kind === 'counted'
-    ? (r.item.bags ? `${r.item.bags.length ? 'bags: ' + escapeHtml(bagsText(r.item.bags)) + 'g' : 'no bags yet'}${r.item.batch ? ' · one batch ' + escapeHtml(gramsText(r.item.batch)) : ''}${r.item.batch && r.qty < r.item.batch ? ' · not enough together for one batch' : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}` : `${escapeHtml(r.unit || '')}${sizeText(r.item) ? ` · ${escapeHtml(sizeText(r.item))} each, ${escapeHtml(String(Math.round(r.qty * r.item.size * 100) / 100))}${escapeHtml(r.item.sizeUnit)} in total` : ''}${redRow ? ` · ${escapeHtml(r.cat || 'no category')}` : ''}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}${!r.saved && r.cat ? ' · category guessed' : ''}`)
+    ? (r.item.bags ? `${r.item.bags.length ? 'bags: ' + escapeHtml(bagsText(r.item.bags)) + (r.unit === 'pcs' ? ' pcs' : 'g') : 'no bags yet'}${r.item.batch ? ' · one batch ' + escapeHtml(gramsText(r.item.batch, r.unit)) : ''}${r.item.batch && r.qty < r.item.batch ? ' · not enough together for one batch' : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}` : `${escapeHtml(r.unit || '')}${sizeText(r.item) ? ` · ${escapeHtml(sizeText(r.item))} each, ${escapeHtml(String(Math.round(r.qty * r.item.size * 100) / 100))}${escapeHtml(r.item.sizeUnit)} in total` : ''}${redRow ? ` · ${escapeHtml(r.cat || 'no category')}` : ''}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}${!r.saved && r.cat ? ' · category guessed' : ''}`)
     : `${r.item.pack ? escapeHtml(r.item.left + r.item.unit) + ' · ' : 'tap to count in packs · '}${r.item.oldest ? 'oldest bought ' + escapeHtml(r.item.oldest) : 'used up'}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''}${r.item.level ? ' · alert below ' + escapeHtml(r.item.level) : ''}`}</div>
         </div>
-        <button class="stock-count-button"${redRow ? ' style="background:#b3261e;color:#fff;border-color:#b3261e"' : ''}>${escapeHtml(r.kind === 'ingredient' ? (r.item.pack ? r.item.pack.label : r.item.left + r.item.unit) : r.item.bags ? gramsText(r.qty) : String(r.qty))}</button>
+        <button class="stock-count-button"${redRow ? ' style="background:#b3261e;color:#fff;border-color:#b3261e"' : ''}>${escapeHtml(r.kind === 'ingredient' ? (r.item.pack ? r.item.pack.label : r.item.left + r.item.unit) : r.item.bags ? gramsText(r.qty, r.unit) : String(r.qty))}</button>
       </div>`);
     rowEl.style.cursor = 'pointer';
     rowEl.addEventListener('click', (e) => { if (e.target.closest('select,input')) return; if (r.kind === 'ingredient') openIngredientEdit(rowEl, r); else openEdit(rowEl, r); });
@@ -701,7 +701,8 @@ async function renderStock() {
         <input class="stock-edit-input" name="name" value="${escapeHtml(r.name)}" style="width:auto" required />
         <select class="stock-edit-input" name="cat" style="width:auto">${catOptions(r.cat)}</select>
         <input class="stock-edit-input" name="bags" value="${escapeHtml((it.bags || []).join(', '))}" placeholder="Weight of each bag in grams, e.g. 1400, 180, 240" inputmode="decimal" style="grid-column:1 / -1;width:auto" />
-        <label class="stock-meta" style="grid-column:1 / -1">One batch uses (g) <input class="stock-edit-input" name="batch" type="number" step="any" inputmode="decimal" value="${it.batch || ''}" placeholder="e.g. 1600" style="width:110px" /></label>
+        <select class="stock-edit-input" name="bunit" style="width:auto"><option value="g"${r.unit === 'pcs' ? '' : ' selected'}>Counted in grams</option><option value="pcs"${r.unit === 'pcs' ? ' selected' : ''}>Counted in pieces</option></select>
+        <label class="stock-meta" style="grid-column:1 / -1">One batch uses <input class="stock-edit-input" name="batch" type="number" step="any" inputmode="decimal" value="${it.batch || ''}" placeholder="e.g. 1600" style="width:110px" /></label>
         <input class="stock-edit-input" name="brand" placeholder="Brand or supplier" value="${escapeHtml(it.brand || '')}" maxlength="60" style="grid-column:1 / -1;width:auto" />
         <div class="stock-meta" id="bagTotal" style="grid-column:1 / -1"></div>
         <div style="grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-combine>Combine for a batch</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
@@ -709,13 +710,13 @@ async function renderStock() {
     rowEl.replaceWith(form);
     const f = form.elements;
     const parse = () => String(f.bags.value).replace(/(\d),(\d{3})(?!\d)/g, '$1$2').split(/[\s,;+g]+/).map(Number).filter((n) => Number.isFinite(n) && n > 0);
-    const tick = () => { const t = parse().reduce((a, b) => a + b, 0); const b = Number(f.batch.value); form.querySelector('#bagTotal').textContent = `${parse().length} bag${parse().length === 1 ? '' : 's'}, ${gramsText(t)} together${b > 0 ? (t >= b ? ` · enough for ${Math.floor(t / b)} batch${Math.floor(t / b) === 1 ? '' : 'es'}` : ` · ${gramsText(b - t)} short of one batch`) : ''}`; };
+    const tick = () => { const t = parse().reduce((a, b) => a + b, 0); const b = Number(f.batch.value); form.querySelector('#bagTotal').textContent = `${parse().length} bag${parse().length === 1 ? '' : 's'}, ${gramsText(t, f.bunit.value)} together${b > 0 ? (t >= b ? ` · enough for ${Math.floor(t / b)} batch${Math.floor(t / b) === 1 ? '' : 'es'}` : ` · ${gramsText(b - t, f.bunit.value)} short of one batch`) : ''}`; };
     ['input', 'change'].forEach((ev) => form.addEventListener(ev, tick)); tick();
     form.querySelector('[data-cancel]').addEventListener('click', () => renderStock());
     const save = async (bagsList) => {
       const name = f.name.value.trim();
-      if (name.toLowerCase() !== r.name.toLowerCase()) await stockPost('/api/stock/edit', { oldName: r.name, newName: name, unit: 'g', category: f.cat.value });
-      await stockPost('/api/stock/bags', { name, bags: bagsList, batch: Number(f.batch.value) || 0, category: f.cat.value });
+      if (name.toLowerCase() !== r.name.toLowerCase()) await stockPost('/api/stock/edit', { oldName: r.name, newName: name, unit: f.bunit.value, category: f.cat.value });
+      await stockPost('/api/stock/bags', { name, bags: bagsList, batch: Number(f.batch.value) || 0, category: f.cat.value, unit: f.bunit.value });
       await stockPost('/api/stock/item-meta', { name, oldName: r.name, brand: f.brand.value, size: '', unit: 'g' });
     };
     form.addEventListener('submit', async (e) => { e.preventDefault(); try { await save(parse()); renderStock(); } catch (err) { /* shown */ } });
@@ -723,9 +724,9 @@ async function renderStock() {
       try {
         await save(parse());
         const sg = await stockPost('/api/stock/bags/suggest', { name: f.name.value.trim(), batch: Number(f.batch.value) || undefined });
-        if (sg.short > 0) { alert(`Together the bags are ${gramsText(sg.short)} short of one batch (${gramsText(sg.batch)}). Nothing was used.`); renderStock(); return; }
-        if (!confirm(`Take these bags for one batch: ${sg.use.join(' + ')}g (${gramsText(sg.use.reduce((a, b) => a + b, 0))}, ${gramsText(sg.over)} over ${gramsText(sg.batch)}).\n\nOK takes them out of the count. Left over: ${sg.leave.length ? sg.leave.join(' + ') + 'g' : 'nothing'}.`)) { renderStock(); return; }
-        await stockPost('/api/stock/bags', { name: f.name.value.trim(), bags: sg.leave, batch: sg.batch, category: f.cat.value });
+        if (sg.short > 0) { alert(`Together the bags are ${gramsText(sg.short, f.bunit.value)} short of one batch (${gramsText(sg.batch, f.bunit.value)}). Nothing was used.`); renderStock(); return; }
+        if (!confirm(`Take these bags for one batch: ${sg.use.join(' + ')} (${gramsText(sg.use.reduce((a, b) => a + b, 0), f.bunit.value)}, ${gramsText(sg.over, f.bunit.value)} over ${gramsText(sg.batch, f.bunit.value)}).\n\nOK takes them out of the count. Left over: ${sg.leave.length ? sg.leave.join(' + ') : 'nothing'}.`)) { renderStock(); return; }
+        await stockPost('/api/stock/bags', { name: f.name.value.trim(), bags: sg.leave, batch: sg.batch, category: f.cat.value, unit: f.bunit.value });
         renderStock();
       } catch (err) { /* shown */ }
     });
@@ -802,7 +803,7 @@ async function renderStock() {
 
   const catBox = section.querySelector('#stockCats');
   [...STOCK_CATS, ''].forEach((cat) => {
-    const inCat = rest.filter((r) => r.cat === cat).sort(byQty);
+    const inCat = rest.filter((r) => r.cat === cat).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
     if (!inCat.length && cat) return;
     if (!inCat.length) return;
     catBox.appendChild(el(`<div class="intro" style="margin-top:18px"><h1 class="intro-title" style="font-size:18px">${cat || 'Needs a category'}</h1>${cat ? '' : '<p class="intro-body">I could not tell where these go. Pick a category once and they are sorted from then on.</p>'}</div>`));
@@ -827,7 +828,7 @@ async function renderStock() {
   const say = (t) => { const m = document.querySelector('#addMsg'); if (m) m.textContent = t; };
   const syncSize = () => { section.querySelector('#addSizeRow').style.display = PACK_UNITS.includes(section.querySelector('#addUnit').value) ? 'grid' : 'none'; };
   section.querySelector('#addUnit').addEventListener('change', syncSize); syncSize();
-  const syncMeat = () => { const m = section.querySelector('#addCat').value === 'Meat'; section.querySelector('#addBagRow').style.display = m ? 'grid' : 'none'; section.querySelector('#addCount').style.display = m ? 'none' : ''; section.querySelector('#addUnit').style.display = m ? 'none' : ''; if (m) section.querySelector('#addSizeRow').style.display = 'none'; else syncSize(); };
+  const syncMeat = () => { const m = section.querySelector('#addCat').value === 'Meat'; section.querySelector('#addBagRow').style.display = m ? 'grid' : 'none'; section.querySelector('#addCount').style.display = m ? 'none' : '';  if (m) section.querySelector('#addSizeRow').style.display = 'none'; else syncSize(); };
   section.querySelector('#addCat').addEventListener('change', syncMeat); syncMeat();
   section.querySelector('#addCategoryBtn').addEventListener('click', async () => {
     const name = prompt('Name of the new category (for example Dairy, Sauces):');
@@ -844,7 +845,7 @@ async function renderStock() {
     if (!name || (!meat && !Number.isFinite(count)) || (!meat && section.querySelector('#addCount').value === '')) return;
     try {
       if (meat) {
-        await stockPost('/api/stock/bags', { name, bags: section.querySelector('#addBags').value, batch: Number(section.querySelector('#addBatch').value) || 0, category: 'Meat' });
+        await stockPost('/api/stock/bags', { name, bags: section.querySelector('#addBags').value, batch: Number(section.querySelector('#addBatch').value) || 0, category: 'Meat', unit: unit === 'pcs' ? 'pcs' : 'g' });
         const brandM = section.querySelector('#addBrand').value.trim();
         if (brandM) await stockPost('/api/stock/item-meta', { name, brand: brandM, size: '', unit: 'g' });
         await renderStock(); say(`Saved: ${name}, counted in grams`); return;

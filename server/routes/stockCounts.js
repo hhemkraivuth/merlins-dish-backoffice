@@ -207,16 +207,17 @@ async function countIngredientPacks(req, res) {
 async function saveBags(req, res) {
   try {
     const bagsLib = require('../lib/stockBags'); const sc = require('../lib/stockCounts');
-    const { name, bags, batch, category } = req.body || {};
+    const { name, bags, batch, category, unit } = req.body || {};
+    const u = String(unit || '').toLowerCase() === 'pcs' ? 'pcs' : 'g';
     const nm = String(name || '').trim();
     if (!nm) return res.status(400).json({ error: 'Send the item name.' });
     const list = bagsLib.parseBags(bags); const map = await bagsLib.load(); const k = normKey(nm);
     const b = Number(batch);
-    map[k] = { bags: list, batch: Number.isFinite(b) && b > 0 ? b : (map[k] && map[k].batch) || 0 };
+    map[k] = { bags: list, unit: unit ? u : (map[k] && map[k].unit) || 'g', batch: Number.isFinite(b) && b > 0 ? b : (map[k] && map[k].batch) || 0 };
     await bagsLib.saveAll(map);
     const existing = await sc.findStockRow(nm);
-    await sc.setStockCount(nm, bagsLib.total(list), 'g', 'Manual', category || (existing && existing.category) || 'Meat');
-    res.json({ name: nm, bags: list, total: bagsLib.total(list), batch: map[k].batch });
+    await sc.setStockCount(nm, bagsLib.total(list), map[k].unit, 'Manual', category || (existing && existing.category) || 'Meat');
+    res.json({ name: nm, bags: list, total: bagsLib.total(list), batch: map[k].batch, unit: map[k].unit });
   } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 }
 async function suggestBags(req, res) {
@@ -236,21 +237,33 @@ const MEAT = [['Brisket', 1600], ['Chuck', 0], ['Chicken thigh', 0], ['Pork minc
 async function seedMeat(req, res) {
   try {
     const bagsLib = require('../lib/stockBags'); const sc = require('../lib/stockCounts'); const st = require('../lib/appState');
-    if (await st.getState('meat_seeded') && !(req.body || {}).force) return res.json({ already: true });
+    if (await st.getState('meat_seeded_v2') && !(req.body || {}).force) return res.json({ already: true });
     const { deleteRowsWhere } = require('../lib/sheets');
     const map = await bagsLib.load(); const all = await sc.getAllStock(); const moved = [];
+    const canon = (t) => String(t || '').toLowerCase().replace(/\bminced\b/g, 'mince').replace(/\s+/g, ' ').trim();
+    // An old row looks like "Pork shoulder 1,000g" with a count of 2 (two bags of 1,000 g) or "Chicken thigh 3pcs" with a count of 1.
+    const OLD = /^(.*?)\s+(\d[\d,]*(?:\.\d+)?)\s*(kg|g|pcs|pc|pieces|piece)\b\s*$/i;
+    const found = {};
+    for (const r of all) {
+      const m = OLD.exec(String(r.itemName || '').trim());
+      if (!m) continue;
+      const base = canon(m[1]); const meat = MEAT.find((x) => canon(x[0]) === base);
+      if (!meat) continue;
+      let w = Number(m[2].replace(/,/g, '')); const u = m[3].toLowerCase();
+      const unit = u.startsWith('p') ? 'pcs' : 'g'; if (u === 'kg') w *= 1000;
+      const n = Math.max(1, Math.round(Number(r.currentCount) || 1));
+      (found[meat[0]] = found[meat[0]] || { unit, bags: [] }).bags.push(...Array(n).fill(w));
+      moved.push(r.itemName);
+    }
     for (const [nm, batch] of MEAT) {
-      const k = normKey(nm); const first = nm.split(' ')[0].toLowerCase();
-      const old = all.filter((r) => { const t = String(r.itemName || '').toLowerCase(); return t !== nm.toLowerCase() && t.startsWith(first) && /\d\s*g\b/.test(t) && (first === 'brisket' || first === 'chuck'); });
-      const bags = (map[k] && map[k].bags) || [];
-      for (const r of old) { const g = bagsLib.parseBags(String(r.itemName).replace(/^[^\d]*/, '')); bags.push(...(g.length ? g : [Number(r.currentCount)].filter((n) => n > 0))); moved.push(r.itemName); }
-      map[k] = { bags, batch: batch || (map[k] && map[k].batch) || 0 };
-      const have = await sc.findStockRow(nm);
-      await sc.setStockCount(nm, bagsLib.total(bags), 'g', 'Manual', 'Meat');
-      if (have && !have.category) { /* category set by setStockCount */ }
+      const k = normKey(nm); const cur = map[k] || { bags: [], batch: 0 };
+      const add = found[nm];
+      const bags = [...(cur.bags || []), ...(add ? add.bags : [])];
+      map[k] = { bags, unit: (add && add.unit) || cur.unit || 'g', batch: cur.batch || batch || 0 };
+      await sc.setStockCount(nm, bagsLib.total(bags), map[k].unit, 'Manual', 'Meat');
     }
     if (moved.length) { const set = new Set(moved.map((m) => m.toLowerCase())); await deleteRowsWhere(sc.STOCK_COUNTS_TAB, (r) => set.has(String(r[0] || '').toLowerCase())); }
-    await bagsLib.saveAll(map); await st.setState('meat_seeded', '1');
+    await bagsLib.saveAll(map); await st.setState('meat_seeded_v2', '1');
     res.json({ created: MEAT.map((m) => m[0]), moved });
   } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 }
