@@ -7,7 +7,8 @@ const KEY = 'stock_bags'; // { [normName]: { bags: [g, ...], batch: g } }
 
 function parseBags(input) {
   if (Array.isArray(input)) return input.map(Number).filter((n) => Number.isFinite(n) && n > 0).map((n) => Math.round(n * 100) / 100);
-  const t = String(input || '').replace(/g\b/gi, ' ').replace(/(\d),(\d{3})(?!\d)/g, '$1$2');
+  // "220 x 5" means five bags of 220 (weight first, then how many).
+  const t = String(input || '').replace(/(\d),(\d{3})(?!\d)/g, '$1$2').replace(/(\d+(?:\.\d+)?)\s*(?:g|pcs)?\s*[x×*]\s*(\d+)\b/gi, (m, w, n) => Array(Math.min(Number(n), 200)).fill(w).join(' ')).replace(/g\b/gi, ' ');
   return t.split(/[\s,;+]+/).map(Number).filter((n) => Number.isFinite(n) && n > 0).map((n) => Math.round(n * 100) / 100);
 }
 const total = (bags) => Math.round((bags || []).reduce((a, b) => a + b, 0) * 100) / 100;

@@ -704,20 +704,28 @@ async function renderStock() {
         <select class="stock-edit-input" name="bunit" style="width:auto"><option value="g"${r.unit === 'pcs' ? '' : ' selected'}>Counted in grams</option><option value="pcs"${r.unit === 'pcs' ? ' selected' : ''}>Counted in pieces</option></select>
         <label class="stock-meta" style="grid-column:1 / -1">One batch uses <input class="stock-edit-input" name="batch" type="number" step="any" inputmode="decimal" value="${it.batch || ''}" placeholder="e.g. 1600" style="width:110px" /></label>
         <input class="stock-edit-input" name="brand" placeholder="Brand or supplier" value="${escapeHtml(it.brand || '')}" maxlength="60" style="grid-column:1 / -1;width:auto" />
+        <div class="stock-meta" style="grid-column:1 / -1;display:flex;gap:6px;align-items:center;flex-wrap:wrap">Add bags: <input class="stock-edit-input" name="addW" type="number" step="any" inputmode="decimal" placeholder="weight" style="width:80px" /> × <input class="stock-edit-input" name="addN" type="number" step="1" inputmode="numeric" placeholder="how many" value="1" style="width:80px" /> <button class="small-button" type="button" data-addbags>Add</button></div>
+        <label class="stock-meta" id="pieceRow" style="grid-column:1 / -1">One piece weighs (g) <input class="stock-edit-input" name="piece" type="number" step="any" inputmode="decimal" value="${it.unit === 'pcs' && it.size ? it.size : ''}" placeholder="e.g. 100" style="width:90px" /></label>
         <div class="stock-meta" id="bagTotal" style="grid-column:1 / -1"></div>
         <div style="grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-combine>Combine for a batch</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
       </form>`);
     rowEl.replaceWith(form);
     const f = form.elements;
-    const parse = () => String(f.bags.value).replace(/(\d),(\d{3})(?!\d)/g, '$1$2').split(/[\s,;+g]+/).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    const parse = () => String(f.bags.value).replace(/(\d),(\d{3})(?!\d)/g, '$1$2').replace(/(\d+(?:\.\d+)?)\s*(?:g|pcs)?\s*[x×*]\s*(\d+)\b/gi, (m, w, n) => Array(Math.min(Number(n), 200)).fill(w).join(' ')).split(/[\s,;+g]+/).map(Number).filter((n) => Number.isFinite(n) && n > 0);
     const tick = () => { const t = parse().reduce((a, b) => a + b, 0); const b = Number(f.batch.value); form.querySelector('#bagTotal').textContent = `${parse().length} bag${parse().length === 1 ? '' : 's'}, ${gramsText(t, f.bunit.value)} together${b > 0 ? (t >= b ? ` · enough for ${Math.floor(t / b)} batch${Math.floor(t / b) === 1 ? '' : 'es'}` : ` · ${gramsText(b - t, f.bunit.value)} short of one batch`) : ''}`; };
-    ['input', 'change'].forEach((ev) => form.addEventListener(ev, tick)); tick();
+    const pieceVis = () => { form.querySelector('#pieceRow').style.display = f.bunit.value === 'pcs' ? '' : 'none'; };
+    ['input', 'change'].forEach((ev) => form.addEventListener(ev, () => { tick(); pieceVis(); })); tick(); pieceVis();
+    form.querySelector('[data-addbags]').addEventListener('click', () => {
+      const w = Number(f.addW.value); const n = Math.max(1, Math.round(Number(f.addN.value) || 1));
+      if (!(w > 0)) return;
+      f.bags.value = [...parse(), ...Array(n).fill(w)].join(', '); f.addW.value = ''; f.addN.value = '1'; tick();
+    });
     form.querySelector('[data-cancel]').addEventListener('click', () => renderStock());
     const save = async (bagsList) => {
       const name = f.name.value.trim();
       if (name.toLowerCase() !== r.name.toLowerCase()) await stockPost('/api/stock/edit', { oldName: r.name, newName: name, unit: f.bunit.value, category: f.cat.value });
       await stockPost('/api/stock/bags', { name, bags: bagsList, batch: Number(f.batch.value) || 0, category: f.cat.value, unit: f.bunit.value });
-      await stockPost('/api/stock/item-meta', { name, oldName: r.name, brand: f.brand.value, size: '', unit: 'g' });
+      await stockPost('/api/stock/item-meta', { name, oldName: r.name, brand: f.brand.value, size: f.bunit.value === 'pcs' ? f.piece.value : '', unit: 'g' });
     };
     form.addEventListener('submit', async (e) => { e.preventDefault(); try { await save(parse()); renderStock(); } catch (err) { /* shown */ } });
     form.querySelector('[data-combine]').addEventListener('click', async () => {

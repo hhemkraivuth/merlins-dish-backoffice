@@ -54,3 +54,11 @@ test('buildUrgent skips receipt rows for bagged meat and flags the bagged item b
   });
   assert.strictEqual(out.filter((x) => /brisket/i.test(x.name)).length, 1);
 });
+
+test('"220 x 5" means five bags of 220, and pieces with a known weight reach the plan in grams', () => {
+  assert.deepStrictEqual(bags.parseBags('220 x5'), [220, 220, 220, 220, 220]);
+  assert.deepStrictEqual(bags.parseBags('220x2, 100'), [220, 220, 100]);
+  const { countedToStock } = require('../lib/countedStock'); const { normName } = require('../lib/priceBook');
+  const r = countedToStock([{ itemName: 'Bacon steak', unit: 'pcs', currentCount: 11 }], { [normName('Bacon steak')]: { size: 100, unit: 'g' } }, normName);
+  assert.deepStrictEqual(r.stock.get('bacon steak'), { left: 1100, unit: 'g' });
+});

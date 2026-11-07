@@ -247,3 +247,4 @@ Stock now is estimated from receipts minus usual daily use, so keep logging rece
 - The shopping plan reads the bag total for these items instead of the receipts. The receipts based row for the same meat is hidden from the list.
 - **Add category** (Stock page) adds your own category, kept in App State `stock_extra_categories`.
 - Update 53b: every meat uses the same bag rules. Old rows such as "Pork shoulder 1,000g" (count 2 means two bags) or "Chicken thigh 3pcs" are folded into bags on the next open (flag `meat_seeded_v2`). Meat can be counted in grams or pieces. Each category on the Stock page is sorted A to Z (red "Fill asap" stays soonest first).
+- Update 53c: bag lists accept "220 x 5", the edit form has an Add bags box and a piece weight (bacon steak: pieces, 100 g each, reaches the shopping plan as grams).

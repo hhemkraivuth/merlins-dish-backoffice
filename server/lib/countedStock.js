@@ -21,7 +21,10 @@ function countedToStock(items, sizes, normName, existing = new Map()) {
     if (!name || !(count > 0)) continue;
     const key = baseNameOf(name, normName);
     if (existing.has(key)) continue; // receipts based stock wins
-    let b = toBase(count, it.unit);
+    // Pieces with a known weight (bacon steak, 100 g each) become grams so the plan can use them.
+    const pcsSize = ['pcs', 'pc', 'piece', 'pieces'].includes(String(it.unit || '').toLowerCase()) ? (sizes || {})[normName(name)] : null;
+    const pcsPer = pcsSize && toBase(Number(pcsSize.size), pcsSize.unit);
+    let b = pcsPer && pcsPer.unit !== 'piece' ? { qty: count * pcsPer.qty, unit: pcsPer.unit } : toBase(count, it.unit);
     if (!b) {
       const sz = (sizes || {})[normName(name)];
       const per = sz && toBase(Number(sz.size), sz.unit);
