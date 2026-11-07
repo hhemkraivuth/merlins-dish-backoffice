@@ -42,11 +42,12 @@ const skey = (n) => String(n || '').toLowerCase().normalize('NFD').replace(/[̀-
 
 function drawChips() {
   const cats = DOC.categories || [];
-  $('chips').innerHTML = cats.map((c) => {
+  const groups = cats.map((c) => {
     const here = DOC.dishes.map((x, n) => [x, n]).filter(([x]) => x.category === c);
-    if (!here.length) return '';
-    return `<div style="width:100%"><div class="catlabel">${esc(c)}</div><div class="chiprow">${here.map(([x, n]) => `<button data-n="${n}" class="${n === CUR ? 'on' : ''}">${esc(x.dish)}</button>`).join('')}</div></div>`;
-  }).join('') + '<div style="width:100%"><button data-new="1" class="newbtn">+ New recipe</button></div>';
+    return here.length ? `<optgroup label="${esc(c)}">${here.map(([x, n]) => `<option value="${n}"${n === CUR ? ' selected' : ''}>${esc(x.dish)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+  $('chips').innerHTML = `<label class="fld" style="margin:0 0 6px">Recipe<select id="recipePick" style="width:100%;box-sizing:border-box;font:inherit;padding:10px;border-radius:10px">${groups}</select></label><button data-new="1" class="newbtn">+ New recipe</button>`;
+  $('recipePick').addEventListener('change', (e) => show(Number(e.target.value)));
 }
 
 function show(i) {

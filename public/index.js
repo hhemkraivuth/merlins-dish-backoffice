@@ -28,6 +28,50 @@ function toast(msg, bad) {
 async function save(action, body, okMsg) {
   try { await api(action, body); toast(okMsg || 'Saved. Live in the order app now.'); draw(); return true; } catch (err) { toast(err.message, true); return false; }
 }
+// Grammar check before anything goes live. Shows what changed and lets Lily pick; if the check cannot run, it posts as written.
+const LABELS = { headline: 'Headline', body: 'Message', label: 'Promo name', name: 'Name', description: 'Description' };
+function askFix(orig, fixed, notes) {
+  return new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(27,37,89,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:14px';
+    const rows = Object.keys(orig).filter((k) => orig[k] !== fixed[k]).map((k) => `<p style="margin:8px 0 2px"><b>${esc(LABELS[k] || k)}</b></p><p style="margin:0;color:#8a5a50;white-space:pre-line"><s>${esc(orig[k])}</s></p><p style="margin:2px 0 0;white-space:pre-line">${esc(fixed[k])}</p>`).join('');
+    ov.innerHTML = `<div style="background:#fff;border-radius:14px;padding:16px;max-width:460px;width:100%;max-height:85vh;overflow:auto"><h3 style="margin:0 0 4px">Grammar check</h3><p class="sub" style="margin:0 0 6px">A few small fixes. Nothing about dates, times or prices was changed.</p>${rows}${notes.length ? `<p class="sub" style="margin-top:10px">${notes.map(esc).join('. ')}.</p>` : ''}<div class="row" style="margin-top:12px"><button class="primary-button" id="gUse">Use the fixed version</button><button class="small-button" id="gKeep">Keep mine</button><button class="small-button" id="gBack">Go back and edit</button></div></div>`;
+    document.body.appendChild(ov);
+    const end = (v) => { ov.remove(); resolve(v); };
+    $('gUse').addEventListener('click', () => end(fixed)); $('gKeep').addEventListener('click', () => end(orig)); $('gBack').addEventListener('click', () => end(null));
+  });
+}
+async function proofread(fields) {
+  const clean = {}; for (const [k, v] of Object.entries(fields)) clean[k] = String(v ?? '');
+  if (!Object.values(clean).some((v) => v.trim())) return clean;
+  try {
+    toast('Checking grammar…');
+    const res = await fetch('/api/index/grammar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fields: clean }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'check failed');
+    $('toast').style.display = 'none';
+    return out.changed ? await askFix(clean, out.fields, out.notes || []) : clean;
+  } catch (err) { toast(`Grammar check is not available (${err.message}), so it was posted as written.`, true); return clean; }
+}
+// Proofread the named text fields of a body, then save. Returns false if she chose to go back.
+async function saveChecked(action, body, keys, okMsg) {
+  const fixed = await proofread(Object.fromEntries(keys.map((k) => [k, body[k]])));
+  if (!fixed) return false;
+  return save(action, { ...body, ...fixed }, okMsg);
+}
+// Resize a chosen photo to at most 1000px on the long side as a JPEG, so the upload stays small.
+function shrink(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1000 / Math.max(img.width, img.height)); const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file could not be read as a photo.')); };
+    img.src = url;
+  });
+}
 const lock = () => (S && S.readOnly ? 'disabled title="Read only until the bot update is live"' : '');
 
 // ---------- announcement ----------
@@ -50,7 +94,7 @@ function wireAnn() {
       <div class="row"><button class="primary-button" id="aSave">Save and show now</button><button class="small-button" id="aCancel">Cancel</button></div></div>`;
     $('aH').focus();
     $('aCancel').addEventListener('click', () => { $('annEdit').innerHTML = ''; });
-    $('aSave').addEventListener('click', () => save('announcement', { headline: $('aH').value, body: $('aB').value, startDate: $('aS').value || null, endDate: $('aE').value || null }));
+    $('aSave').addEventListener('click', () => saveChecked('announcement', { headline: $('aH').value, body: $('aB').value, startDate: $('aS').value || null, endDate: $('aE').value || null }, ['headline', 'body']));
   });
   const c = $('annClear');
   if (c) c.addEventListener('click', () => { if (confirm('Remove the announcement? Customers go back to the normal pop up.')) save('announcement/clear', {}, 'Announcement cleared.'); });
@@ -70,7 +114,7 @@ function hoursBox() {
     <div class="row"><label>From<input type="date" id="cF" value="${todayISO()}" /></label><label>To (last closed day)<input type="date" id="cT" value="${todayISO()}" /></label></div>
     <h4 style="margin:12px 0 4px;font-size:14px">Open late or close early on one date</h4>
     <div class="row"><label>Date<input type="date" id="sD" value="${todayISO()}" /></label><label>Opens<input type="time" id="sO" value="11:00" /></label><label>Closes<input type="time" id="sC" value="19:00" /></label></div>
-    <label class="row" style="flex-direction:row;color:inherit;font-size:14px"><input type="checkbox" id="hAnn" checked /> Also post it on the announcement (replaces the current one)</label>
+    <label class="row" style="flex-direction:row;color:inherit;font-size:14px"><input type="checkbox" id="hAnn" checked /> Also post it on the announcement (added above the current one, if there is one)</label>
     <div id="hPrev" class="sub" style="margin:4px 0"></div>
     <div class="row"><button class="primary-button" id="hClose" ${lock()}>Close those days</button><button class="primary-button" id="hSpecial" ${lock()}>Set those hours</button></div>
     <div class="row"><button class="small-button" id="hForceOpen" ${lock()}>Force open now</button><button class="small-button" id="hForceClosed" ${lock()}>Force closed now</button><button class="small-button" id="hNormal" ${lock()}>Back to normal hours</button></div></div>`;
@@ -81,11 +125,24 @@ function hoursBody(extra) {
 }
 function closeText(f, t) { return { headline: `Closed ${short(f)}${t !== f ? ' to ' + short(t) : ''}`, body: `We're closed ${short(f)}${t !== f ? ' to ' + short(t) : ''}, but you can still schedule your order as usual.` }; }
 function specialText(d, o, c) { return { headline: `Special hours ${short(d)}`, body: `On ${short(d)} we're open ${o} to ${c} for right away orders. You can still schedule your order as usual.` }; }
-async function postAnn(t, start, end) { return api('announcement', { headline: t.headline, body: t.body, startDate: start, endDate: end }); }
+// A new notice goes ABOVE an announcement that is already showing, never replacing it.
+async function postAnn(t, start, end) {
+  const fixed = await proofread({ headline: t.headline, body: t.body });
+  if (!fixed) return false;
+  const old = S.announcement || {};
+  let { headline, body } = fixed; let from = start; let to = end;
+  if (old.live && old.headline && old.headline !== headline) {
+    body = `${body}\n\n${old.headline}${old.body ? `\n${old.body}` : ''}`;
+    if (old.startDate && old.startDate < from) from = old.startDate;
+    to = old.endDate && to ? (old.endDate > to ? old.endDate : to) : null;
+  }
+  await api('announcement', { headline, body, startDate: from, endDate: to });
+  return true;
+}
 function wireHours() {
   const prev = () => {
     const f = $('cF').value; const t = $('cT').value;
-    $('hPrev').textContent = $('hAnn').checked && f && t ? `Announcement will say: "${closeText(f, t).body}" (edit it in the box above afterwards).` : '';
+    $('hPrev').textContent = $('hAnn').checked && f && t ? `Announcement will say: "${closeText(f, t).body}" (it goes above any announcement already showing, and you can edit it in the box above afterwards).` : '';
   };
   ['cF', 'cT', 'hAnn'].forEach((id) => $(id).addEventListener('change', prev)); prev();
   document.querySelectorAll('[data-rm-closure]').forEach((b) => b.addEventListener('click', () => { const h = hoursBody(); h.closures.splice(Number(b.dataset.rmClosure), 1); save('hours', h, 'Closure removed.'); }));
@@ -139,13 +196,13 @@ function wirePromo() {
   $('swBtn').addEventListener('click', () => {
     $('swEdit').innerHTML = promoForm(S.storewidePromo || {}, false);
     $('pCancel').addEventListener('click', () => { $('swEdit').innerHTML = ''; });
-    $('pSave').addEventListener('click', () => save('promo/storewide', { label: $('pL').value, percentOff: $('pP').value, startDate: $('pS').value || null, endDate: $('pE').value || null, active: true }));
+    $('pSave').addEventListener('click', () => saveChecked('promo/storewide', { label: $('pL').value, percentOff: $('pP').value, startDate: $('pS').value || null, endDate: $('pE').value || null, active: true }, ['label']));
   });
   const off = $('swOff'); if (off) off.addEventListener('click', () => save('promo/storewide/off', {}, 'Whole bill promo turned off.'));
   $('ipBtn').addEventListener('click', () => {
     $('ipEdit').innerHTML = promoForm({}, true);
     $('pCancel').addEventListener('click', () => { $('ipEdit').innerHTML = ''; });
-    $('pSave').addEventListener('click', () => save('promo/item', { id: $('pI').value, label: $('pL').value, percentOff: $('pP').value, startDate: $('pS').value || null, endDate: $('pE').value || null, active: true }));
+    $('pSave').addEventListener('click', () => saveChecked('promo/item', { id: $('pI').value, label: $('pL').value, percentOff: $('pP').value, startDate: $('pS').value || null, endDate: $('pE').value || null, active: true }, ['label']));
   });
   document.querySelectorAll('[data-rm-ip]').forEach((b) => b.addEventListener('click', () => save('promo/item/clear', { id: b.dataset.rmIp }, 'Item promo removed.')));
 }
@@ -156,7 +213,7 @@ function menuBox() {
   const byCat = cats.map((c) => ({ c, list: S.menu.filter((m) => m.category === c.id) })).filter((x) => x.list.length);
   return `<div class="ix"><h3>Menu and prices</h3>
     <p class="sub">What the order app sells, at the direct order price. Tap an item to change its price, name or description, or to take it off the menu. Grab prices are set in Grab.</p>
-    ${byCat.map(({ c, list }) => `<p style="margin:12px 0 2px"><b>${esc(c.label)}</b></p>${list.map((m) => `<div class="item" data-item="${esc(m.id)}"><span><b>${esc(m.name)}</b>${m.available ? '' : ' <span class="pill off">sold out</span>'}</span><span class="price">${baht(m.price)}</span></div><div data-slot="${esc(m.id)}"></div>`).join('')}`).join('')}
+    ${byCat.map(({ c, list }) => `<p style="margin:12px 0 2px"><b>${esc(c.label)}</b></p>${list.map((m) => `<div class="item" data-item="${esc(m.id)}"><span>${m.image ? `<img src="${esc(m.image)}" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px" />` : '<span title="No photo" style="display:inline-block;width:28px;height:28px;border-radius:6px;background:#eadfce;vertical-align:middle;margin-right:8px"></span>'}<b>${esc(m.name)}</b>${m.available ? '' : ' <span class="pill off">sold out</span>'}</span><span class="price">${baht(m.price)}</span></div><div data-slot="${esc(m.id)}"></div>`).join('')}`).join('')}
     <div id="addEdit"></div><div class="row"><button class="primary-button" id="addBtn" ${lock()}>+ Add a menu item</button></div>
     ${(S.removed || []).length ? `<p style="margin:14px 0 4px"><b>Taken off the menu</b></p>${S.removed.map((m) => `<div class="item" style="cursor:default"><span>${esc(m.name)} <span class="sub">${baht(m.price)}</span></span><button class="link" data-restore="${esc(m.id)}" ${lock()}>Put back</button></div>`).join('')}` : ''}</div>`;
 }
@@ -168,9 +225,14 @@ function wireMenu() {
     slot.innerHTML = `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:4px 0 8px">
       <div class="row"><label>Name<input id="mN" value="${esc(m.name)}" style="width:min(320px,70vw)" /></label><label>Price (฿)<input id="mP" type="number" min="0" step="1" value="${esc(m.price)}" style="width:90px" /></label></div>
       <label>Description<textarea id="mD">${esc(m.description)}</textarea></label>
+      <div class="row" style="align-items:center">${m.image ? `<img src="${esc(m.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${m.image ? 'Change photo' : 'Add a photo'}<input type="file" id="mImg" accept="image/*" /></label></div>
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
     $('mCancel').addEventListener('click', () => { slot.innerHTML = ''; });
-    $('mSave').addEventListener('click', () => save('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, description: $('mD').value }));
+    $('mSave').addEventListener('click', async () => {
+      const ok = await saveChecked('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, description: $('mD').value }, ['name', 'description']);
+      const f = $('mImg') && $('mImg').files[0];
+      if (ok && f) { try { await api('menu/image', { id: m.id, data: await shrink(f) }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(err.message, true); } }
+    });
     $('mRemove').addEventListener('click', () => { if (confirm(`Take ${m.name} off the menu? Customers will no longer see it. You can put it back from the list below.`)) save('menu/remove', { id: m.id }, `${m.name} is off the menu.`); });
   }));
   document.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', () => save('menu/restore', { id: b.dataset.restore }, 'Put back on the menu.')));
@@ -178,10 +240,17 @@ function wireMenu() {
     $('addEdit').innerHTML = `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:8px 0">
       <div class="row"><label>Name<input id="nN" style="width:min(320px,70vw)" /></label><label>Price (฿)<input id="nP" type="number" min="0" step="1" style="width:90px" /></label><label>Category<select id="nC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('')}</select></label></div>
       <label>Description (optional)<textarea id="nD"></textarea></label>
-      <p class="sub">The photo can be added from the LINE group with setimage, once the item exists.</p>
+      <label>Photo (the order app needs one)<input type="file" id="nImg" accept="image/*" /></label>
+      <p class="sub">Pick a photo from your phone or computer. It is shrunk automatically.</p>
       <div class="row"><button class="primary-button" id="nSave">Add to the menu</button><button class="small-button" id="nCancel">Cancel</button></div></div>`;
     $('nCancel').addEventListener('click', () => { $('addEdit').innerHTML = ''; });
-    $('nSave').addEventListener('click', () => save('menu/add', { name: $('nN').value, price: $('nP').value, category: $('nC').value, description: $('nD').value }, 'Added. Customers can order it now.'));
+    $('nSave').addEventListener('click', async () => {
+      const f = $('nImg').files[0];
+      let imageData = null;
+      try { if (f) imageData = await shrink(f); } catch (err) { return toast(err.message, true); }
+      if (!f && !confirm('No photo picked. The item will show without a picture. Add it anyway?')) return;
+      saveChecked('menu/add', { name: $('nN').value, price: $('nP').value, category: $('nC').value, description: $('nD').value, imageData }, ['name', 'description'], 'Added. Customers can order it now.');
+    });
   });
 }
 

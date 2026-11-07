@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 let RAW = false; // true while building a CSV: plain numbers to 2 decimals, no thousands commas, so Excel reads them as numbers
-const baht = (n) => (n === '' || n === null || n === undefined ? '' : RAW ? Math.round(Number(n) * 100) / 100 : Number(n).toLocaleString('en-AU', { maximumFractionDigits: 0 }));
+const baht = (n) => (n === '' || n === null || n === undefined ? '' : RAW ? Math.round(Number(n) * 100) / 100 : Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
 function say(msg, err) { const s = $('status'); s.textContent = msg; s.className = 'status' + (err ? ' err' : ''); }
 
@@ -66,7 +66,7 @@ const PROFIT = [
 ];
 
 // 24171 -> 24,171 and 15069.12 -> 15,069.12 (two decimals only when there are some)
-const commas = (n) => Number(n).toLocaleString('en-AU', { maximumFractionDigits: 2 });
+const commas = (n) => Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function drawProfit(months) {
   const t = $('profit');
@@ -83,15 +83,14 @@ function drawProfit(months) {
   };
   const cells = (m) => PROFIT.map((c) => `<td class="${c[3] && c[3](m) ? 'neg' : c[4] && c[4](m) ? 'pos' : ''}">${c[1](m)}</td>`).join('');
   t.innerHTML = `<tr>${PROFIT.map((c) => `<th>${c[0]}</th>`).join('')}</tr>` + [...months].reverse().map((m) => `<tr>${cells(m)}</tr>`).join('') + `<tr style="font-weight:600">${cells(total)}</tr>`
-    + `<tr><td colspan="3">Bank balance on the statement <input id="bankAmt" inputmode="decimal" value="${commas(BANK.amount)}" style="width:110px" aria-label="Bank balance" /> dated <input id="bankDate" value="${esc(BANK.asOf)}" placeholder="DD/MM/YYYY" style="width:100px" aria-label="Statement date" /> <button class="borrowsave" id="bankSave">Save</button></td><td>${baht(BANK.amount)}</td><td colspan="${PROFIT.length - 4}"></td></tr>`
-    + `<tr style="font-weight:600"><td colspan="3" title="Statement balance less the money still to take out">Left in the bank after money to take out</td><td class="${BANK.amount - total.moneyToTakeOut < 0 ? 'neg' : 'pos'}">${baht(BANK.amount - total.moneyToTakeOut)}</td><td colspan="${PROFIT.length - 4}"></td></tr>`;
+    + `<tr style="font-weight:600"><td colspan="3">Left in the bank, after money taken out <input id="bankAmt" inputmode="decimal" value="${commas(BANK.amount)}" style="width:110px" aria-label="Left in the bank" /> as at <input id="bankDate" value="${esc(BANK.asOf)}" placeholder="DD/MM/YYYY" style="width:100px" aria-label="Date" /> <button class="borrowsave" id="bankSave">Save</button></td><td class="${BANK.amount < 0 ? 'neg' : 'pos'}">${baht(BANK.amount)}</td><td colspan="${PROFIT.length - 4}"></td></tr>`;
   wireBorrowed(t);
   const bs = $('bankSave');
   if (bs) bs.addEventListener('click', async () => {
     bs.disabled = true; bs.textContent = 'Saving…';
     try {
       const r = await call('/api/bank', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount: String($('bankAmt').value).replace(/[฿,\s]/g, ''), asOf: $('bankDate').value }) });
-      BANK = r; say(`Saved. Bank balance ฿${baht(r.amount)} on ${r.asOf || 'no date'}.`); drawProfit(months);
+      BANK = r; say(`Saved. Left in the bank ฿${baht(r.amount)} as at ${r.asOf || 'no date'}.`); drawProfit(months);
     } catch (err) { say(`Not saved. ${err.message}`, true); bs.disabled = false; bs.textContent = 'Save'; }
   });
 }

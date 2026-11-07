@@ -64,15 +64,34 @@ async function listIngredientStock(req, res) {
     const items = await ls.ingredientStockItems(usage);
     let over = {};
     try { over = JSON.parse((await require('../lib/appState').getState(CAT_KEY)) || '{}'); } catch (err) { /* no overrides */ }
+    let brands = {};
+    try { brands = JSON.parse((await require('../lib/appState').getState(BRAND_KEY)) || '{}'); } catch (err) { /* no brands yet */ }
     const dmy = (d) => { if (!d) return ''; const t = d instanceof Date ? d.toISOString().slice(0, 10) : String(d || ''); const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : t; };
     res.json({ items: items.map((i) => {
       const category = CATEGORIES.includes(over[normName(i.name)]) ? over[normName(i.name)] : (guessCategory(i.name) || 'Ingredients');
-      return { ...i, oldest: dmy(i.oldest), category, daysLeft: i.daysLeft === null || i.daysLeft === undefined ? null : Math.round(i.daysLeft), red: ls.statusOf({ count: i.left, days: i.daysLeft, category: 'Ingredients', low: i.low }) };
+      return { ...i, oldest: dmy(i.oldest), category, brand: brands[normName(i.name)] || '', daysLeft: i.daysLeft === null || i.daysLeft === undefined ? null : Math.round(i.daysLeft), red: ls.statusOf({ count: i.left, days: i.daysLeft, category: 'Ingredients', low: i.low }) };
     }) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+}
+
+// The brand we buy for an ingredient (Stout: Chiangmai Winter). A label for the team only: recipes and costs never change.
+const BRAND_KEY = 'stock_item_brands';
+async function setIngredientBrand(req, res) {
+  try {
+    const { name, brand } = req.body || {};
+    const { normName } = require('../lib/priceBook');
+    if (!name) return res.status(400).json({ error: 'Send the ingredient name.' });
+    const st = require('../lib/appState');
+    let all = {};
+    try { all = JSON.parse((await st.getState(BRAND_KEY)) || '{}'); } catch (err) { all = {}; }
+    const b = String(brand || '').trim().slice(0, 60);
+    if (b) all[normName(name)] = b; else delete all[normName(name)];
+    await st.setState(BRAND_KEY, JSON.stringify(all));
+    res.json({ name, brand: b });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 }
 
 // Moves a receipt based ingredient (a row built from the stock lots) to another category. Remembered in App State.
@@ -154,4 +173,4 @@ async function countIngredientPacks(req, res) {
   }
 }
 
-module.exports = { listStock, updateStock, editStockRoute, seedPackagingRoute, listIngredientStock, countIngredientPacks, listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory };
+module.exports = { listStock, updateStock, editStockRoute, seedPackagingRoute, listIngredientStock, countIngredientPacks, listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand };

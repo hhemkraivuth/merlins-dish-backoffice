@@ -231,5 +231,7 @@ Stock now is estimated from receipts minus usual daily use, so keep logging rece
 - **Purchasing Receipts** (was Weekly Receipts) and **Kitchen Production** (was Batch Cook). Blended ingredients show "Blend: X 60% + Y 40%" with the blended price.
 - **Brand changes** (Stock tab) swap an ingredient for another brand in every recipe without touching the recipe. Stored in the Shorthand tab (Swap rows), with Undo.
 - **Recipes** are editable, grouped by category, and every save is a new row in the Recipe Edits tab (last edit and older versions kept).
-- **Numbers**: "Left in the bank after money to take out" is an editable statement balance (App State key `bank_balance`).
+- **Numbers**: "Left in the bank, after money taken out" is one editable figure with its date (App State key `bank_balance`). Money columns show 2 decimals.
 - **Analysis**: August and September come from the Master Log (sales, orders, channels, best sellers, weekday, monthly margin). Hours, food cost, repeat customers and cook batches start on 01/10/2026.
+- **Index**: every post to the order app goes through a grammar check first (needs `ANTHROPIC_API_KEY`, already used for receipts). A new special hours or closure notice goes above any announcement already showing. Menu items can have a photo (shrunk in the browser, stored by the bot's Cloudinary setup).
+- **Stock**: tap an ingredient to type the brand we buy (label only). "Replaced an ingredient" is only for a different product (Polpa to Pelati). Tab order is now Stock Counts, then Kitchen Production.

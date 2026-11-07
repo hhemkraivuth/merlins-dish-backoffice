@@ -634,17 +634,16 @@ async function renderStock() {
         <textarea id="bulkText" rows="6" placeholder="coke zero 11 can&#10;red wine Ti 3 bottle&#10;paper bags 40 pcs" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea>
         <button class="primary-button" id="bulkBtn" type="button" style="margin-top:8px">Add all</button>
       </details>
-      <button class="primary-button" id="seedPkgBtn" style="margin-top:12px">Add the 4 packaging items (at 0)</button>
       <div class="intro" style="margin-top:26px">
-        <h1 class="intro-title" style="font-size:18px">Brand changes</h1>
-        <p class="intro-body">Changed brand? Tell recipes to use the new ingredient. The recipe itself is not touched: it still says the old name, but batches cooked from the start date take the new ingredient and its cost.</p>
+        <h1 class="intro-title" style="font-size:18px">Replaced an ingredient</h1>
+        <p class="intro-body">Use this only when the ingredient itself is a different product, like Polpa replaced by Pelati. The recipe is not touched, and batches from the start date use the new ingredient and its cost. A new brand of the same ingredient (another stout, another pasta) needs nothing here: tap the item in the list above and type the brand.</p>
       </div>
       <div id="swapList"></div>
       <form class="stock-row" id="swapForm" style="display:block">
-        <input class="stock-edit-input" id="swapOld" list="stockNames" placeholder="Recipes now say (e.g. Polpa)" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px" />
-        <input class="stock-edit-input" id="swapNew" list="stockNames" placeholder="Use this instead (e.g. Pelati (Mutti Rosso))" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px" />
+        <input class="stock-edit-input" id="swapOld" list="stockNames" placeholder="Recipe says (e.g. Polpa)" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px" />
+        <input class="stock-edit-input" id="swapNew" list="stockNames" placeholder="Use this instead (e.g. Pelati)" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px" />
         <label class="stock-meta" style="display:block;margin-bottom:8px">From this date <input class="stock-edit-input" id="swapFrom" type="date" style="width:auto" /></label>
-        <button class="primary-button" type="submit">Switch recipes to the new ingredient</button>
+        <button class="primary-button" type="submit">Save</button>
       </form>
       <div class="intro" style="margin-top:26px">
         <h1 class="intro-title" style="font-size:18px">Blends</h1>
@@ -666,7 +665,7 @@ async function renderStock() {
     const rowEl = el(`
       <div class="stock-row"${redRow ? ' style="background:#fdecea;border-color:#e8b4ae"' : ''}>
         <div>
-          <div class="stock-name"${redRow ? ' style="color:#b3261e"' : ''}>${escapeHtml(r.name)}${redRow ? ' <span style="font-weight:700">· FILL ASAP</span>' : ''}</div>
+          <div class="stock-name"${redRow ? ' style="color:#b3261e"' : ''}>${escapeHtml(r.name)}${r.kind === 'ingredient' && r.item.brand ? ` <span class="stock-meta" style="font-weight:600">· ${escapeHtml(r.item.brand)}</span>` : ''}${redRow ? ' <span style="font-weight:700">· FILL ASAP</span>' : ''}</div>
           <div class="stock-meta">${r.kind === 'counted'
     ? `${escapeHtml(r.unit || '')}${redRow ? ` · ${escapeHtml(r.cat || 'no category')}` : ''}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''} · updated ${escapeHtml(formatStamp(r.item.lastUpdated))}${!r.saved && r.cat ? ' · category guessed' : ''}`
     : `${r.item.pack ? escapeHtml(r.item.left + r.item.unit) + ' · ' : 'tap to count in packs · '}${r.item.oldest ? 'oldest bought ' + escapeHtml(r.item.oldest) : 'used up'}${r.days !== null && r.days !== undefined ? ` · about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''}${r.item.level ? ' · alert below ' + escapeHtml(r.item.level) : ''}`}</div>
@@ -707,11 +706,12 @@ async function renderStock() {
     const form = el(`
       <form class="stock-row" style="display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center;border-color:var(--ink,#294bd4)">
         <div class="stock-name" style="grid-column:1 / -1">${escapeHtml(r.name)} <span class="stock-meta">· ${escapeHtml(i.left + i.unit)} left${i.pack ? ' · ' + escapeHtml(i.pack.size) + ' per ' + escapeHtml(i.pack.word) : ''}</span></div>
+        <input class="stock-edit-input" name="brand" placeholder="Brand we buy, e.g. Chiangmai Winter" value="${escapeHtml(i.brand || '')}" maxlength="60" style="grid-column:1 / -1;width:auto" />
         <select class="stock-edit-input" name="cat" style="width:auto">${catOptions(r.cat)}</select>
         <input class="stock-edit-input" name="packs" type="number" step="any" inputmode="decimal" placeholder="${i.pack ? escapeHtml(i.pack.word) + 's left' : 'Packs left'}" value="${i.pack ? i.pack.packs : ''}" style="width:auto" />
         <input class="stock-edit-input" name="size" placeholder="Size of one pack, e.g. 450${escapeHtml(i.unit)}" value="${i.pack ? escapeHtml(i.pack.size) : ''}" style="width:auto" />
         <input class="stock-edit-input" name="word" placeholder="Pack word" value="${i.pack ? escapeHtml(i.pack.word) : 'bottle'}" style="width:auto" />
-        <div style="grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-swap>Changed brand? Switch recipes</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
+        <div style="grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-swap>Different ingredient name now? Switch recipes</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
       </form>`);
     rowEl.replaceWith(form);
     form.querySelector('[data-cancel]').addEventListener('click', () => renderStock());
@@ -723,6 +723,7 @@ async function renderStock() {
       e.preventDefault();
       const f = form.elements;
       try {
+        if (f.brand.value.trim() !== (i.brand || '')) await stockPost('/api/stock/ingredient-brand', { name: r.name, brand: f.brand.value });
         if (f.cat.value !== r.cat) await stockPost('/api/stock/ingredient-category', { name: r.name, category: f.cat.value });
         if (f.packs.value !== '' && Number.isFinite(Number(f.packs.value))) {
           const sizeChanged = !i.pack || f.size.value.trim() !== i.pack.size || f.word.value.trim() !== i.pack.word;
@@ -791,18 +792,10 @@ async function renderStock() {
     await renderStock();
     say(`Saved ${done.length}.` + (bad.length ? ` Not read: ${bad.join(' | ')}` : ''));
   });
-  section.querySelector('#seedPkgBtn').addEventListener('click', async () => {
-    try {
-      const data = await stockPost('/api/stock/seed-packaging', {});
-      alert(data.added.length ? `Added at 0: ${data.added.join(', ')}. Now set the real counts.` : 'All 4 packaging items are already there. Nothing changed.');
-      renderStock();
-    } catch (err) { /* shown */ }
-  });
-
   // ---- brand changes
   const swapBox = section.querySelector('#swapList');
   const dmyOf = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : 'every batch');
-  if (!swaps.length) swapBox.appendChild(el('<div class="empty-state">No brand changes yet.</div>'));
+  if (!swaps.length) swapBox.appendChild(el('<div class="empty-state">Nothing replaced yet.</div>'));
   swaps.forEach((w) => {
     const rowEl = el(`<div class="stock-row"><div><div class="stock-name">${escapeHtml(w.line)} → ${escapeHtml(w.to)}</div><div class="stock-meta">${w.dish === '*' ? 'every dish' : escapeHtml(w.dish)} · from ${escapeHtml(dmyOf(w.from))}</div></div><button class="small-button" data-undo>Undo</button></div>`);
     rowEl.querySelector('[data-undo]').addEventListener('click', async () => {
@@ -818,7 +811,7 @@ async function renderStock() {
       const r = await stockPost('/api/ingredient-swaps', { old: section.querySelector('#swapOld').value, to: section.querySelector('#swapNew').value, from: section.querySelector('#swapFrom').value });
       if (r.note) alert(r.note);
       await renderStock();
-      say('Brand change saved. The recipe is unchanged.');
+      say('Saved. The recipe is unchanged.');
     } catch (err) { /* shown */ }
   });
 

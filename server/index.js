@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 3001;
 const upload = multer({ storage: multer.memoryStorage() });
 
 // rawBody is kept so the LINE webhook can verify LINE's signature
-app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
+app.use(express.json({ limit: '6mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 // Phones (and the LINE in-app browser) keep old pages and styles after a deploy, so make them re-check every time.
 app.use(express.static(path.join(__dirname, '..', 'public'), { etag: true, lastModified: true, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
@@ -68,6 +68,7 @@ app.get('/api/stock/ingredients', stockCountsRoute.listIngredientStock);
 app.post('/api/stock/update', stockCountsRoute.updateStock);
 app.post('/api/stock/edit', stockCountsRoute.editStockRoute);
 app.post('/api/stock/ingredient-category', stockCountsRoute.setIngredientCategory);
+app.post('/api/stock/ingredient-brand', stockCountsRoute.setIngredientBrand);
 app.get('/api/blends', stockCountsRoute.listBlends);
 app.post('/api/blends', stockCountsRoute.saveBlendRoute);
 app.post('/api/blends/delete', stockCountsRoute.deleteBlendRoute);
@@ -99,6 +100,7 @@ app.post('/api/ingredient-swaps', async (req, res) => { try { res.json(await swa
 app.post('/api/ingredient-swaps/delete', async (req, res) => { try { res.json(await swapLib.removeSwap(req.body || {}, swapDeps())); } catch (err) { res.status(500).json({ error: err.message }); } });
 const botAdmin = require('./lib/botAdmin');
 app.get('/api/index/state', async (req, res) => { try { res.json(await botAdmin.loadState()); } catch (err) { res.status(502).json({ error: err.message }); } });
+app.post('/api/index/grammar', async (req, res) => { try { res.json(await require('./lib/grammar').check(req.body && req.body.fields)); } catch (err) { res.status(502).json({ error: err.message }); } });
 app.post(/^\/api\/index\/(.+)$/, async (req, res) => { try { res.json(await botAdmin.act(req.params[0], req.body)); } catch (err) { res.status(err.status || 500).json({ error: err.message }); } });
 app.post('/api/ledger/manual-orders', ledgerRoute.manualOrders);
 app.post('/api/ledger/row/delete', ledgerRoute.deleteRow);

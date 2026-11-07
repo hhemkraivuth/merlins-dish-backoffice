@@ -45,3 +45,13 @@ test('analysis: food cost and repeat customers for Aug and Sep from the Master L
   assert.strictEqual(r.months[0].newOrders, 1);
   assert.strictEqual(r.months[1].repeatOrders, 1);
 });
+
+test('grammar.parseReply keeps unchanged keys and reports changes', () => {
+  const { parseReply } = require('../lib/grammar');
+  const orig = { headline: 'Were closed', body: 'Same.' };
+  const r = parseReply('{"fields":{"headline":"We\'re closed"},"notes":["Added apostrophe"]}', orig);
+  assert.strictEqual(r.fields.headline, "We're closed");
+  assert.strictEqual(r.fields.body, 'Same.');
+  assert.strictEqual(r.changed, true);
+  assert.throws(() => parseReply('nope', orig));
+});

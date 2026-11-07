@@ -40,9 +40,9 @@ async function saveBorrowed(month, amount) {
 }
 
 // The bank balance Lily read off the statement, and the date of that statement. Kept in App State, edited on the Numbers page.
-// Until she saves one, the 04/11/2026 statement balance from the October review is used.
+// Until she saves one, the 05/11/2026 figure (already after the money taken out) is used.
 const BANK_KEY = 'bank_balance';
-const BANK_DEFAULT = { amount: 47543.59, asOf: '04/11/2026' };
+const BANK_DEFAULT = { amount: 29888.86, asOf: '05/11/2026' };
 async function loadBank() {
   try {
     const raw = await require('./appState').getState(BANK_KEY);
