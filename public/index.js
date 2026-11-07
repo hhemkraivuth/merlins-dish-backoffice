@@ -28,37 +28,6 @@ function toast(msg, bad) {
 async function save(action, body, okMsg) {
   try { await api(action, body); toast(okMsg || 'Saved. Live in the order app now.'); draw(); return true; } catch (err) { toast(err.message, true); return false; }
 }
-// Grammar check before anything goes live. Shows what changed and lets Lily pick; if the check cannot run, it posts as written.
-const LABELS = { headline: 'Headline', body: 'Message', label: 'Promo name', name: 'Name', description: 'Description' };
-function askFix(orig, fixed, notes) {
-  return new Promise((resolve) => {
-    const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(27,37,89,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:14px';
-    const rows = Object.keys(orig).filter((k) => orig[k] !== fixed[k]).map((k) => `<p style="margin:8px 0 2px"><b>${esc(LABELS[k] || k)}</b></p><p style="margin:0;color:#8a5a50;white-space:pre-line"><s>${esc(orig[k])}</s></p><p style="margin:2px 0 0;white-space:pre-line">${esc(fixed[k])}</p>`).join('');
-    ov.innerHTML = `<div style="background:#fff;border-radius:14px;padding:16px;max-width:460px;width:100%;max-height:85vh;overflow:auto"><h3 style="margin:0 0 4px">Grammar check</h3><p class="sub" style="margin:0 0 6px">A few small fixes. Nothing about dates, times or prices was changed.</p>${rows}${notes.length ? `<p class="sub" style="margin-top:10px">${notes.map(esc).join('. ')}.</p>` : ''}<div class="row" style="margin-top:12px"><button class="primary-button" id="gUse">Use the fixed version</button><button class="small-button" id="gKeep">Keep mine</button><button class="small-button" id="gBack">Go back and edit</button></div></div>`;
-    document.body.appendChild(ov);
-    const end = (v) => { ov.remove(); resolve(v); };
-    $('gUse').addEventListener('click', () => end(fixed)); $('gKeep').addEventListener('click', () => end(orig)); $('gBack').addEventListener('click', () => end(null));
-  });
-}
-async function proofread(fields) {
-  const clean = {}; for (const [k, v] of Object.entries(fields)) clean[k] = String(v ?? '');
-  if (!Object.values(clean).some((v) => v.trim())) return clean;
-  try {
-    toast('Checking grammar…');
-    const res = await fetch('/api/index/grammar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fields: clean }) });
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error || 'check failed');
-    $('toast').style.display = 'none';
-    return out.changed ? await askFix(clean, out.fields, out.notes || []) : clean;
-  } catch (err) { toast(`Grammar check is not available (${err.message}), so it was posted as written.`, true); return clean; }
-}
-// Proofread the named text fields of a body, then save. Returns false if she chose to go back.
-async function saveChecked(action, body, keys, okMsg) {
-  const fixed = await proofread(Object.fromEntries(keys.map((k) => [k, body[k]])));
-  if (!fixed) return false;
-  return save(action, { ...body, ...fixed }, okMsg);
-}
 // Resize a chosen photo to at most 1000px on the long side as a JPEG, so the upload stays small.
 function shrink(file) {
   return new Promise((resolve, reject) => {
@@ -89,12 +58,12 @@ function wireAnn() {
   $('annBtn').addEventListener('click', () => {
     $('annEdit').innerHTML = `<div style="margin:8px 0">
       <label>Headline<input id="aH" value="${esc(a.headline || '')}" maxlength="80" style="width:100%;box-sizing:border-box" /></label>
-      <label style="margin-top:6px">Message<textarea id="aB">${esc(a.body || '')}</textarea></label>
+      <label style="margin-top:6px">Message<textarea id="aB" spellcheck="true">${esc(a.body || '')}</textarea></label>
       <div class="row"><label>Shows from<input type="date" id="aS" value="${esc(a.startDate || todayISO())}" /></label><label>Until (last day)<input type="date" id="aE" value="${esc(a.endDate || '')}" /></label></div>
       <div class="row"><button class="primary-button" id="aSave">Save and show now</button><button class="small-button" id="aCancel">Cancel</button></div></div>`;
     $('aH').focus();
     $('aCancel').addEventListener('click', () => { $('annEdit').innerHTML = ''; });
-    $('aSave').addEventListener('click', () => saveChecked('announcement', { headline: $('aH').value, body: $('aB').value, startDate: $('aS').value || null, endDate: $('aE').value || null }, ['headline', 'body']));
+    $('aSave').addEventListener('click', () => save('announcement', { headline: $('aH').value, body: $('aB').value, startDate: $('aS').value || null, endDate: $('aE').value || null }));
   });
   const c = $('annClear');
   if (c) c.addEventListener('click', () => { if (confirm('Remove the announcement? Customers go back to the normal pop up.')) save('announcement/clear', {}, 'Announcement cleared.'); });
@@ -127,10 +96,8 @@ function closeText(f, t) { return { headline: `Closed ${short(f)}${t !== f ? ' t
 function specialText(d, o, c) { return { headline: `Special hours ${short(d)}`, body: `On ${short(d)} we're open ${o} to ${c} for right away orders. You can still schedule your order as usual.` }; }
 // A new notice goes ABOVE an announcement that is already showing, never replacing it.
 async function postAnn(t, start, end) {
-  const fixed = await proofread({ headline: t.headline, body: t.body });
-  if (!fixed) return false;
   const old = S.announcement || {};
-  let { headline, body } = fixed; let from = start; let to = end;
+  let { headline, body } = t; let from = start; let to = end;
   if (old.live && old.headline && old.headline !== headline) {
     body = `${body}\n\n${old.headline}${old.body ? `\n${old.body}` : ''}`;
     if (old.startDate && old.startDate < from) from = old.startDate;
@@ -196,13 +163,13 @@ function wirePromo() {
   $('swBtn').addEventListener('click', () => {
     $('swEdit').innerHTML = promoForm(S.storewidePromo || {}, false);
     $('pCancel').addEventListener('click', () => { $('swEdit').innerHTML = ''; });
-    $('pSave').addEventListener('click', () => saveChecked('promo/storewide', { label: $('pL').value, percentOff: $('pP').value, startDate: $('pS').value || null, endDate: $('pE').value || null, active: true }, ['label']));
+    $('pSave').addEventListener('click', () => save('promo/storewide', { label: $('pL').value, percentOff: $('pP').value, startDate: $('pS').value || null, endDate: $('pE').value || null, active: true }));
   });
   const off = $('swOff'); if (off) off.addEventListener('click', () => save('promo/storewide/off', {}, 'Whole bill promo turned off.'));
   $('ipBtn').addEventListener('click', () => {
     $('ipEdit').innerHTML = promoForm({}, true);
     $('pCancel').addEventListener('click', () => { $('ipEdit').innerHTML = ''; });
-    $('pSave').addEventListener('click', () => saveChecked('promo/item', { id: $('pI').value, label: $('pL').value, percentOff: $('pP').value, startDate: $('pS').value || null, endDate: $('pE').value || null, active: true }, ['label']));
+    $('pSave').addEventListener('click', () => save('promo/item', { id: $('pI').value, label: $('pL').value, percentOff: $('pP').value, startDate: $('pS').value || null, endDate: $('pE').value || null, active: true }));
   });
   document.querySelectorAll('[data-rm-ip]').forEach((b) => b.addEventListener('click', () => save('promo/item/clear', { id: b.dataset.rmIp }, 'Item promo removed.')));
 }
@@ -229,7 +196,7 @@ function wireMenu() {
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
     $('mCancel').addEventListener('click', () => { slot.innerHTML = ''; });
     $('mSave').addEventListener('click', async () => {
-      const ok = await saveChecked('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, description: $('mD').value }, ['name', 'description']);
+      const ok = await save('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, description: $('mD').value });
       const f = $('mImg') && $('mImg').files[0];
       if (ok && f) { try { await api('menu/image', { id: m.id, data: await shrink(f) }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(err.message, true); } }
     });
@@ -249,7 +216,7 @@ function wireMenu() {
       let imageData = null;
       try { if (f) imageData = await shrink(f); } catch (err) { return toast(err.message, true); }
       if (!f && !confirm('No photo picked. The item will show without a picture. Add it anyway?')) return;
-      saveChecked('menu/add', { name: $('nN').value, price: $('nP').value, category: $('nC').value, description: $('nD').value, imageData }, ['name', 'description'], 'Added. Customers can order it now.');
+      save('menu/add', { name: $('nN').value, price: $('nP').value, category: $('nC').value, description: $('nD').value, imageData }, 'Added. Customers can order it now.');
     });
   });
 }
