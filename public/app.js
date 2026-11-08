@@ -132,15 +132,47 @@ function monthlyLog(box, { title, api, links, totalsOf, draw }) {
   return () => load(body.querySelector('.log-month') ? body.querySelector('.log-month').value : '');
 }
 
+// Monthly overheads: what repeats on the 1st, with a Stop button. Dollar items stay in dollars.
+function monthlyOverheads(box, after) {
+  async function load() {
+    try {
+      const res = await fetch('/api/overheads/monthly');
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Not available');
+      const rows = d.items.length ? d.items.map((x) => `<div class="sum-row"><span><b>${escapeHtml(x.name)}</b><small>${x.usd ? `USD ${num2(x.usd)}${d.rate ? `, about ฿${num2(x.usd * d.rate)} at ${d.rate} today` : ''}` : `฿${num2(x.thb)}`}${x.category ? `, ${escapeHtml(x.category)}` : ''}</small></span><span><button type="button" data-stop-monthly="${escapeHtml(x.id)}" style="font:inherit;font-size:13px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Stop</button></span></div>`).join('')
+        : '<p class="note">Nothing repeats yet. Tap Repeat monthly on an overhead in the log below, or type "monthly" after a line, like: railway 5usd, monthly</p>';
+      box.innerHTML = `<h2>Monthly overheads</h2><p class="note">Logged by itself on the 1st of every month. A dollar price stays in dollars, the baht is that day's conversion.</p>${rows}`;
+    } catch (err) { box.innerHTML = `<h2>Monthly overheads</h2><p class="note stale">${escapeHtml(err.message)}</p>`; }
+  }
+  box.addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-stop-monthly]'); if (!b) return;
+    if (!window.confirm('Stop repeating this every month? Rows already logged stay.')) return;
+    b.disabled = true;
+    try {
+      await fetch('/api/overheads/monthly/stop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: b.dataset.stopMonthly }) });
+      await load(); if (after) after();
+    } catch (err) { b.disabled = false; window.alert(err.message); }
+  });
+  load();
+  return load;
+}
+
 function receiptLogTotals(log) {
   const t = log.totals;
   const bit = (n, v) => `<div><span>${n}</span><strong>${money(v)}</strong></div>`;
   return `${bit('Total', t.all)}${bit('Ingredients', t.ingredients)}${bit('Overheads', t.overheads)}${t.ads ? bit('Meta ads', t.ads) : ''}`;
 }
+// Repeat button: makes an overhead repeat on the 1st of every month. A dollar price stays in dollars (read back from the Remarks).
+function repeatButton(r) {
+  const usd = String(r.remarks || '').match(/USD\s+(\d+(?:\.\d+)?)/i);
+  const data = { name: r.item, category: r.category || '', shop: r.shop || '', thb: r.price, usd: usd ? Number(usd[1]) : null, date: r.date };
+  const label = String(r.remarks || '').includes('Repeats monthly') ? 'Repeating' : 'Repeat monthly';
+  return `<button type="button" class="repeat-btn" data-repeat="${escapeHtml(JSON.stringify(data))}" style="font:inherit;font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;white-space:nowrap">${label}</button>`;
+}
 function receiptLogTable(log) {
   const shops = log.byShop.length ? `<details class="sum-more"><summary>Spend by shop</summary>${log.byShop.map((x) => `<div class="sum-row"><span>${escapeHtml(x.shop)}</span><span>${money(x.amount)}</span></div>`).join('')}</details>` : '';
-  const rows = log.rows.map((r) => `<tr><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.item)}${r.type !== 'Ingredient' ? `<small>${escapeHtml(r.type)}${r.category && r.type === 'Overhead' ? ', ' + escapeHtml(r.category) : ''}</small>` : ''}</td><td>${escapeHtml(r.qty)}</td><td class="r">${num2(r.price)}</td><td>${escapeHtml(r.shop)}</td></tr>`).join('');
-  return `${shops}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Item</th><th>How many</th><th class="r">฿</th><th>Where</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const rows = log.rows.map((r) => `<tr><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.item)}${r.type !== 'Ingredient' ? `<small>${escapeHtml(r.type)}${r.category && r.type === 'Overhead' ? ', ' + escapeHtml(r.category) : ''}</small>` : ''}</td><td>${escapeHtml(r.qty)}</td><td class="r">${num2(r.price)}</td><td>${escapeHtml(r.shop)}</td><td>${r.type === 'Ingredient' ? '' : repeatButton(r)}</td></tr>`).join('');
+  return `${shops}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Item</th><th>How many</th><th class="r">฿</th><th>Where</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function cookLogTotals(log) {
@@ -169,6 +201,7 @@ function renderReceipts() {
       <textarea id="receiptText" rows="8" placeholder="18/10&#10;minced pork 1000g 110thb&#10;onion 2kg 90thb" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="receiptSubmit" disabled>Type a receipt first</button>
       <div id="receiptResult"></div>
+      <div class="shop-box" id="monthlyBox"></div>
       <div class="log-box" id="receiptLog"></div>
     </section>
   `);
@@ -183,7 +216,20 @@ function renderReceipts() {
     title: 'What I bought, by month', api: '/api/receipts/log', totalsOf: receiptLogTotals, draw: receiptLogTable,
     links: [{ label: 'Download CSV', query: '' }, { label: 'Price Log format', query: 'format=pricelog' }],
   });
-  const reloadSpend = () => { reloadSpend0(); reloadLog(); };
+  const monthlyBox = section.querySelector('#monthlyBox');
+  const reloadMonthly = monthlyOverheads(monthlyBox, () => reloadLog());
+  const reloadSpend = () => { reloadSpend0(); reloadLog(); reloadMonthly(); };
+  // Repeat button on any overhead row in the log below.
+  section.querySelector('#receiptLog').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button.repeat-btn'); if (!btn) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/overheads/monthly', { method: 'POST', headers: { 'content-type': 'application/json' }, body: btn.dataset.repeat });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Not saved');
+      btn.textContent = 'Repeating'; reloadMonthly();
+    } catch (err) { btn.disabled = false; window.alert(err.message); }
+  });
 
   input.addEventListener('input', () => {
     const has = input.value.trim().length > 0;

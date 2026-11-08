@@ -262,3 +262,8 @@ Stock now is estimated from receipts minus usual daily use, so keep logging rece
 - Drinks and Pasta noodles stock items are never offered as unlinked.
 - Pit: Merlin's Dish birthday 1 to 10 Nov, Kay's birthday 11 to 16 Nov, Christmas 17 Nov to 26 Dec, then New Year.
 - Marketing: @hangrybeefnoodle is first in Inspo accounts.
+
+## Update 63 notes
+- Monthly overheads: type "railway 5usd, monthly" or tap Repeat monthly on an overhead row. Logged by itself on the 1st (timer at 06:00 Bangkok, MONTHLY_OVERHEADS_AUTO=off to stop, MONTHLY_OVERHEADS_TIME to change). List kept in App State key `recurring_overheads`, each item remembers the last month logged.
+- Dollar prices (5usd, $5) are stored as dollars. Baht = dollars x that day's rate (open.er-api.com, last good rate kept in App State `usd_thb_rate`), written in Remarks as "USD 5.00 at 33.2". No rate means the dollar item waits, nothing is guessed.
+- Receipts page: Monthly overheads box with Stop, Repeat monthly button on each overhead row.

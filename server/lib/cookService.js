@@ -314,8 +314,23 @@ async function processTypedReceipt(text, messageDate, deps) {
   if (!oh.found) return processIngredientReceipt(text, messageDate, deps, receiptId);
   if (!deps.appendOverheads) return ['Overheads are not set up on this server yet.'];
   const replies = [];
+  // Dollar prices are kept as dollars. The baht is that day's conversion, written in the Remarks beside the dollar amount.
+  if (oh.items.some((it) => it.usd)) {
+    const info = deps.usdRate ? await deps.usdRate() : null;
+    if (!info) {
+      const lost = oh.items.filter((it) => it.usd).map((it) => it.name);
+      oh.items = oh.items.filter((it) => !it.usd);
+      oh.problems.push(`Couldn't get today's USD rate, so ${lost.join(', ')} was not logged. Send it again in a few minutes, or type the baht price`);
+    } else {
+      for (const it of oh.items) if (it.usd) { it.rate = info.rate; it.price = Math.round(it.usd * info.rate * 100) / 100; }
+    }
+  }
   if (oh.items.length) {
     await deps.appendOverheads(overheadRows(oh.items, receiptId, deps.typedVia));
+    const repeats = oh.items.filter((it) => it.repeat);
+    if (repeats.length && deps.addRecurring) {
+      for (const it of repeats) await deps.addRecurring({ name: it.name, category: it.category, shop: it.shop, usd: it.usd, thb: it.usd ? null : it.price }, it.date);
+    }
     const byDate = new Map();
     for (const it of oh.items) {
       const d = `${formatDMY(it.date)}${it.shop ? `, ${it.shop}` : ''}${it.category ? `, ${it.category}` : ''}`;
@@ -329,6 +344,7 @@ async function processTypedReceipt(text, messageDate, deps) {
     if (adItems.length) out.push(`Ads logged: ${adItems.length} item${adItems.length === 1 ? '' : 's'}, ${sum(adItems)}. Shown in the Ads column and taken off the margin.`);
     for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
     if (oh.undated) out.push(`No date line above some items, so I used ${formatDMY(messageDate)}.`);
+    if (repeats.length) out.push(`Repeats on the 1st of every month: ${repeats.map((it) => `${it.name} ${it.usd ? `USD ${it.usd.toFixed(2)} (baht worked out each month at that day's rate)` : baht(it.price)}`).join(', ')}. Stop it on the Receipts page, under Monthly overheads.`);
     out.push(`Receipt ${receiptId}. If this was a mistake, send: undo receipt`);
     replies.push(out.join('\n'));
   }

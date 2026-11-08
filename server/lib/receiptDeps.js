@@ -9,6 +9,8 @@ function buildReceiptDeps() {
   const packs = require('./packSizes');
   const cookLog = require('./cookLog');
   const { receiptAliases } = require('./ingredientAlias');
+  const appState = require('./appState');
+  const appStore = { get: appState.getState, set: appState.setState };
   const refreshBestPrices = async () => require('./bestPrices').writeBestPrices(await live.loadPriceBook());
   return {
     loadCatalogue: live.loadCatalogue,
@@ -26,6 +28,13 @@ function buildReceiptDeps() {
     extractReceipt: extractReceiptWithCatalogue,
     appendExpenseRows: async (rows) => { await appendRows('Expense Log', rows); live.invalidate(); },
     appendOverheads: async (rows) => { const o = require('./overheads'); await cookLog.ensureTab(o.TAB, o.HEADERS); await appendRows(o.TAB, rows); },
+    usdRate: () => require('./usdRate').getUsdRate({ store: appStore }),
+    addRecurring: async (item, from) => {
+      const r = require('./recurringOverheads');
+      const out = r.addItem(r.parse(await appStore.get(r.KEY)), item, from);
+      if (out.error) throw new Error(out.error);
+      await appStore.set(r.KEY, JSON.stringify(out.list));
+    },
     refreshBestPrices,
     addLots: lots.addLots,
     loadUntracked: lots.loadUntracked,

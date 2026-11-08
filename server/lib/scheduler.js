@@ -119,4 +119,26 @@ function startStockSnapshotTimer(run, { now = () => Date.now(), every = 60000, l
   return setInterval(tick, every);
 }
 
-module.exports = { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer };
+// Monthly overheads. On by default, MONTHLY_OVERHEADS_AUTO=off turns it off. Checks once a day from MONTHLY_OVERHEADS_TIME
+// (Bangkok, default 06:00) and logs every monthly item not yet logged for this month, dated the 1st. A missed 1st is caught
+// up the next day the app is running. "Already logged" is kept per item in App State, so a restart never doubles a row.
+function startMonthlyOverheadsTimer(run, { now = () => Date.now(), every = 60000, log = console } = {}) {
+  if (String(process.env.MONTHLY_OVERHEADS_AUTO || '').toLowerCase() === 'off') return null;
+  const at = /^\d{1,2}:\d{2}$/.test(process.env.MONTHLY_OVERHEADS_TIME || '') ? process.env.MONTHLY_OVERHEADS_TIME : '06:00';
+  const [h, m] = at.split(':').map(Number);
+  let doneDay = null; let busy = false; let lastTry = 0;
+  const tick = async () => {
+    if (busy) return;
+    const b = new Date(now() + 7 * 3600 * 1000);
+    if (b.getUTCHours() * 60 + b.getUTCMinutes() < h * 60 + m) return;
+    const day = b.toISOString().slice(0, 10);
+    if (doneDay === day || now() - lastTry < RETRY_GAP_MS) return;
+    busy = true; lastTry = now();
+    try { const out = await run(); doneDay = day; if (out && out.logged && out.logged.length) log.log(`Monthly overheads logged: ${out.logged.map((x) => x.name).join(', ')}`); }
+    catch (err) { log.error('Monthly overheads failed:', err.message); }
+    finally { busy = false; }
+  };
+  return setInterval(tick, every);
+}
+
+module.exports = { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer };

@@ -27,13 +27,27 @@ const BACK_TO_FOOD = /^(ingredients?|food)$/i;
 const num = (s) => Number(String(s).replace(/[,฿\s]/g, ''));
 
 // "pot 7lt, 2575thb" / "paper bag 100pcs 120thb" -> { name, price } or null. The quantity stays in the name as typed.
+// US dollars: "railway 5usd" / "railway, $5" -> { name, usd: 5, price: null }. The dollar amount is the fact, the baht is worked out
+// from the rate when the item is logged. Add "monthly" ("railway 5usd, monthly") to repeat it on the 1st of every month.
+const AMT = '(\\d[\\d,]*(?:\\.\\d+)?)';
+const USD_LINE = new RegExp(`^(.+?)\\s*,?\\s*(?:(?:usd|us\\$|\\$)\\s*${AMT}|${AMT}\\s*(?:usd|us\\$|\\$|dollars?))$`, 'i');
+const REPEAT_TAIL = /^(.*?)[\s,]+(?:every\s+month|each\s+month|monthly|repeat(?:\s+monthly)?)\s*$/i;
 function overheadItem(line) {
+  let repeat = false;
+  const rep = String(line).match(REPEAT_TAIL);
+  if (rep && rep[1].trim()) { line = rep[1].trim(); repeat = true; }
+  const u = line.match(USD_LINE);
+  if (u) {
+    const usd = num(u[2] !== undefined ? u[2] : u[3]);
+    const name = u[1].replace(/[,\s]+$/, '').trim();
+    return name && Number.isFinite(usd) && usd > 0 ? { name, price: null, usd, repeat } : null;
+  }
   let m = line.match(/^(.+?)\s*,\s*(?:฿\s*)?(\d[\d,]*(?:\.\d+)?)\s*(?:thb|baht|฿)?$/i);
   if (!m) m = line.match(/^(.+?)[\s]+(?:฿\s*(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s*(?:thb|baht|฿))$/i);
   if (!m) return null;
   const price = num(m[2] !== undefined ? m[2] : m[3]);
   const name = m[1].replace(/[,\s]+$/, '').trim();
-  return name && Number.isFinite(price) ? { name, price } : null;
+  return name && Number.isFinite(price) ? { name, price, repeat } : null;
 }
 
 // Returns { found, rest, items: [{ date, name, price, shop, category }], problems, undated }.
@@ -55,7 +69,7 @@ function splitOverheads(text, today) {
     const ad = isAdsLine(line) ? line.match(ADS) : null;
     if (ad) {
       const one = overheadItem(line);
-      if (one) { if (!date) undated = true; items.push({ date: date || today, name: one.name, price: one.price, shop, category: adsCategory(ad), ads: true }); continue; }
+      if (one) { if (!date) undated = true; items.push({ date: date || today, name: one.name, price: one.price, usd: one.usd, repeat: one.repeat, shop, category: adsCategory(ad), ads: true }); continue; }
       if (!ad[3]) { mode = true; category = adsCategory(ad); continue; }
     }
     const mk = line.match(MARKER);
@@ -65,13 +79,19 @@ function splitOverheads(text, today) {
     const it = overheadItem(line);
     if (!it) { problems.push(`Couldn't read "${line}". Write it like: pot 7lt, 2575thb`); continue; }
     if (!date) undated = true;
-    items.push({ date: date || today, name: it.name, price: it.price, shop, category, ads: isAds(category) });
+    items.push({ date: date || today, name: it.name, price: it.price, usd: it.usd, repeat: it.repeat, shop, category, ads: isAds(category) });
   }
   return { found: true, rest: rest.join('\n'), items, problems, undated };
 }
 
 function overheadRows(items, receiptId = '', via = 'Typed in LINE') {
-  return items.map((it) => [formatDMY(it.date), it.name, it.category, it.price, it.shop, receiptId ? `${via}; Receipt ${receiptId}` : via]);
+  return items.map((it) => {
+    const parts = [via];
+    if (it.usd) parts.push(`USD ${Number(it.usd).toFixed(2)} at ${it.rate}`); // the dollar amount stays on the row, the baht is that day's conversion
+    if (it.repeat) parts.push('Repeats monthly');
+    if (receiptId) parts.push(`Receipt ${receiptId}`);
+    return [formatDMY(it.date), it.name, it.category, it.price, it.shop, parts.join('; ')];
+  });
 }
 
 // The Overheads tab as read (header first) -> [{ date, name, amount, kind }] for the reports
