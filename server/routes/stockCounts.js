@@ -216,7 +216,7 @@ async function saveBags(req, res) {
     map[k] = { bags: list, unit: unit ? u : (map[k] && map[k].unit) || 'g', batch: Number.isFinite(b) && b > 0 ? b : (map[k] && map[k].batch) || 0 };
     await bagsLib.saveAll(map);
     const existing = await sc.findStockRow(nm);
-    await sc.setStockCount(nm, bagsLib.total(list), map[k].unit, 'Manual', category || (existing && existing.category) || 'Meat');
+    await sc.setStockCount(nm, bagsLib.total(list), map[k].unit, 'Manual', category || (existing && existing.category) || 'Meat', true);
     res.json({ name: nm, bags: list, total: bagsLib.total(list), batch: map[k].batch, unit: map[k].unit });
   } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 }

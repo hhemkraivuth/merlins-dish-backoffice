@@ -260,7 +260,7 @@
   function floorText(theme, bday) {
     const lines = bday.length ? bday.map((b) => BDNAME[b]) : (theme === 'normal' || theme === 'auto' ? [] : [GREET[theme] || BDNAME[theme]]);
     const ls = lines.filter(Boolean);
-    return ls.map(([t, c], i) => `<text x="96" y="${ls.length === 1 ? 110 : 104 + i * 7.5}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-weight="700" font-size="6.4" fill="${c}" opacity=".6" letter-spacing=".25">${t.replace(/'/g, '&#39;')}</text>`).join('');
+    return ls.map(([t, c], i) => `<text x="96" y="${ls.length === 1 ? 59 : 54 + i * 8}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-weight="700" font-size="7" fill="${c}" opacity=".6" letter-spacing=".25">${t.replace(/'/g, '&#39;')}</text>`).join('');
   }
   function room() {
     let s = `<rect width="${W}" height="${H}" fill="#e3e4e8"/>`;

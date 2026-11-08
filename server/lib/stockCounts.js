@@ -72,11 +72,11 @@ async function findStockRow(itemName) {
 }
 
 // Manual set/correct — used by the Stock Counts page's edit-count button
-async function setStockCount(itemName, newCount, unit, by = 'Manual', category = '') {
+async function setStockCount(itemName, newCount, unit, by = 'Manual', category = '', changeUnit = false) {
   const existing = await findStockRow(itemName);
   const now = new Date().toISOString();
   if (existing) {
-    await updateRow(STOCK_COUNTS_TAB, existing.rowIndex, [existing.itemName, existing.unit, newCount, now, by, CATEGORIES.includes(category) ? category : existing.category || '']);
+    await updateRow(STOCK_COUNTS_TAB, existing.rowIndex, [existing.itemName, changeUnit && unit ? unit : existing.unit, newCount, now, by, CATEGORIES.includes(category) ? category : existing.category || '']);
     return { itemName: existing.itemName, currentCount: newCount, created: false };
   }
   await appendRows(STOCK_COUNTS_TAB, [[itemName, unit || '', newCount, now, by, CATEGORIES.includes(category) ? category : '']]);
