@@ -31,24 +31,27 @@
   const HEAD = '<thead><tr><th>Item</th><th class="r">Need</th><th class="r">Have</th><th class="r">Buy</th><th>Best price ever</th><th class="r">Est.</th></tr></thead>';
 
   // compact: the Home box shows the two trips and the totals; the full list is on the Receipts page.
-  function render(box, p, { compact = false } = {}) {
+  function render(box, p, opts) {
+    const { compact = false } = opts || {};
     const f = p.fresh; const b = p.bulk; const t = p.trips;
     const head = `<div class="shop-top">
       <div class="shop-trip"><span>Bulk trip</span><b>${esc(when(b.tripDate))}</b><small>${b.groups.length ? `${baht(b.estCost)} across ${b.groups.length} shop${b.groups.length > 1 ? 's' : ''}, covers ${b.coverDays} days` : 'Nothing to bulk buy'}</small></div>
-      <div class="shop-trip"><span>Fresh run</span><b>${esc(when(f.nextRun))}</b><small>${f.items.length ? `${baht(f.estCost)}, then every ${f.cycleDays} days` : 'No fresh items found'}</small></div>
+      <div class="shop-trip"><span>Fresh run</span><b>${esc(when(f.nextRun))}</b><small>${f.items.length ? `${baht(f.estCost)}, then every ${f.cycleDays} days` : 'Nothing fresh to buy'}</small></div>
       <div class="shop-trip"><span>Trips this month</span><b>${t.planned.total} planned</b><small>${esc(t.lastMonthLabel)}: ${t.lastMonth} trips. This month so far: ${t.thisMonthSoFar}</small></div></div>`;
     const urgent = urgentBox(p.urgent);
     const warn = p.warnings.length ? `<ul class="shop-warn">${p.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '';
+    const drops = `<details class="shop-drop"><summary>Fresh run <small>${f.runs.length ? esc(f.runs.join(', ')) : ''} · ${f.items.length} items · ${baht(f.estCost)}</small></summary>`
+      + (f.items.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${freshRows(f.items)}</tbody></table></div>` : '<p class="note">Nothing fresh to buy.</p>') + `</details>`
+      + `<details class="shop-drop"><summary>Bulk trip <small>${esc(b.tripDate ? b.tripDate.day : 'none needed')} · ${b.groups.reduce((n, g) => n + g.items.length, 0)} items · ${baht(b.estCost)}</small></summary>`
+      + (b.groups.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${bulkRows(b.groups)}</tbody></table></div>` : '<p class="note">Nothing to bulk buy.</p>') + `</details>`;
     if (compact) {
-      box.innerHTML = urgent + head + `<a class="shop-link" href="/#receipts">Full shopping list on the Receipts page</a>` + (warn ? `<details class="sum-more"><summary>Notes</summary>${warn}</details>` : '');
+      // Home: the two trips and nothing more. Everything else lives on the Receipts page.
+      box.innerHTML = urgent + head + drops + `<a class="shop-link" href="/#receipts-plan" style="display:inline-block;margin-top:12px;padding:10px 16px;border-radius:10px;background:var(--accent);color:var(--card);font-weight:600;text-decoration:none">Open the full shopping plan</a>`;
+      wire(box);
       return;
     }
     const demand = p.demand.filter((d) => d.perMonth).map((d) => `<tr><td>${esc(d.dish)}</td><td class="r">${d.perMonth}</td><td>${esc(d.basis)}</td></tr>`).join('');
-    box.innerHTML = urgent + head
-      + `<details class="shop-drop"><summary>Fresh run <small>${f.runs.length ? esc(f.runs.join(', ')) : ''} · ${f.items.length} items · ${baht(f.estCost)}</small></summary>`
-      + (f.items.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${freshRows(f.items)}</tbody></table></div>` : '<p class="note">No fresh items in the plan.</p>') + `</details>`
-      + `<details class="shop-drop"><summary>Bulk trip <small>${esc(b.tripDate ? b.tripDate.day : 'none needed')} · ${b.groups.reduce((n, g) => n + g.items.length, 0)} items · ${baht(b.estCost)}</small></summary>`
-      + (b.groups.length ? `<div class="log-scroll"><table class="log-table">${HEAD}<tbody>${bulkRows(b.groups)}</tbody></table></div>` : '<p class="note">Nothing to bulk buy.</p>') + `</details>`
+    box.innerHTML = urgent + head + drops
       + (b.enough.length ? `<details class="sum-more"><summary>Already stocked for the month (${b.enough.length})</summary>${b.enough.map((e) => `<div class="sum-row"><span>${esc(e.name)}</span><span>lasts to ${esc(e.until)}</span></div>`).join('')}</details>` : '')
       + `<details class="sum-more"><summary>How this was worked out</summary><ul class="shop-warn">${p.assumptions.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>`
       + (demand ? `<div class="log-scroll"><table class="log-table"><thead><tr><th>Dish</th><th class="r">Portions a month</th><th>Basis</th></tr></thead><tbody>${demand}</tbody></table></div>` : '') + `</details>`
@@ -61,12 +64,14 @@
   function extras(p) {
     const names = p.ingredientNames || [];
     const un = (p.unlinked || []).length ? `<details class="sum-more" open><summary>Stock not linked to a recipe ingredient (${p.unlinked.length})</summary>
-      <p class="note">These are counted on the Stock page but the plan cannot tell which recipe ingredient they are, so it ignores them. Pick the ingredient and tap Link. Anything that is not an ingredient can stay here.</p>
+      <p class="note">These are counted on the Stock page but the plan cannot tell which recipe ingredient they are, so it ignores them. Pick the ingredient and tap Link. Tap Not an ingredient for drinks, stout or anything else the kitchen does not cook with, and it leaves this list.</p>
       ${p.unlinked.map((u) => `<div class="sum-row" style="gap:6px;flex-wrap:wrap"><span><b>${esc(u.name)}</b> <small>${esc(u.count)} ${esc(u.unit)}</small></span>
         <span><select data-pick="${esc(u.key)}" style="font:inherit;font-size:14px;padding:4px"><option value="">Choose ingredient</option>${names.map((n) => `<option>${esc(n)}</option>`).join('')}</select>
-        <button type="button" data-link="${esc(u.key)}" style="font:inherit;font-size:13px;padding:4px 10px;border:0;border-radius:8px;background:var(--accent);color:var(--card);cursor:pointer">Link</button></span></div>`).join('')}</details>` : '';
+        <button type="button" data-link="${esc(u.key)}" style="font:inherit;font-size:13px;padding:4px 10px;border:0;border-radius:8px;background:var(--accent);color:var(--card);cursor:pointer">Link</button>
+        <button type="button" data-ignore="${esc(u.key)}" style="font:inherit;font-size:13px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Not an ingredient</button></span></div>`).join('')}</details>` : '';
+    const ig = (p.ignoredStock || []).length ? `<details class="sum-more"><summary>Marked not an ingredient (${p.ignoredStock.length})</summary>${p.ignoredStock.map((r) => `<div class="sum-row"><span>${esc(r.name)}</span><span><button type="button" data-unignore="${esc(r.key)}" style="font:inherit;font-size:13px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Restore</button></span></div>`).join('')}</details>` : '';
     const rt = (p.retired || []).length ? `<details class="sum-more"><summary>Not buying any more (${p.retired.length})</summary>${p.retired.map((r) => `<div class="sum-row"><span>${esc(r)}</span><span><button type="button" data-restore="${esc(r)}" style="font:inherit;font-size:13px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Restore</button></span></div>`).join('')}</details>` : '';
-    return un + rt;
+    return un + rt + ig;
   }
 
   async function post(url, body) {
@@ -83,13 +88,18 @@
         if (t.dataset.stop) { if (!window.confirm(`Stop buying ${t.dataset.stop}? It leaves the plan. Recipes and stock are not changed, and you can restore it under "Not buying any more".`)) return; await post('/api/shopping/retire', { name: t.dataset.stop }); }
         else if (t.dataset.restore) await post('/api/shopping/retire', { name: t.dataset.restore, undo: true });
         else if (t.dataset.link) { const sel = box.querySelector(`select[data-pick="${CSS.escape(t.dataset.link)}"]`); if (!sel || !sel.value) return; await post('/api/shopping/link', { stock: t.dataset.link, to: sel.value }); }
+        else if (t.dataset.ignore) await post('/api/shopping/link', { stock: t.dataset.ignore, to: '__ignore__' });
+        else if (t.dataset.unignore) await post('/api/shopping/link', { stock: t.dataset.unignore, to: '' });
         else return;
-        load(box, { refresh: true });
+        const row = t.closest('.sum-row, tr'); if (row) row.style.opacity = '0.4'; // gone from the list the moment it is saved
+        t.disabled = true;
+        load(box, Object.assign({}, box._opts, { refresh: true }));
       } catch (err) { window.alert(err.message); }
     });
   }
 
   async function load(box, opts) {
+    box._opts = { compact: !!(opts && opts.compact) };
     box.innerHTML = '<p class="note">Working out the shopping plan…</p>';
     try {
       const res = await fetch('/api/shopping/plan' + (opts && opts.refresh ? '?refresh=1' : ''));

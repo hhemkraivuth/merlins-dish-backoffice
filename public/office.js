@@ -229,7 +229,9 @@
   function autoLook(dmy) {
     const m0 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(dmy || ''));
     const mon = m0 ? +m0[2] : 0;
-    return { theme: autoTheme(dmy), bday: mon === 9 ? ['bd_lily'] : mon === 11 ? ['bd_merlin', 'bd_kay'] : [] };
+    // Lily: all of September. Merlin's Dish: 1 to 10 November. Kay: 11 to 16 November. Christmas starts 17 November (see autoTheme).
+    const day = m0 ? +m0[1] : 0;
+    return { theme: autoTheme(dmy), bday: mon === 9 ? ['bd_lily'] : mon === 11 && day <= 10 ? ['bd_merlin'] : mon === 11 && day <= 16 ? ['bd_kay'] : [] };
   }
   function autoTheme(dmy) {
     const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(dmy || ''));
@@ -237,7 +239,7 @@
     const d = +m[1], mo = +m[2], y = +m[3];
     const day = (yy, mm, dd) => Date.UTC(yy, mm - 1, dd) / 86400000;
     const today = day(y, mo, d);
-    if (mo === 11 || (mo === 12 && d <= 26)) return 'christmas';
+    if ((mo === 11 && d >= 17) || (mo === 12 && d <= 26)) return 'christmas'; // 17 November to Boxing Day, then the New Year look takes over
     if ((mo === 12 && d >= 27) || (mo === 1 && d <= 15)) return 'festive';
     if (mo === 2 && d >= 12 && d <= 14) return 'valentines';
     if (mo === 2) return 'lunar';

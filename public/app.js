@@ -1003,7 +1003,11 @@ async function saveStock(itemName, newCount, unit, category) {
 // ---- Init ----
 // Numbers and Commands link back here with /#receipts, /#batchcook or /#stock.
 const startTab = (location.hash || '').replace('#', '');
-if (PANELS[startTab] && startTab !== 'receipts') {
+if (startTab === 'receipts-plan') {
+  // Home button: open Receipts and land on the full shopping plan.
+  renderReceipts();
+  setTimeout(() => { const b = document.getElementById('shopBox'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 400);
+} else if (PANELS[startTab] && startTab !== 'receipts') {
   document.querySelectorAll('.tab-button').forEach((b) => b.classList.toggle('active', b.dataset.tab === startTab));
   PANELS[startTab]();
 } else {

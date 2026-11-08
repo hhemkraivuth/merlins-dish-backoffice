@@ -99,3 +99,11 @@ test('the plan uses counted stock held under another name and honours Stop buyin
   assert.ok(!all(after).some((i) => i.name === 'Spacecraft'), 'retired ingredient is gone');
   assert.deepStrictEqual(after.retired, ['spacecraft']);
 });
+
+test('ignore marker hides stock from the unlinked list and zero buy items are not listed', () => {
+  const { linkStock, IGNORE } = require('../lib/stockLink');
+  const r = linkStock([{ key: 'onion', name: 'Onion' }], [{ key: 'stout', name: 'Stout' }, { key: 'onion', name: 'Onion' }], { links: { stout: IGNORE }, swaps: [], blends: [] });
+  assert.equal(r.unlinked.length, 0);
+  assert.equal(r.ignored.length, 1);
+  assert.equal(r.ignored[0].key, 'stout');
+});

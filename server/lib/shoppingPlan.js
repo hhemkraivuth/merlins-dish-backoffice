@@ -338,15 +338,18 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
   const cycle = Math.max(3, fresh.length ? Math.min(FRESH_COVER, ...fresh.map((f) => f.cover)) : FRESH_COVER);
   for (const f of fresh) {
     const runOut = f.onHand > 0 && f.perDay > 0 ? addDays(today, Math.floor(f.onHand / f.perDay)) : today;
-    const useBy = f._info.lastBought && f.onHand > 0 ? addDays(f._info.lastBought, f.cover) : today;
+    const useBy = f._info.lastBought && f.onHand > 0 && f.handSource !== 'counted' ? addDays(f._info.lastBought, f.cover) : (f.handSource === 'counted' && f.onHand > 0 ? addDays(today, f.cover) : today);
     f.dueDate = new Date(Math.max(today.getTime(), Math.min(runOut.getTime(), useBy.getTime())));
-    const handAtRun = Math.max(0, f.onHand - f.perDay * daysBetween(today, f.dueDate));
+    const expires = f.handSource !== 'counted' && f.onHand > 0 && useBy.getTime() <= runOut.getTime(); // estimated stock past its use by date is not counted as usable
+    const handAtRun = expires ? 0 : Math.max(0, f.onHand - f.perDay * daysBetween(today, f.dueDate));
     f.needText = fmtQty(f.perDay * cycle, f.unit);
     const r = roundToPack(Math.max(0, f.perDay * cycle - handAtRun), f.pack, f.unit);
     f.buyQty = r.qty; f.buyText = fmtQty(r.qty, f.unit); f.packText = packText(r.packs, f.pack, f.unit);
     f.estCost = f.latestCost ? Math.round(r.qty * f.latestCost) : null;
-    f.due = dayText(f.dueDate); f.useBy = f._info.lastBought && f.onHand > 0 ? formatDMY(addDays(f._info.lastBought, f.cover)) : '';
+    f.due = dayText(f.dueDate); f.useBy = f._info.lastBought && f.onHand > 0 && f.handSource !== 'counted' ? formatDMY(addDays(f._info.lastBought, f.cover)) : '';
   }
+  // Only what actually has to be bought is listed. Anything already covered by the stock on hand stays off the list.
+  for (let i = fresh.length - 1; i >= 0; i--) if (!(fresh[i].buyQty > 0)) fresh.splice(i, 1);
   const nextFresh = fresh.length ? new Date(Math.min(...fresh.map((f) => f.dueDate.getTime()))) : null;
   const monthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
   const freshRuns = [];
@@ -363,6 +366,7 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
     const handAtTrip = Math.max(0, b.onHand - b.perDay * daysBetween(today, tripDate));
     const r = roundToPack(Math.max(0, b.perDay * BULK_COVER - handAtTrip), b.pack, b.unit);
     b.needText = fmtQty(b.perDay * BULK_COVER, b.unit);
+    if (!(r.qty > 0)) { enough.push({ name: b.name, until: formatDMY(b.runOutDate) }); continue; }
     b.buyQty = r.qty; b.buyText = fmtQty(r.qty, b.unit); b.packText = packText(r.packs, b.pack, b.unit);
     b.estCost = b.latestCost ? Math.round(r.qty * b.latestCost) : null;
     b.runOut = dayText(b.runOutDate);
@@ -409,6 +413,7 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
     },
     retired: [...retiredSet],
     ingredientNames: [...new Set([...need.values()].map((n) => titleCase(n.name)))].sort((a, b) => a.localeCompare(b)),
+    ignoredStock: link.ignored.map((u) => ({ key: u.key, name: titleCase(u.name) })),
     unlinked: link.unlinked.map((u) => { const e = entries.get(u.key); return { key: u.key, name: titleCase(u.name), count: Math.round(e.left * 10) / 10, unit: e.word || (e.unit === 'piece' ? 'pcs' : e.unit) }; }),
     warnings,
   };

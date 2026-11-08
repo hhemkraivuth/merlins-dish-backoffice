@@ -115,7 +115,7 @@ async function load() {
 }
 
 // Same full list as the Weekly Receipts page.
-const loadShop = (refresh) => window.ShoppingPlan && window.ShoppingPlan.load($('shopPlan'), { compact: false, refresh });
+const loadShop = (refresh) => window.ShoppingPlan && window.ShoppingPlan.load($('shopPlan'), { compact: true, refresh });
 
 // What is left, from the customer bot (read only), taken at 03:00 each day.
 async function loadStock(refresh) {

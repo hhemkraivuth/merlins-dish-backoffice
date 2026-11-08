@@ -55,6 +55,8 @@ function draw(d) {
   const competitors = `<div class="box"><h3>Grab competitors</h3>${status}<details ${grab.length ? 'open' : ''}><summary>Grab shops (${grab.length})</summary>${grab.length ? grab.map(note).join('') : '<p class="sub">Add a screenshot folder per shop in Competitor Grab screenshots. Updated every Sunday night.</p>'}</details></div>`
     + `<div class="box"><h3>Social competitors</h3><details ${social.length ? 'open' : ''}><summary>Instagram accounts (${social.length})</summary>${social.length ? social.map(note).join('') : '<p class="sub">Updated every Sunday night.</p>'}</details></div>`;
   // Order: Trends under Coming up, then competitors, then everything else.
+  // Inspo: @hangrybeefnoodle (the content plan account) always sits at the top.
+  if (d.notes.Inspo) d.notes.Inspo = [...d.notes.Inspo].sort((a, b) => (/hangrybeefnoodle/i.test(b.title) ? 1 : 0) - (/hangrybeefnoodle/i.test(a.title) ? 1 : 0));
   const rest = d.kinds.filter((k) => k !== 'Competitor' && k !== 'Trend').map((k) => section(TITLES[k] || k, d.notes[k] || [], EMPTY[k] || 'Nothing logged yet.')).join('');
   $('sections').innerHTML = section(TITLES.Trend, d.notes.Trend || [], EMPTY.Trend) + competitors + rest;
 }

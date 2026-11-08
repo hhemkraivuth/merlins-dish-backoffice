@@ -254,3 +254,11 @@ Stock now is estimated from receipts minus usual daily use, so keep logging rece
 - **Shopping plan reads counted stock under any name.** `server/lib/stockLink.js` links a Stock item to a recipe ingredient: a link set by hand, then the same name, then a brand change or blend part, then the same words (Brisket is Beef - brisket, Knorr - beef is Knorr cube - beef, tiny spelling slips such as sholder are fine). Wine - Ti and Wine - Familia count towards the blend Wine - Red - blend. Tins, cans and bags counted without a size count as pieces for recipes that use pieces. Sets (packaging cups) count as pieces. A size in brackets (12oz) keeps cups apart.
 - Stock the plan cannot place is listed on the Receipts page under "Stock not linked to a recipe ingredient", with a drop down and a Link button (App State `stock_links`). Drinks for sale are left out of that list.
 - **Retired ingredients.** The plan only counts a recipe line if it appears in one of the dish's two latest batches, and brand changes (Brand changes on the Stock page) rename old batches to the new name. "Stop buying" on any plan row removes it straight away (App State `plan_retired`), with Restore under "Not buying any more".
+
+## Update 62 notes
+- Home shopping box ends after the bulk trip and has a button to the full plan on the Receipts page (`/#receipts-plan`).
+- Fresh run and Bulk trip only list items that need buying. Counted stock that already covers the need never appears.
+- Stock not linked to a recipe ingredient: new "Not an ingredient" button (stored as `__ignore__` in `stock_links`), with a Restore list. Rows disappear straight after saving and the Home box stays compact on reload.
+- Drinks and Pasta noodles stock items are never offered as unlinked.
+- Pit: Merlin's Dish birthday 1 to 10 Nov, Kay's birthday 11 to 16 Nov, Christmas 17 Nov to 26 Dec, then New Year.
+- Marketing: @hangrybeefnoodle is first in Inspo accounts.

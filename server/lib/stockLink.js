@@ -12,6 +12,7 @@
 
 const { normName } = require('./priceBook');
 
+const IGNORE = '__ignore__';
 const STOP = new Set(['cube', 'full', 'blend', 'brand', 'the', 'of', 'and']);
 const stem = (w) => w.replace(/(ed|es|s)$/, '').replace(/e$/, '');
 const tokens = (name) => String(name || '').toLowerCase().split(/[^a-z0-9฀-๿]+/).filter((w) => w && !STOP.has(w)).map(stem).filter(Boolean);
@@ -68,8 +69,9 @@ function linkStock(needs, stock, { links = {}, swaps = [], blends = new Map() } 
     const sub = needTok.filter((n) => within(st, n.tok));
     if (sub.length === 1) assign.set(s.key, sub[0].key);
   }
-  const unlinked = stock.filter((s) => !assign.has(s.key));
-  return { assign, blendOf, unlinked };
+  const unlinked = stock.filter((s) => !assign.has(s.key) && links[s.key] !== IGNORE);
+  const ignored = stock.filter((s) => !assign.has(s.key) && links[s.key] === IGNORE);
+  return { assign, blendOf, unlinked, ignored };
 }
 
-module.exports = { linkStock, tokens };
+module.exports = { linkStock, tokens, IGNORE };

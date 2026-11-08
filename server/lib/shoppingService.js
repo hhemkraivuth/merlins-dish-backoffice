@@ -51,7 +51,7 @@ async function getPlan({ force = false } = {}) {
     // Bagged meat is counted in grams by hand, so its bag total replaces whatever the receipts say is left.
     try { for (const k of Object.keys(await require('./stockBags').load())) { const bk = cs.baseNameOf(k, normName); stock.delete(bk); bagKeys.add(bk); } } catch (err) { /* no bags yet */ }
     const all = await getAllStock();
-    for (const it of all) if ((it.category || it.guess) === 'Drinks') ignoreKeys.add(cs.baseNameOf(it.itemName, normName)); // drinks for sale are not recipe ingredients
+    for (const it of all) if (['Drinks', 'Pasta noodles'].includes(it.category || it.guess)) ignoreKeys.add(cs.baseNameOf(it.itemName, normName)); // drinks and pasta for sale are not recipe ingredients
     const counted = cs.countedToStock(all, sizes, normName, stock);
     for (const [k, v] of counted.stock) stock.set(k, v);
     loose = counted.loose; stockNames = counted.names;
