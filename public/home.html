@@ -16,6 +16,19 @@
     .office svg { display: block; width: 100%; aspect-ratio: 192 / 120; }
     .office .plate { position: absolute; transform: translate(-50%, -100%); font: inherit; font-size: 11px; font-weight: 700; line-height: 1; padding: 4px 8px; border: 0; border-radius: 6px; background: var(--yellow); color: var(--blue); cursor: pointer; white-space: nowrap; }
     @media (min-width: 600px) { .office .plate { font-size: 13px; padding: 5px 10px; } }
+    .pit-tools { max-width: 760px; margin: -8px auto 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; }
+    .pit-tools select, .pit-tools button, #pitPanel button { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); cursor: pointer; }
+    .pit-tools .go, #pitPanel .go { background: var(--blue); border-color: var(--blue); color: #fff; }
+    #pitPanel { max-width: 760px; margin: 0 auto 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+    #pitPanel h3 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 10px 0 6px; }
+    #pitPalette { display: flex; flex-wrap: wrap; gap: 6px; }
+    #pitPanel .pal { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 74px; padding: 6px 4px; border-radius: 10px; font-size: 11px; }
+    #pitPanel .pal svg { width: 34px; height: 36px; }
+    #pitPanel .pal.on { border-color: var(--blue); box-shadow: 0 0 0 2px var(--yellow); }
+    #pitPanel .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .office.editing { border-color: var(--yellow); }
+    .office.editing svg { cursor: crosshair; }
+    .office.editing .plate { pointer-events: none; opacity: .6; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (min-width: 760px) { .grid { grid-template-columns: repeat(3, 1fr); } }
     .team { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--red); border-radius: 12px; padding: 12px 14px 12px; }
@@ -67,6 +80,12 @@
         <button id="reload">Refresh</button>
       </div>
       <div class="office" id="office"></div>
+      <div class="pit-tools"><label>Look <select id="pitTheme"><option value="auto">Automatic</option><option value="normal">Normal</option><option value="festive">Festive</option><option value="valentines">Valentine's</option></select></label><button id="pitEdit" type="button">Decorate</button><span class="muted" id="pitMsg"></span></div>
+      <div id="pitPanel" hidden>
+        <p class="muted" style="margin:0 0 4px">Tap a decoration, then tap the room to place it. To move one, tap it in the room, then tap the new spot. Festive and Valentine's items only show in their own look. Automatic is festive from 1 December to 2 January and Valentine's from 1 to 14 February.</p>
+        <div id="pitPalette"></div>
+        <div class="acts"><button class="go" id="pitSave" type="button">Save</button><button id="pitRemove" type="button">Remove picked</button><button id="pitClear" type="button">Clear all</button><button id="pitCancel" type="button">Cancel</button></div>
+      </div>
       <div class="status" id="status">Loading…</div>
       <p class="week">This week, Sunday to Saturday. Tap a card for the detail.</p>
       <section class="shop-box" id="stockBox"><h2>Stock left</h2><div id="stockLeft"></div></section>

@@ -39,6 +39,54 @@ function longDate(dmy) {
   return `${DAYS[d.getUTCDay()]} ${+m[1]} ${MONTHS[+m[2] - 1]} ${m[3]}`;
 }
 
+// The pit's look and decorations. Saved in the app, so every phone shows the same pit.
+async function initDecor(pit, today) {
+  const msg = $('pitMsg'), themeSel = $('pitTheme'), panel = $('pitPanel'), editBtn = $('pitEdit');
+  const effective = (t) => (t === 'auto' ? window.PigOffice.autoTheme(today) : t);
+  let saved = { theme: 'auto', items: [] };
+  const say = (t) => { msg.textContent = t || ''; };
+  const post = async (body) => {
+    const res = await fetch('/api/pit/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Not saved (${res.status})`);
+    return data;
+  };
+  try {
+    const res = await fetch('/api/pit/layout');
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) saved = data;
+  } catch (err) { /* keep the default look */ }
+  themeSel.value = saved.theme;
+  pit.setTheme(effective(saved.theme)); pit.setItems(saved.items);
+
+  const GROUPS = window.PigOffice.GROUPS;
+  $('pitPalette').innerHTML = Object.keys(GROUPS).map((g) => `<h3 style="width:100%">${esc(GROUPS[g])}</h3>` + window.PigOffice.TYPES.filter((t) => t.group === g).map((t) => `<button class="pal" type="button" data-t="${t.id}">${window.PigOffice.preview(t.id)}<span>${esc(t.label)}</span></button>`).join('')).join('');
+  const marks = (state) => document.querySelectorAll('#pitPalette .pal').forEach((b) => b.classList.toggle('on', state.palette === b.dataset.t));
+  pit.onChange((state) => { marks(state); $('pitRemove').disabled = state.selected === null; });
+  $('pitPalette').addEventListener('click', (e) => {
+    const b = e.target.closest('.pal'); if (!b) return;
+    pit.setPalette(b.classList.contains('on') ? null : b.dataset.t);
+  });
+
+  const stop = () => { pit.setEditing(false); panel.hidden = true; themeSel.disabled = false; editBtn.textContent = 'Decorate'; };
+  editBtn.addEventListener('click', () => {
+    if (!panel.hidden) { pit.setItems(saved.items); stop(); say(''); return; }
+    pit.setEditing(true); panel.hidden = false; themeSel.disabled = true; editBtn.textContent = 'Close'; say('');
+    $('pitRemove').disabled = true;
+  });
+  $('pitCancel').addEventListener('click', () => { pit.setItems(saved.items); stop(); say('Changes dropped.'); });
+  $('pitRemove').addEventListener('click', () => pit.removeSelected());
+  $('pitClear').addEventListener('click', () => { if (confirm('Take every decoration you placed out of the pit?')) pit.clear(); });
+  $('pitSave').addEventListener('click', async () => {
+    try { saved = await post({ theme: saved.theme, items: pit.getItems() }); pit.setItems(saved.items); stop(); say('Saved.'); } catch (err) { say(err.message); }
+  });
+  themeSel.addEventListener('change', async () => {
+    const theme = themeSel.value;
+    pit.setTheme(effective(theme));
+    try { saved = await post({ theme, items: saved.items }); say('Saved.'); } catch (err) { say(err.message); themeSel.value = saved.theme; pit.setTheme(effective(saved.theme)); }
+  });
+}
+
 let officeDrawn = false;
 async function load() {
   const s = $('status');
@@ -51,12 +99,13 @@ async function load() {
     $('teams').innerHTML = d.teams.map(card).join('');
     if (!officeDrawn && window.PigOffice) {
       officeDrawn = true;
-      window.PigOffice($('office'), d.teams.map((t) => ({ name: t.name, open: [] })), (i) => {
+      const pit = window.PigOffice($('office'), d.teams.map((t) => ({ name: t.name, open: [] })), (i) => {
         const el = document.getElementById(`team-${slug(d.teams[i].name)}`);
         if (!el) return;
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500);
       });
+      initDecor(pit, d.today);
     }
     s.textContent = '';
   } catch (err) { s.className = 'status err'; s.textContent = err.message; }
