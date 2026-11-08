@@ -9,14 +9,14 @@ test('an empty or broken layout falls back to automatic with nothing placed', ()
 });
 
 test('themes are kept, unknown decorations and bad positions are dropped, positions are clamped', () => {
-  const v = pit.sanitise({ theme: 'festive', items: [
+  const v = pit.sanitise({ theme: 'christmas', items: [
     { t: 'tree', x: 20.04, y: 100 },
     { t: 'dragon', x: 5, y: 5 },
     { t: 'gift', x: 'a', y: 5 },
     { t: 'heart', x: 500, y: -9 },
     null,
   ] });
-  assert.strictEqual(v.theme, 'festive');
+  assert.strictEqual(v.theme, 'christmas');
   assert.deepStrictEqual(v.items, [{ t: 'tree', x: 20, y: 100 }, { t: 'heart', x: 192, y: 0 }]);
 });
 

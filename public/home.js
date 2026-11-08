@@ -56,6 +56,7 @@ async function initDecor(pit, today) {
     const data = await res.json().catch(() => ({}));
     if (res.ok) saved = data;
   } catch (err) { /* keep the default look */ }
+  themeSel.innerHTML = [['auto', 'Automatic'], ['normal', 'Normal'], ...window.PigOffice.THEMES.map((t) => [t.id, t.label])].map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
   themeSel.value = saved.theme;
   pit.setTheme(effective(saved.theme)); pit.setItems(saved.items);
 
