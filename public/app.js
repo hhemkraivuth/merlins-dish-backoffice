@@ -701,8 +701,9 @@ async function renderStock() {
       <form class="stock-row" style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;border-color:var(--ink,#294bd4)">
         <input class="stock-edit-input" name="name" value="${escapeHtml(r.name)}" style="width:auto" required />
         <select class="stock-edit-input" name="cat" style="width:auto">${catOptions(r.cat)}</select>
+        <select class="stock-edit-input" name="bunit" style="grid-column:1 / -1;width:auto"><option value="g"${r.unit === 'pcs' ? '' : ' selected'}>Bags are weighed in grams</option><option value="pcs"${r.unit === 'pcs' ? ' selected' : ''}>Bags are counted in pieces</option></select>
+        <div class="stock-meta" id="bagHelp" style="grid-column:1 / -1"></div>
         <input class="stock-edit-input" name="bags" value="${escapeHtml((it.bags || []).join(', '))}" placeholder="Weight of each bag in grams, e.g. 1400, 180, 240" inputmode="decimal" style="grid-column:1 / -1;width:auto" />
-        <select class="stock-edit-input" name="bunit" style="width:auto"><option value="g"${r.unit === 'pcs' ? '' : ' selected'}>Bags are weighed in grams</option><option value="pcs"${r.unit === 'pcs' ? ' selected' : ''}>Bags are counted in pieces</option></select>
         <label class="stock-meta" style="grid-column:1 / -1"><span id="batchLabel">One batch uses</span> <input class="stock-edit-input" name="batch" type="number" step="any" inputmode="decimal" value="${it.batch || ''}" placeholder="e.g. 1600" style="width:110px" /></label>
         <input class="stock-edit-input" name="brand" placeholder="Brand or supplier" value="${escapeHtml(it.brand || '')}" maxlength="60" style="grid-column:1 / -1;width:auto" />
         <div class="stock-meta" style="grid-column:1 / -1;display:flex;gap:6px;align-items:center;flex-wrap:wrap">Add bags: <input class="stock-edit-input" name="addW" type="number" step="any" inputmode="decimal" placeholder="g per bag" style="width:90px" /> × <input class="stock-edit-input" name="addN" type="number" step="1" inputmode="numeric" placeholder="how many bags" value="1" style="width:80px" /> <button class="small-button" type="button" data-addbags>Add</button></div>
@@ -713,13 +714,14 @@ async function renderStock() {
     rowEl.replaceWith(form);
     const f = form.elements;
     const parse = () => String(f.bags.value).replace(/(\d),(\d{3})(?!\d)/g, '$1$2').replace(/(\d+(?:\.\d+)?)\s*(?:g|pcs)?\s*[x×*]\s*(\d+)\b/gi, (m, w, n) => Array(Math.min(Number(n), 200)).fill(w).join(' ')).split(/[\s,;+g]+/).map(Number).filter((n) => Number.isFinite(n) && n > 0);
-    const tick = () => { const t = parse().reduce((a, b) => a + b, 0); const b = Number(f.batch.value); form.querySelector('#bagTotal').textContent = `${parse().length} bag${parse().length === 1 ? '' : 's'}, ${gramsText(t, f.bunit.value)} together${f.bunit.value === 'pcs' ? piecesInGrams(t, f.piece.value) : ''}${b > 0 ? (t >= b ? ` · enough for ${Math.floor(t / b)} batch${Math.floor(t / b) === 1 ? '' : 'es'}` : ` · ${gramsText(b - t, f.bunit.value)} short of one batch`) : ''}`; };
+    const tick = () => { const t = parse().reduce((a, b) => a + b, 0); const b = Number(f.batch.value); form.querySelector('#bagTotal').textContent = `${f.bunit.value === 'pcs' ? 'In total: ' : parse().length + ' bag' + (parse().length === 1 ? '' : 's') + ', '}${gramsText(t, f.bunit.value)}${f.bunit.value === 'pcs' ? '' : ' together'}${f.bunit.value === 'pcs' ? piecesInGrams(t, f.piece.value) : ''}${b > 0 ? (t >= b ? ` · enough for ${Math.floor(t / b)} batch${Math.floor(t / b) === 1 ? '' : 'es'}` : ` · ${gramsText(b - t, f.bunit.value)} short of one batch`) : ''}`; };
     const pieceVis = () => {
       const pcs = f.bunit.value === 'pcs';
       form.querySelector('#pieceRow').style.display = pcs ? '' : 'none';
       f.bags.placeholder = pcs ? 'Pieces in each bag, e.g. 2, 3, 7' : 'Weight of each bag in grams, e.g. 1400, 180, 240';
       f.addW.placeholder = pcs ? 'pcs per bag' : 'g per bag';
       form.querySelector('#batchLabel').textContent = pcs ? 'One batch uses (pieces)' : 'One batch uses (g)';
+      form.querySelector('#bagHelp').textContent = pcs ? 'Type how many pieces are in each bag, separated by commas, for example 2, 3, 1. Loose pieces with no bag: type the total as one number, for example 11.' : 'Type the weight of each bag in grams, separated by commas, for example 220, 220, 220.';
     };
     ['input', 'change'].forEach((ev) => form.addEventListener(ev, () => { tick(); pieceVis(); })); tick(); pieceVis();
     form.querySelector('[data-addbags]').addEventListener('click', () => {
