@@ -250,6 +250,18 @@
     return 'normal';
   }
 
+  // Words painted on the floor, like the spotlight: one greeting per look, and birthdays take over in their month.
+  const GREET = {
+    christmas: ['Merry Christmas', '#c8321f'], festive: ['Happy New Year', '#c98a1a'], valentines: ["Happy Valentine's Day", '#d6336c'],
+    lunar: ['Happy Lunar New Year', '#d02a1c'], easter: ['Happy Easter', '#8a63c9'], songkran: ['Happy Songkran', '#1f8fc9'],
+    unicorn: ['Stay Magical', '#b45fd6'], pride: ['Happy Pride', '#d6336c'],
+  };
+  const BDNAME = { bd_lily: ['Happy Birthday Lily', '#1b2559'], bd_kay: ['Happy Birthday Kay', '#ff2e93'], bd_merlin: ["Happy Birthday Merlin's Dish", '#e63d23'] };
+  function floorText(theme, bday) {
+    const lines = bday.length ? bday.map((b) => BDNAME[b]) : (theme === 'normal' || theme === 'auto' ? [] : [GREET[theme] || BDNAME[theme]]);
+    const ls = lines.filter(Boolean);
+    return ls.map(([t, c], i) => `<text x="96" y="${ls.length === 1 ? 110 : 104 + i * 7.5}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-weight="700" font-size="6.4" fill="${c}" opacity=".6" letter-spacing=".25">${t.replace(/'/g, '&#39;')}</text>`).join('');
+  }
   function room() {
     let s = `<rect width="${W}" height="${H}" fill="#e3e4e8"/>`;
     for (let y = 12; y < H; y += 8) for (let x = ((y / 8) % 2) * 8; x < W; x += 16) s += `<rect x="${x}" y="${y}" width="8" height="8" rx="1.2" fill="#cfd1d8"/>`;
@@ -308,7 +320,7 @@
         return `<g data-di="${i}" transform="translate(${it.x} ${it.y})"${dim}>${hit}${DECOR[it.t].draw()}${ring}</g>`;
       }).join('');
       const chars = PIGS.map((p, n) => `<g class="ch" data-n="${n}"><g transform="scale(1.1)">${p.giraffe ? giraffe() : pig(p.shirt)}${costume(costumeOf, Boolean(p.giraffe))}</g></g>`).join('');
-      svg.innerHTML = `${PRIDE_DEFS}${room()}${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}<g>${preset}</g><g>${placed}</g>${chars}`;
+      svg.innerHTML = `${PRIDE_DEFS}${room()}${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}${floorText(state.theme, state.bday)}<g>${preset}</g><g>${placed}</g>${chars}`;
       const els = [...svg.querySelectorAll('.ch')];
       pigs.forEach((p, n) => { p.el = els[n]; });
       paint();
