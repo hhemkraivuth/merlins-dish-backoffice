@@ -2,7 +2,7 @@
 // Saved in the App State tab so every phone sees the same pit and nothing needs a code change.
 // Keep TYPES in step with the DECOR list in public/office.js.
 const KEY = 'pit_layout';
-const THEMES = ['auto', 'normal', 'christmas', 'festive', 'valentines', 'lunar', 'easter', 'songkran', 'unicorn', 'pride'];
+const THEMES = ['auto', 'normal', 'christmas', 'festive', 'valentines', 'lunar', 'easter', 'songkran', 'unicorn', 'pride', 'bd_lily', 'bd_kay', 'bd_merlin'];
 const TYPES = [
   'plant', 'flowers', 'lamp', 'rug', 'balloons',
   'tree', 'gift', 'wreath', 'snowman', 'lights', 'candycane',
@@ -13,6 +13,7 @@ const TYPES = [
   'bucket', 'watergun', 'marigolds', 'splash', 'mgarland',
   'unicorn', 'rainbow', 'cloud', 'sparkles', 'ubal',
   'flag', 'pheart', 'pbanner', 'pballoons',
+  ...['bl', 'bk', 'bm'].flatMap((k) => ['cake', 'gifts', 'balloons', 'banner'].map((t) => `${k}_${t}`)),
 ];
 const MAX_ITEMS = 80;
 const W = 192; const H = 120;

@@ -42,7 +42,7 @@ function longDate(dmy) {
 // The pit's look and decorations. Saved in the app, so every phone shows the same pit.
 async function initDecor(pit, today) {
   const msg = $('pitMsg'), themeSel = $('pitTheme'), panel = $('pitPanel'), editBtn = $('pitEdit');
-  const effective = (t) => (t === 'auto' ? window.PigOffice.autoTheme(today) : t);
+  const effective = (t) => (t === 'auto' ? window.PigOffice.autoLook(today) : { theme: t, bday: [] });
   let saved = { theme: 'auto', items: [] };
   const say = (t) => { msg.textContent = t || ''; };
   const post = async (body) => {
@@ -58,10 +58,12 @@ async function initDecor(pit, today) {
   } catch (err) { /* keep the default look */ }
   themeSel.innerHTML = [['auto', 'Automatic'], ['normal', 'Normal'], ...window.PigOffice.THEMES.map((t) => [t.id, t.label])].map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
   themeSel.value = saved.theme;
-  pit.setTheme(effective(saved.theme)); pit.setItems(saved.items);
+  pit.setLook(effective(saved.theme)); pit.setItems(saved.items);
 
   const GROUPS = window.PigOffice.GROUPS;
-  $('pitPalette').innerHTML = Object.keys(GROUPS).map((g) => `<h3 style="width:100%">${esc(GROUPS[g])}</h3>` + window.PigOffice.TYPES.filter((t) => t.group === g).map((t) => `<button class="pal" type="button" data-t="${t.id}">${window.PigOffice.preview(t.id)}<span>${esc(t.label)}</span></button>`).join('')).join('');
+  $('pitPalette').innerHTML = Object.keys(GROUPS).map((g) => `<details class="pgroup" data-g="${g}"><summary>${esc(GROUPS[g])}</summary><div class="pitems">${window.PigOffice.TYPES.filter((t) => t.group === g).map((t) => `<button class="pal" type="button" data-t="${t.id}">${window.PigOffice.preview(t.id)}<span>${esc(t.label)}</span></button>`).join('')}</div></details>`).join('');
+  // One group open at a time, so the panel stays short.
+  $('pitPalette').addEventListener('toggle', (e) => { if (e.target.open) document.querySelectorAll('#pitPalette details').forEach((d) => { if (d !== e.target) d.open = false; }); }, true);
   const marks = (state) => document.querySelectorAll('#pitPalette .pal').forEach((b) => b.classList.toggle('on', state.palette === b.dataset.t));
   pit.onChange((state) => { marks(state); $('pitRemove').disabled = state.selected === null; });
   $('pitPalette').addEventListener('click', (e) => {
@@ -83,8 +85,8 @@ async function initDecor(pit, today) {
   });
   themeSel.addEventListener('change', async () => {
     const theme = themeSel.value;
-    pit.setTheme(effective(theme));
-    try { saved = await post({ theme, items: saved.items }); say('Saved.'); } catch (err) { say(err.message); themeSel.value = saved.theme; pit.setTheme(effective(saved.theme)); }
+    pit.setLook(effective(theme));
+    try { saved = await post({ theme, items: saved.items }); say('Saved.'); } catch (err) { say(err.message); themeSel.value = saved.theme; pit.setLook(effective(saved.theme)); }
   });
 }
 

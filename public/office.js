@@ -112,7 +112,7 @@
           : `<path d="M6 -4.8 L4.9 .5 L7.1 .5 Z" fill="${GOLD}"/><path d="M5.4 -1 L6.8 -1.9 M5.1 .1 L7 -.8" stroke="#d6a516" stroke-width=".3"/><path d="M2 1 Q.4 3 1.6 6" stroke="#c9a0f0" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M10 1 Q11.6 3 10.4 6" stroke="#8fd3e8" stroke-width="1" fill="none" stroke-linecap="round"/>${sparkle(11, -2, 0.8, '#c9a0f0')}`;
       case 'pride':
         return g ? `${prideShirt()}${heart(6, -19.8, 1, 'url(#prideGrad)')}` : `${prideShirt()}${heart(6, -2.4, 1, 'url(#prideGrad)')}`;
-      default: return '';
+      default: return BD[theme] ? partyCostume(BD[theme].cols, g) : '';
     }
   }
 
@@ -174,7 +174,30 @@
     pbanner: { label: 'Rainbow banner', group: 'pride', draw: () => bunting(PRIDE) },
     pballoons: { label: 'Rainbow balloons', group: 'pride', draw: () => `${balloon(-5, -13, PRIDE[0])}${balloon(-2.6, -15.4, PRIDE[1])}${balloon(0, -13.4, PRIDE[2])}${balloon(2.6, -15.6, PRIDE[3])}${balloon(5, -13, PRIDE[4])}` },
   };
-  const GROUPS = { general: 'Everyday', christmas: 'Christmas', festive: 'Festive glow', valentines: "Valentine's", lunar: 'Lunar New Year', easter: 'Easter', songkran: 'Songkran', unicorn: 'Unicorn', pride: 'Pride' };
+
+  // ---- Birthdays: Lily (navy, September), Merlin's Dish (brand colours, November), Kay (shades of pink, November).
+  const BD = {
+    bd_lily: { label: "Lily's birthday", key: 'bl', cols: ['#1b2559', '#c9a227', '#3a56a8', '#8fa3d8'] },
+    bd_kay: { label: "Kay's birthday", key: 'bk', cols: ['#ff2e93', '#ffd1e0', '#ff8fb8', '#e0527f'] },
+    bd_merlin: { label: "Merlin's Dish birthday", key: 'bm', cols: ['#e63d23', GOLD, '#294bd4', '#ffeede'] },
+  };
+  const partyCostume = (c, g) => g
+    ? `<path d="M6 -22.6 L4.2 -17.2 L7.8 -17.2 Z" fill="${c[0]}"/><path d="M4.8 -19.6 L7.2 -19.6" stroke="${c[1]}" stroke-width=".5"/><circle cx="6" cy="-22.8" r=".75" fill="${c[2]}"/><path d="M6 5.8 L3.6 4.6 L3.6 7 Z" fill="${c[0]}"/><path d="M6 5.8 L8.4 4.6 L8.4 7 Z" fill="${c[0]}"/><circle cx="6" cy="5.8" r=".7" fill="${c[1]}"/>`
+    : `<path d="M6 -4.8 L3.6 .7 L8.4 .7 Z" fill="${c[0]}"/><path d="M4.4 -1.4 L7.6 -1.4 M3.9 -.1 L8.1 -.1" stroke="${c[1]}" stroke-width=".45"/><circle cx="6" cy="-5" r=".75" fill="${c[2]}"/><circle cx="10.6" cy="-1.4" r=".5" fill="${c[3]}"/><circle cx="1.6" cy="-2.4" r=".5" fill="${c[1]}"/>`;
+  Object.keys(BD).forEach((id) => {
+    const { key, cols: c } = BD[id];
+    DECOR[`${key}_cake`] = { label: 'Birthday cake', group: id, draw: () => `<rect x="-5.4" y="-4.4" width="10.8" height="4.4" rx=".8" fill="${c[0]}"/><rect x="-5.4" y="-2.6" width="10.8" height=".9" fill="${c[3]}"/><rect x="-3.6" y="-7.6" width="7.2" height="3.4" rx=".8" fill="${c[1]}"/><rect x="-3.6" y="-6.2" width="7.2" height=".8" fill="${c[3]}"/><circle cx="2" cy="-8.2" r=".8" fill="${c[2]}"/><rect x="-.4" y="-10.6" width=".8" height="3" fill="#fff"/><path d="M0 -12.4 Q.8 -11.2 0 -10.4 Q-.8 -11.2 0 -12.4Z" fill="#ffb347"/>` };
+    DECOR[`${key}_gifts`] = { label: 'Presents', group: id, draw: () => `<rect x="-4.6" y="-5.6" width="6.4" height="5.6" rx=".6" fill="${c[0]}"/><rect x="-1.9" y="-5.6" width="1" height="5.6" fill="${c[3]}"/><rect x="-4.6" y="-3.4" width="6.4" height=".9" fill="${c[3]}"/><rect x="2.2" y="-3.8" width="3.8" height="3.8" rx=".5" fill="${c[2]}"/><rect x="3.7" y="-3.8" width=".8" height="3.8" fill="${c[1]}"/><circle cx="-2.9" cy="-6.4" r="1" fill="${c[1]}"/><circle cx="-.9" cy="-6.4" r="1" fill="${c[1]}"/>` };
+    DECOR[`${key}_balloons`] = { label: 'Balloons', group: id, draw: () => `${balloon(-5, -13, c[0])}${balloon(-1.6, -15.6, c[1])}${balloon(1.8, -14, c[2])}${balloon(5, -12.4, c[3])}` };
+    DECOR[`${key}_banner`] = { label: 'Banner', group: id, draw: () => bunting(c) };
+  });
+  // What each birthday adds on top of the current look during its month.
+  const BDLAYER = {
+    bd_lily: [['bl_cake', 96, 113], ['bl_balloons', 60, 116], ['bl_balloons', 136, 116], ['bl_gifts', 76, 117]],
+    bd_merlin: [['bm_cake', 88, 113], ['bm_balloons', 58, 116], ['bm_gifts', 72, 117]],
+    bd_kay: [['bk_cake', 108, 113], ['bk_balloons', 138, 116], ['bk_gifts', 122, 117]],
+  };
+  const GROUPS = { general: 'Everyday', christmas: 'Christmas', festive: 'Festive glow', valentines: "Valentine's", lunar: 'Lunar New Year', easter: 'Easter', songkran: 'Songkran', unicorn: 'Unicorn', pride: 'Pride', bd_lily: BD.bd_lily.label, bd_kay: BD.bd_kay.label, bd_merlin: BD.bd_merlin.label };
 
   // What a theme adds on its own, before anything Lily places.
   const WALL = [14, 42, 70, 98, 126, 154, 182];
@@ -188,8 +211,12 @@
     unicorn: [['rainbow', 127, 13], ['cloud', 81, 9], ['unicorn', 30, 116], ['ubal', 172, 116], ['sparkles', 60, 112], ['sparkles', 140, 114], ['sparkles', 100, 108]],
     pride: [...WALL.map((x) => ['pbanner', x, 12]), ['flag', 22, 116], ['flag', 172, 116], ['pheart', 96, 113], ['pballoons', 36, 116], ['pballoons', 150, 116]],
   };
+  Object.keys(BD).forEach((id) => {
+    const k = BD[id].key;
+    PRESETS[id] = [...WALL.map((x) => [`${k}_banner`, x, 12]), [`${k}_cake`, 96, 113], [`${k}_balloons`, 22, 116], [`${k}_balloons`, 172, 116], [`${k}_gifts`, 40, 117], [`${k}_gifts`, 150, 116]];
+  });
   const at = (x, y, body) => `<g transform="translate(${x} ${y})">${body}</g>`;
-  const visible = (it, theme) => { const d = DECOR[it.t]; return d && (d.group === 'general' || d.group === theme); };
+  const visible = (it, theme, bday) => { const d = DECOR[it.t]; return d && (d.group === 'general' || d.group === theme || (bday || []).includes(d.group)); };
 
   // "08/11/2026" -> the look to use today when Automatic is chosen. Unicorn is never automatic.
   const LUNAR = { 2026: [2, 17], 2027: [2, 6], 2028: [1, 26], 2029: [2, 13], 2030: [2, 3], 2031: [1, 23], 2032: [2, 11] };
@@ -198,6 +225,11 @@
     const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
     const mo = Math.floor((h + l - 7 * m + 114) / 31), dd = ((h + l - 7 * m + 114) % 31) + 1;
     return [mo, dd];
+  }
+  function autoLook(dmy) {
+    const m0 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(dmy || ''));
+    const mon = m0 ? +m0[2] : 0;
+    return { theme: autoTheme(dmy), bday: mon === 9 ? ['bd_lily'] : mon === 11 ? ['bd_merlin', 'bd_kay'] : [] };
   }
   function autoTheme(dmy) {
     const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(dmy || ''));
@@ -257,7 +289,7 @@
   }
 
   window.PigOffice = function (box, teams, onPick) {
-    const state = { theme: 'normal', items: [], editing: false, palette: null, sel: null };
+    const state = { theme: 'normal', bday: [], items: [], editing: false, palette: null, sel: null };
     let listener = null;
     const notify = () => { if (listener) listener({ editing: state.editing, palette: state.palette, selected: state.sel, count: state.items.length }); };
     box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="An office with five team desks, four pigs in t shirts and a giraffe chef walking between them" xmlns="http://www.w3.org/2000/svg"></svg>`;
@@ -266,15 +298,16 @@
     const paint = () => [...pigs].sort((a, b) => a.y - b.y).forEach((p) => { p.el.setAttribute('transform', `translate(${p.x.toFixed(2)} ${(p.y + (p.step ? -0.8 : 0)).toFixed(2)})`); p.el.parentNode.appendChild(p.el); });
 
     function render() {
-      const preset = (PRESETS[state.theme] || []).map(([t, x, y]) => at(x, y, DECOR[t].draw())).join('');
-      const placed = state.items.map((it, i) => ({ it, i })).filter(({ it }) => state.editing || visible(it, state.theme)).map(({ it, i }) => {
+      const preset = [...(PRESETS[state.theme] || []), ...state.bday.flatMap((b) => BDLAYER[b] || [])].map(([t, x, y]) => at(x, y, DECOR[t].draw())).join('');
+      const costumeOf = state.theme === 'normal' && state.bday.length ? state.bday[0] : state.theme;
+      const placed = state.items.map((it, i) => ({ it, i })).filter(({ it }) => state.editing || visible(it, state.theme, state.bday)).map(({ it, i }) => {
         const sel = state.editing && state.sel === i;
         const hit = state.editing ? '<rect x="-8" y="-24" width="16" height="27" fill="transparent"/>' : '';
         const ring = sel ? '<rect x="-8" y="-24" width="16" height="27" rx="2" fill="none" stroke="#294bd4" stroke-width=".7" stroke-dasharray="2 1.4"/>' : '';
-        const dim = state.editing && !visible(it, state.theme) ? ' opacity=".5"' : '';
+        const dim = state.editing && !visible(it, state.theme, state.bday) ? ' opacity=".5"' : '';
         return `<g data-di="${i}" transform="translate(${it.x} ${it.y})"${dim}>${hit}${DECOR[it.t].draw()}${ring}</g>`;
       }).join('');
-      const chars = PIGS.map((p, n) => `<g class="ch" data-n="${n}"><g transform="scale(1.1)">${p.giraffe ? giraffe() : pig(p.shirt)}${costume(state.theme, Boolean(p.giraffe))}</g></g>`).join('');
+      const chars = PIGS.map((p, n) => `<g class="ch" data-n="${n}"><g transform="scale(1.1)">${p.giraffe ? giraffe() : pig(p.shirt)}${costume(costumeOf, Boolean(p.giraffe))}</g></g>`).join('');
       svg.innerHTML = `${PRIDE_DEFS}${room()}${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}<g>${preset}</g><g>${placed}</g>${chars}`;
       const els = [...svg.querySelectorAll('.ch')];
       pigs.forEach((p, n) => { p.el = els[n]; });
@@ -311,7 +344,8 @@
 
     const copy = (a) => a.map((x) => ({ t: x.t, x: x.x, y: x.y }));
     const controller = {
-      setTheme(t) { state.theme = t; render(); },
+      setTheme(t) { state.theme = t; state.bday = []; render(); },
+      setLook(l) { state.theme = l.theme; state.bday = l.bday || []; render(); },
       setItems(a) { state.items = copy(a || []); state.sel = null; render(); notify(); },
       getItems() { return copy(state.items); },
       setEditing(on) { state.editing = Boolean(on); state.sel = null; state.palette = null; box.classList.toggle('editing', state.editing); render(); notify(); },
@@ -354,5 +388,6 @@
   window.PigOffice.GROUPS = GROUPS;
   window.PigOffice.THEMES = Object.keys(GROUPS).filter((g) => g !== 'general').map((id) => ({ id, label: GROUPS[id] }));
   window.PigOffice.autoTheme = autoTheme;
+  window.PigOffice.autoLook = autoLook;
   window.PigOffice.preview = (id) => `<svg viewBox="-14 -26 28 30" xmlns="http://www.w3.org/2000/svg">${PRIDE_DEFS}${DECOR[id].draw()}</svg>`;
 })();

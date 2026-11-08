@@ -21,7 +21,11 @@
     .pit-tools .go, #pitPanel .go { background: var(--blue); border-color: var(--blue); color: #fff; }
     #pitPanel { max-width: 760px; margin: 0 auto 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
     #pitPanel h3 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 10px 0 6px; }
-    #pitPalette { display: flex; flex-wrap: wrap; gap: 6px; }
+    #pitPalette { display: flex; flex-direction: column; gap: 6px; }
+    #pitPalette details { border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; }
+    #pitPalette summary { cursor: pointer; font-size: 14px; font-weight: 700; padding: 9px 0; list-style-position: inside; }
+    #pitPalette .pitems { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 10px; }
+    #pitHelp summary { cursor: pointer; font-size: 13px; color: var(--muted); }
     #pitPanel .pal { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 74px; padding: 6px 4px; border-radius: 10px; font-size: 11px; }
     #pitPanel .pal svg { width: 34px; height: 36px; }
     #pitPanel .pal.on { border-color: var(--blue); box-shadow: 0 0 0 2px var(--yellow); }
@@ -82,7 +86,8 @@
       <div class="office" id="office"></div>
       <div class="pit-tools"><label>Look <select id="pitTheme"></select></label><button id="pitEdit" type="button">Decorate</button><span class="muted" id="pitMsg"></span></div>
       <div id="pitPanel" hidden>
-        <p class="muted" style="margin:0 0 4px">Tap a decoration, then tap the room to place it. To move one, tap it in the room, then tap the new spot. Items from a theme only show in that look. Automatic follows the calendar: Christmas from 1 November to 26 December, Festive glow from 27 December to 15 January, Lunar New Year all of February (Valentine's takes 12 to 14 February), Easter for the week before, Songkran 10 to 16 April and Pride in June. Unicorn is only on when you pick it.</p>
+        <p class="muted" style="margin:0 0 6px">Tap a decoration, then tap the room to place it. To move one, tap it in the room, then tap the new spot.</p>
+        <details id="pitHelp" style="margin-bottom:8px"><summary>When does each look switch on?</summary><p class="muted" style="margin:6px 0 0">Items from a theme only show in that look. Automatic follows the calendar: Christmas from 1 November to 26 December, Festive glow from 27 December to 15 January, Lunar New Year all of February (Valentine's takes 12 to 14 February), Easter for the week before, Songkran 10 to 16 April and Pride in June. Birthday months add their own decorations on top: September for Lily (navy), November for Merlin's Dish and Kay (pink). Unicorn and the birthday looks can also be picked by hand.</p></details>
         <div id="pitPalette"></div>
         <div class="acts"><button class="go" id="pitSave" type="button">Save</button><button id="pitRemove" type="button">Remove picked</button><button id="pitClear" type="button">Clear all</button><button id="pitCancel" type="button">Cancel</button></div>
       </div>
