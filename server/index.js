@@ -43,6 +43,8 @@ app.get('/api/cook/log', logsRoute.cookJson);
 app.get('/api/cook/log.csv', logsRoute.cookCsv);
 app.post('/api/export/weekly', logsRoute.weeklyExportRoute);
 app.get('/api/shopping/plan', shoppingRoute.planJson);
+app.post('/api/shopping/retire', shoppingRoute.retire);
+app.post('/api/shopping/link', shoppingRoute.linkStockItem);
 app.get('/api/analysis', analysisRoute.analysisJson);
 app.get('/api/stock/ready', logsRoute.readyJson);
 app.post('/api/stock/ready-count', logsRoute.readyCount);

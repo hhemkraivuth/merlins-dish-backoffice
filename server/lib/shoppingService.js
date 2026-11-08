@@ -43,20 +43,31 @@ async function getPlan({ force = false } = {}) {
     }
   } catch (err) { warnings.push(`Could not read the counted stock (${err.message}), so what is left is estimated from receipts.`); }
   // Hand counted stock (cans, bottles, tins, packets) joins the receipts based stock, converted to ml, g or pieces.
+  let loose = new Map(); let stockNames = new Map(); const bagKeys = new Set(); const ignoreKeys = new Set();
   try {
     const { getAllStock } = require('./stockCounts'); const { normName } = require('./priceBook'); const st = require('./appState');
+    const cs = require('./countedStock');
     let sizes = {}; try { sizes = JSON.parse((await st.getState('stock_item_sizes')) || '{}'); } catch (err) { sizes = {}; }
     // Bagged meat is counted in grams by hand, so its bag total replaces whatever the receipts say is left.
-    try { for (const k of Object.keys(await require('./stockBags').load())) stock.delete(require('./countedStock').baseNameOf(k, normName)); } catch (err) { /* no bags yet */ }
-    const counted = require('./countedStock').countedToStock(await getAllStock(), sizes, normName, stock);
+    try { for (const k of Object.keys(await require('./stockBags').load())) { const bk = cs.baseNameOf(k, normName); stock.delete(bk); bagKeys.add(bk); } } catch (err) { /* no bags yet */ }
+    const all = await getAllStock();
+    for (const it of all) if ((it.category || it.guess) === 'Drinks') ignoreKeys.add(cs.baseNameOf(it.itemName, normName)); // drinks for sale are not recipe ingredients
+    const counted = cs.countedToStock(all, sizes, normName, stock);
     for (const [k, v] of counted.stock) stock.set(k, v);
-    warnings.push(...counted.warnings.slice(0, 6));
+    loose = counted.loose; stockNames = counted.names;
   } catch (err) { warnings.push(`Could not read the Stock Counts tab (${err.message}).`); }
+  // Brand changes, blends, the links Lily set by hand and the ingredients she stopped buying.
+  let swaps = []; let blends = new Map(); let links = {}; let retired = [];
+  try { swaps = require('./ingredientSwap').listSwaps(await require('./cookLog').readShorthandRows()); } catch (err) { warnings.push(`Could not read the brand changes (${err.message}).`); }
+  try { blends = await require('./blends').loadBlends(); } catch (err) { warnings.push(`Could not read the blends (${err.message}).`); }
+  try { links = JSON.parse((await require('./appState').getState('stock_links')) || '{}'); } catch (err) { links = {}; }
+  try { retired = JSON.parse((await require('./appState').getState('plan_retired')) || '[]'); } catch (err) { retired = []; }
   const result = plan.buildShoppingPlan({
     today: bangkokToday(),
     sales: plan.combineSales({ master, ledger }),
     cookLogRows: cookLog, sizeRows: sizes, lineRows: lines,
     priceLogRows: priceLog, expenseRows: expense, shelfRows: [...shelf, ...shelfOwn], stock,
+    loose, stockNames, links, swaps, blends, retired, bagKeys, ignoreKeys,
   });
   try { result.urgent = await require('./lowStock').loadUrgent(); } catch (err) { result.urgent = []; warnings.push(`Could not work out what is running out (${err.message}).`); }
   result.warnings = [...warnings, ...result.warnings];

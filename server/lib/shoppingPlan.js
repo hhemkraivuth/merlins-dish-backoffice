@@ -15,6 +15,7 @@ const { parseDate, formatDMY, utc } = require('./dates');
 const { normName, parsePurchaseUnit, toNumber, UNIT_FACTORS } = require('./priceBook');
 const { batchDishOf, BATCH_DISHES } = require('./dishes');
 const { cookItems, monthKey } = require('./logViews');
+const { linkStock } = require('./stockLink');
 
 const FIRST_MONTH = '2026-08';        // the Master Log is trusted from here
 const SLOW_MONTHS = ['2026-10'];      // bridge and public holidays: left out of the normal volume
@@ -118,20 +119,25 @@ function demandOf(sales, today) {
 
 // ---- usage per portion -------------------------------------------------------------------------------
 
-function usageOf(cookLogRows, sizeRows, lineRows) {
+// swaps: brand changes ({ dish, line, to }) from the Shorthand tab. An old name counts as the new one in every batch, old or new.
+// A line is only part of today's recipe when it appears in one of the dish's two latest batches. An ingredient that was
+// dropped (Spacecraft stout, after the switch to Chiangmai Winter) leaves the plan on its own once a batch without it is logged.
+function usageOf(cookLogRows, sizeRows, lineRows, swaps = []) {
   const batches = new Map(cookItems(cookLogRows, sizeRows).map((b) => [b.key, b]));
   const perDish = new Map(); // dish -> { portions, lines: Map(groupKey -> { name, kind, unit, qty }) }
   const counted = new Set();
+  const seen = new Map(); // batch key -> { dish, date, gks }
   let batchCount = 0; let firstDate = null;
+  const renamed = (name, dish) => { const sw = swaps.find((w) => normName(w.line) === normName(name) && (w.dish === '*' || normName(w.dish) === normName(dish))); return sw ? sw.to : name; };
   for (const r of (lineRows || []).slice(1)) {
     const b = batches.get(String(r[0]));
     if (!b || !(b.portions > 0)) continue;
     const kind = String(r[3] || '').trim();
     if (kind !== 'Ingredient' && kind !== 'Packaging') continue;
     const qty = numOf(r[5]);
-    const name = String(r[4] || '').trim();
-    if (!name || !qty || qty <= 0) continue;
     const dish = batchDishOf(b.dish) || b.dish;
+    const name = renamed(String(r[4] || '').trim(), dish);
+    if (!name || !qty || qty <= 0) continue;
     if (!perDish.has(dish)) perDish.set(dish, { portions: 0, lines: new Map() });
     const d = perDish.get(dish);
     if (!counted.has(b.key)) { counted.add(b.key); d.portions += b.portions; batchCount += 1; if (!firstDate || b.date < firstDate) firstDate = b.date; }
@@ -139,6 +145,20 @@ function usageOf(cookLogRows, sizeRows, lineRows) {
     const gk = `${normName(name)}|${base.unit}`;
     const line = d.lines.get(gk) || { name, kind, unit: base.unit, qty: 0 };
     line.qty += base.qty; d.lines.set(gk, line);
+    if (!seen.has(b.key)) seen.set(b.key, { dish, date: b.date, gks: new Set() });
+    seen.get(b.key).gks.add(gk);
+  }
+  const current = new Map(); // dish -> gks in its two latest batches
+  for (const v of [...seen.values()].sort((a, b) => b.date - a.date)) {
+    if (!current.has(v.dish)) current.set(v.dish, { n: 0, gks: new Set() });
+    const c = current.get(v.dish);
+    if (c.n >= 2) continue;
+    c.n += 1; for (const g of v.gks) c.gks.add(g);
+  }
+  for (const [dish, d] of perDish) {
+    const c = current.get(dish);
+    if (!c) continue;
+    for (const gk of [...d.lines.keys()]) if (!c.gks.has(gk)) d.lines.delete(gk);
   }
   return { perDish, batchCount, firstDate };
 }
@@ -238,10 +258,11 @@ const packText = (packs, pack, unit) => (packs > 0 ? `${packs} x ${fmtQty(pack, 
 const bestText = (b) => (b ? `${b.price !== null && b.qty ? `฿${Math.round(b.price * 100) / 100} for ${fmtQty(b.qty, b.unit)}` : `฿${Math.round(b.cost * 10000) / 10000} each`}` : '');
 
 // stock: Map of normalised ingredient name -> { left, unit }, the counted stock (Ingredient Lots, kept by the bot). It beats the receipt estimate.
-function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [], lineRows = [], priceLogRows = [], expenseRows = [], shelfRows = [], stock = new Map() }) {
+function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [], lineRows = [], priceLogRows = [], expenseRows = [], shelfRows = [], stock = new Map(), loose = new Map(), stockNames = new Map(), links = {}, swaps = [], blends = new Map(), retired = [], bagKeys = new Set(), ignoreKeys = new Set() }) {
   const warnings = [];
   const demand = demandOf(sales, today);
-  const usage = usageOf(cookLogRows, sizeRows, lineRows);
+  const usage = usageOf(cookLogRows, sizeRows, lineRows, swaps);
+  const retiredSet = new Set((retired || []).map((r) => normName(r)));
   const { map: buys, tripDays } = purchasesOf(priceLogRows, expenseRows, today);
   const shelf = shelfOf(shelfRows);
 
@@ -263,6 +284,32 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
     }
   }
 
+  // "Stop buying": ingredients Lily has retired are left out.
+  for (const gk of [...need.keys()]) if (retiredSet.has(gk.split('|')[0])) need.delete(gk);
+
+  // Link the counted stock to the ingredients by meaning, not only by exact name (see stockLink.js).
+  const entries = new Map();
+  for (const [k, v] of stock) if (!ignoreKeys.has(k)) entries.set(k, { ...v, name: stockNames.get(k) || k });
+  for (const [k, v] of loose) if (!entries.has(k) && !ignoreKeys.has(k)) entries.set(k, { ...v, name: stockNames.get(k) || k });
+  const needList = [...need.values()].map((n) => ({ key: normName(n.name), name: n.name }));
+  const link = linkStock(needList, [...entries].map(([key, v]) => ({ key, name: v.name })), { links, swaps, blends });
+  const mixWarned = new Set();
+  const handFor = (key, unit, needName) => {
+    let keys = [...link.assign].filter(([, nk]) => nk === key).map(([sk]) => sk);
+    const bags = keys.filter((k) => bagKeys.has(k));
+    if (bags.length) keys = bags;
+    let left = 0; let found = false;
+    for (const k of keys) {
+      const e = entries.get(k);
+      if (!e) continue;
+      if (e.unit === unit) { left += e.left; found = true; } else if (!mixWarned.has(k)) {
+        mixWarned.add(k);
+        warnings.push(`${e.name} is counted in ${e.word ? `${e.word}s` : e.unit} but ${titleCase(needName)} is planned in ${unit === 'piece' ? 'pieces' : unit}. Tap it on the Stock page and type the ${unit === 'ml' ? 'ml' : 'g'} in one ${e.word || 'pack'}.`);
+      }
+    }
+    return found ? { left } : null;
+  };
+
   const lastMonth = monthsOf(addDays(utc(today.getUTCFullYear(), today.getUTCMonth() + 1, 1), 1)).slice(-1)[0] || '';
   const boughtIn = (key, mk) => new Set((buys.get(key) || []).filter((e) => monthKey(e.date) === mk).map((e) => formatDMY(e.date))).size;
 
@@ -272,8 +319,8 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
     const perDay = n.monthly / 30;
     const info = infoFor(buys.get(key), n.unit, today);
     if (n.kind === 'Ingredient' && !buys.has(key)) noHistory.push(n.name);
-    const counted = stock.get(key);
-    const useCount = counted && counted.unit === n.unit;
+    const counted = handFor(normName(n.name), n.unit, n.name);
+    const useCount = !!counted;
     const hand = useCount ? counted.left : (info.entries.length ? onHandNow(info.entries, perDay, today) : 0);
     const item = {
       handSource: useCount ? 'counted' : (info.entries.length ? 'estimated' : 'unknown'),
@@ -360,6 +407,9 @@ function buildShoppingPlan({ today, sales = [], cookLogRows = [], sizeRows = [],
       estCost: sum(toBuy),
       enough,
     },
+    retired: [...retiredSet],
+    ingredientNames: [...new Set([...need.values()].map((n) => titleCase(n.name)))].sort((a, b) => a.localeCompare(b)),
+    unlinked: link.unlinked.map((u) => { const e = entries.get(u.key); return { key: u.key, name: titleCase(u.name), count: Math.round(e.left * 10) / 10, unit: e.word || (e.unit === 'piece' ? 'pcs' : e.unit) }; }),
     warnings,
   };
   if (noHistory.length) out.warnings.push(`No receipt history for ${noHistory.slice(0, 8).join(', ')}${noHistory.length > 8 ? ` and ${noHistory.length - 8} more` : ''}, so no pack size or price is shown for them.`);

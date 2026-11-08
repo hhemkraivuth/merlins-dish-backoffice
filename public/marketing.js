@@ -3,10 +3,20 @@ const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 const TITLES = { Competitor: 'Competitors', Inspo: 'Inspo accounts', Trend: 'Trends', 'Ad draft': 'Ad drafts (nothing runs without your approval)', Date: 'Dates and festivals' };
 
-// "Key: ..." goes on its own line so long summaries are easier to read.
+// "Key: ..." and "Borrow: ..." each go on their own line so long summaries are easier to read.
+// Key is the one thing to know. Borrow is the one idea from an inspo account worth copying for Merlin's.
+function parts(text) {
+  const t = String(text || '');
+  const re = /(?:^|\s)(Key|Borrow):\s*/g;
+  const out = { summary: '', Key: '', Borrow: '' };
+  let label = 'summary'; let last = 0; let m;
+  while ((m = re.exec(t))) { out[label] = (out[label] ? out[label] + ' ' : '') + t.slice(last, m.index).trim(); label = m[1]; last = m.index + m[0].length; }
+  out[label] = (out[label] ? out[label] + ' ' : '') + t.slice(last).trim();
+  return out;
+}
 function body(text) {
-  const parts = String(text || '').split(/\s+Key:\s*/);
-  return parts.length > 1 ? `${esc(parts[0])}<br><b>Key:</b> ${esc(parts.slice(1).join(' Key: '))}<br>` : (text ? esc(text) + '<br>' : '');
+  const p = parts(text);
+  return (p.summary ? esc(p.summary) + '<br>' : '') + (p.Key ? `<b>Key:</b> ${esc(p.Key)}<br>` : '') + (p.Borrow ? `<b>Borrow:</b> ${esc(p.Borrow)}<br>` : '');
 }
 
 function note(n) {
@@ -18,8 +28,8 @@ function note(n) {
 let HISTORY = [];
 function downloadNotes() {
   const cell = (v) => { const t = String(v ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
-  const head = ['Date', 'Kind', 'Title', 'Summary', 'Key', 'Status'];
-  const rows = HISTORY.map((n) => { const p = String(n.note || '').split(/\s+Key:\s*/); return [n.date, n.kind, n.title, p[0], p.slice(1).join(' Key: '), n.status]; });
+  const head = ['Date', 'Kind', 'Title', 'Summary', 'Key', 'Borrow', 'Status'];
+  const rows = HISTORY.map((n) => { const p = parts(n.note); return [n.date, n.kind, n.title, p.summary, p.Key, p.Borrow, n.status]; });
   const blob = new Blob(['\ufeff' + [head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   const t = new Date();
@@ -36,12 +46,17 @@ function draw(d) {
     <div class="box"><h3>This month</h3><p class="big">${esc(d.month.text)}</p><p class="sub">Grab: ${esc(d.month.grabText)}<br>LINE: ${esc(d.month.lineText)}<br>Instagram: ${esc(d.month.igText)}</p></div>
     <div class="box"><h3>Coming up</h3>${d.dates.length ? d.dates.map((x) => `<p class="sub">${esc(x.day)} ${esc(x.date)}: ${esc(x.label)} (${x.away} days)</p>`).join('') : '<p class="sub">Nothing fixed in the next 60 days.</p>'}</div>`;
   const EMPTY = { Competitor: 'Updated every Sunday night.', Inspo: 'Updated every Sunday night.', Trend: 'Updated every Sunday night.', 'Ad draft': 'Drafts only, nothing runs without your approval.', Date: 'Festivals and holidays, updated every Sunday night.' };
+  const section = (title, list, empty) => `<div class="box"><details ${list.length ? 'open' : ''}><summary>${esc(title)} (${list.length})</summary>${list.length ? list.map(note).join('') : `<p class="sub">${esc(empty)}</p>`}</details></div>`;
+  // Competitors: Grab shops first, then the Instagram accounts (their title starts with @). Nothing is cut off.
   const cl = d.notes.Competitor || [];
-  const competitors = `<div class="box"><h3>Competitors</h3><p class="big ${d.auditDue ? 'due' : ''}">${d.auditDue ? 'Check pending' : 'Up to date'}</p><p class="sub">${esc(d.auditNote)} Claude runs it every Sunday at 11pm, the summary lands here.</p><details ${cl.length ? 'open' : ''}><summary>Competitor notes (${cl.length})</summary>${cl.length ? cl.slice(0, 10).map(note).join('') : `<p class="sub">${esc(EMPTY.Competitor)}</p>`}</details></div>`;
-  $('sections').innerHTML = competitors + d.kinds.filter((k) => k !== 'Competitor').map((k) => {
-    const list = d.notes[k] || [];
-    return `<div class="box"><details ${list.length ? 'open' : ''}><summary>${esc(TITLES[k] || k)} (${list.length})</summary>${list.length ? list.slice(0, 10).map(note).join('') : `<p class="sub">${esc(EMPTY[k] || 'Nothing logged yet.')}</p>`}</details></div>`;
-  }).join('');
+  const social = cl.filter((n) => /^\s*@/.test(n.title));
+  const grab = cl.filter((n) => !/^\s*@/.test(n.title));
+  const status = `<p class="big ${d.auditDue ? 'due' : ''}">${d.auditDue ? 'Check pending' : 'Up to date'}</p><p class="sub">${esc(d.auditNote)} Claude runs it every Sunday at 11pm, the summary lands here.</p>`;
+  const competitors = `<div class="box"><h3>Grab competitors</h3>${status}<details ${grab.length ? 'open' : ''}><summary>Grab shops (${grab.length})</summary>${grab.length ? grab.map(note).join('') : '<p class="sub">Add a screenshot folder per shop in Competitor Grab screenshots. Updated every Sunday night.</p>'}</details></div>`
+    + `<div class="box"><h3>Social competitors</h3><details ${social.length ? 'open' : ''}><summary>Instagram accounts (${social.length})</summary>${social.length ? social.map(note).join('') : '<p class="sub">Updated every Sunday night.</p>'}</details></div>`;
+  // Order: Trends under Coming up, then competitors, then everything else.
+  const rest = d.kinds.filter((k) => k !== 'Competitor' && k !== 'Trend').map((k) => section(TITLES[k] || k, d.notes[k] || [], EMPTY[k] || 'Nothing logged yet.')).join('');
+  $('sections').innerHTML = section(TITLES.Trend, d.notes.Trend || [], EMPTY.Trend) + competitors + rest;
 }
 
 async function load() {
