@@ -39,12 +39,89 @@ function downloadNotes() {
   return rows.length;
 }
 
+
+// ---- Weekly Insight (phone first): three moves, the numbers, who moved, borrow cards, price lanes, dates ----
+const DMY = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+const dayNum = (text) => { const m = String(text || '').match(DMY); return m ? Date.UTC(+m[3], +m[2] - 1, +m[1]) / 864e5 : null; };
+const shopName = (t) => String(t || '').replace(/\s*\(Grab\)\s*/i, '').replace(/\s*\(content plan\)\s*/i, '').trim();
+
+function statusOf(n) {
+  const s = `${n.status || ''}`;
+  if (/opening/i.test(s)) return ['Opening', 'open'];
+  if (/not read/i.test(s) || /not read yet/i.test(n.note)) return ['Not read yet', ''];
+  return ['Watch', 'watch'];
+}
+const RANK = { Opening: 0, Watch: 1, 'Not read yet': 2 };
+
+function moveCard(n, i) {
+  const p = parts(n.note);
+  const chip = p.Borrow ? `<span class="chip borrow">Borrow from ${esc(p.Borrow)}</span>` : (n.status ? `<span class="chip open">${esc(n.status)}</span>` : '');
+  return `<details class="card move"><summary><span class="num">${i + 1}</span><span class="name">${esc(n.title)}</span><span class="open"></span></summary><div class="more">${p.summary ? `<span>${esc(p.summary)}</span>` : ''}${chip}</div></details>`;
+}
+
+function whoMoved(list) {
+  const rows = list.map((n) => { const [label, cls] = statusOf(n); return { n, label, cls }; }).sort((a, b) => RANK[a.label] - RANK[b.label]);
+  return rows.map(({ n, label, cls }, i) => {
+    const p = parts(n.note);
+    const grab = !/^\s*@/.test(n.title);
+    const hint = (p.Key || p.summary || '').split(/(?<=\.)\s/)[0];
+    return `<details class="card" ${i === 0 && label === 'Opening' ? 'open' : ''}><summary><span class="row"><span class="name">${esc(grab ? shopName(n.title) : n.title)}<span class="chip tag">${grab ? 'Grab' : 'Instagram'}</span></span><span class="chip ${cls}">${label}</span></span><span class="hint">${esc(hint)}</span></summary><p class="more">${p.Key ? `<b>Key:</b> ${esc(p.Key)}` : esc(p.summary)}</p></details>`;
+  }).join('');
+}
+
+function borrowCards(list) {
+  const sorted = [...list].sort((a, b) => (/hangrybeefnoodle/i.test(b.title) ? 1 : 0) - (/hangrybeefnoodle/i.test(a.title) ? 1 : 0));
+  return sorted.map((n, i) => {
+    const p = parts(n.note);
+    const first = i === 0 && /hangrybeefnoodle/i.test(n.title);
+    const kind = /content plan/i.test(n.title) ? 'Content plan inspo' : 'Visual inspo';
+    return `<article class="card plain ${first ? 'first' : ''}">${first ? '<span class="chip first">Borrow first</span>' : ''}<span class="name">${esc(shopName(n.title))}</span><span class="hint">${kind}</span><span style="font-size:16px;line-height:1.4">${esc(p.Borrow || p.summary)}</span></article>`;
+  }).join('');
+}
+
+function priceLanes(grab) {
+  const rows = [];
+  for (const n of grab) {
+    const m = String(n.note).match(/฿\s?(\d+)\s*(?:to|-|–)\s*฿?\s?(\d+)/);
+    if (m) rows.push({ name: shopName(n.title), lo: +m[1], hi: +m[2] });
+  }
+  if (!rows.length) return '';
+  const max = Math.ceil(Math.max(...rows.map((r) => r.hi)) / 50) * 50;
+  const pct = (v) => Math.max(0, Math.min(100, (v / max) * 100));
+  const lanes = rows.map((r) => `<div class="lane"><div class="lh"><span class="ln">${esc(r.name)}</span><span class="lr">${baht(r.lo)} to ${baht(r.hi)}</span></div><div class="track"><div class="bar" style="left:${pct(r.lo).toFixed(1)}%;width:${Math.max(pct(r.hi) - pct(r.lo), 2).toFixed(1)}%"></div></div></div>`).join('');
+  return `<h2>Price lanes on Grab</h2><div class="lanes">${lanes}<div class="axis"><span style="left:0">${baht(0)}</span><span style="left:50%;transform:translateX(-50%)">${baht(max / 2)}</span><span style="right:0">${baht(max)}</span></div><p class="sub" style="margin:0">Price ranges as read from the latest Grab notes.</p></div>`;
+}
+const baht = (n) => `฿${Math.round(n).toLocaleString('en-AU')}`;
+
+function insight(d) {
+  const today = dayNum(d.today);
+  const recent = (n) => { const x = dayNum(n.date); return x !== null && today - x <= 7; };
+  const moves = (d.notes.Move || []).filter(recent).slice(0, 3);
+  const comp = d.notes.Competitor || [];
+  const grab = comp.filter((n) => !/^\s*@/.test(n.title));
+  const social = comp.filter((n) => /^\s*@/.test(n.title));
+  const movedNow = comp.filter((n) => recent(n) && statusOf(n)[0] !== 'Not read yet');
+  const next = (d.dates || [])[0];
+  const inspo = d.notes.Inspo || [];
+  const tile = (lab, val, ctx) => `<section class="tile"><span class="lab">${esc(lab)}</span><span class="val">${esc(val)}</span><span class="ctx">${esc(ctx)}</span></section>`;
+  const parts2 = [];
+  parts2.push('<h2>Three moves this week</h2>');
+  parts2.push(moves.length ? `<div class="stack">${moves.map(moveCard).join('')}</div>` : '<p class="empty">No moves yet. The Sunday check writes three each week.</p>');
+  parts2.push('<h2>The numbers</h2>');
+  parts2.push(`<div class="tiles">${tile('Orders this week', String(d.week.orders), `Grab ${d.week.grab || 0}, LINE ${d.week.line || 0}, Instagram ${d.week.ig || 0}`)}${tile('Orders this month', String(d.month.orders), `Grab ${d.month.grab || 0}, LINE ${d.month.line || 0}, Instagram ${d.month.ig || 0}`)}${tile('Next date', next ? `${next.away} days` : 'None', next ? `${next.label}, ${next.day} ${next.date}` : 'Nothing fixed in the next 60 days')}${tile('Competitor moves', String(movedNow.length), movedNow.slice(0, 3).map((n) => shopName(n.title)).join(', ') || 'None this week')}</div>`);
+  if (comp.length) parts2.push(`<h2>Who moved</h2><p class="sub" style="margin:0">Tap a row for its Key. Opening means a gap we can use, Watch means keep an eye on it.</p><div class="stack">${whoMoved(comp)}</div>`);
+  if (inspo.length) parts2.push(`<h2>Borrow cards</h2><div class="stack">${borrowCards(inspo)}</div>`);
+  parts2.push(priceLanes(grab));
+  parts2.push('<h2>Dates ahead</h2>');
+  parts2.push((d.dates || []).length ? `<div class="datelist">${d.dates.slice(0, 6).map((x) => `<div class="d"><div class="dd"><span class="wd">${esc(x.day)}</span><span class="dn">${esc(x.date.slice(0, 5))}</span></div><div><div class="dl">${esc(x.label)}</div><div class="da">${x.away} days</div></div></div>`).join('')}</div>` : '<p class="empty">Nothing fixed in the next 60 days.</p>');
+  parts2.push(`<p class="sub" style="margin:0">${esc(d.auditNote)} Claude runs the check every Sunday at 11pm.</p>`);
+  void social;
+  return parts2.join('');
+}
+
 function draw(d) {
   HISTORY = d.history || [];
-  $('top').innerHTML = `
-    <div class="box"><h3>This week</h3><p class="big">${esc(d.week.text)}</p><p class="sub">Grab: ${esc(d.week.grabText)}<br>LINE: ${esc(d.week.lineText)}<br>Instagram: ${esc(d.week.igText)}</p></div>
-    <div class="box"><h3>This month</h3><p class="big">${esc(d.month.text)}</p><p class="sub">Grab: ${esc(d.month.grabText)}<br>LINE: ${esc(d.month.lineText)}<br>Instagram: ${esc(d.month.igText)}</p></div>
-    <div class="box"><h3>Coming up</h3>${d.dates.length ? d.dates.map((x) => `<p class="sub">${esc(x.day)} ${esc(x.date)}: ${esc(x.label)} (${x.away} days)</p>`).join('') : '<p class="sub">Nothing fixed in the next 60 days.</p>'}</div>`;
+  $('top').innerHTML = insight(d);
   const EMPTY = { Competitor: 'Updated every Sunday night.', Inspo: 'Updated every Sunday night.', Trend: 'Updated every Sunday night.', 'Ad draft': 'Drafts only, nothing runs without your approval.', Date: 'Festivals and holidays, updated every Sunday night.' };
   const section = (title, list, empty) => `<div class="box"><details ${list.length ? 'open' : ''}><summary>${esc(title)} (${list.length})</summary>${list.length ? list.map(note).join('') : `<p class="sub">${esc(empty)}</p>`}</details></div>`;
   // Competitors: Grab shops first, then the Instagram accounts (their title starts with @). Nothing is cut off.
@@ -57,7 +134,7 @@ function draw(d) {
   // Order: Trends under Coming up, then competitors, then everything else.
   // Inspo: @hangrybeefnoodle (the content plan account) always sits at the top.
   if (d.notes.Inspo) d.notes.Inspo = [...d.notes.Inspo].sort((a, b) => (/hangrybeefnoodle/i.test(b.title) ? 1 : 0) - (/hangrybeefnoodle/i.test(a.title) ? 1 : 0));
-  const rest = d.kinds.filter((k) => k !== 'Competitor' && k !== 'Trend').map((k) => section(TITLES[k] || k, d.notes[k] || [], EMPTY[k] || 'Nothing logged yet.')).join('');
+  const rest = d.kinds.filter((k) => k !== 'Competitor' && k !== 'Trend' && k !== 'Move').map((k) => section(TITLES[k] || k, d.notes[k] || [], EMPTY[k] || 'Nothing logged yet.')).join('');
   $('sections').innerHTML = section(TITLES.Trend, d.notes.Trend || [], EMPTY.Trend) + competitors + rest;
 }
 

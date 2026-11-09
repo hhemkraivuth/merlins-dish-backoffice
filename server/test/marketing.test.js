@@ -55,3 +55,10 @@ test('date notes run soonest first and Coming up uses the same notes', () => {
   assert.strictEqual(m.dates[0].away, 19);
   assert.strictEqual(m.dates[0].day, 'Tue');
 });
+
+test('weekly moves are a note kind and come back newest first', () => {
+  const r = [['Date', 'Kind', 'Title', 'Note', 'Status'], ['02/11/2026', 'Move', 'Old move', 'x', ''], ['05/11/2026', 'Move', 'New move', 'Borrow: @hangrybeefnoodle', '']];
+  const m = buildMarketing({ today, ledger: [], noteRows: r });
+  assert.ok(m.kinds.includes('Move'));
+  assert.strictEqual(m.notes.Move[0].title, 'New move');
+});

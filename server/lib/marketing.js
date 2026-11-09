@@ -1,4 +1,4 @@
-// Marketing: sales this week and month, plus the notes the team keeps (competitors, inspo, trends, ad drafts).
+// Marketing: sales this week and month, plus the notes the team keeps (competitors, inspo, trends, ad drafts, weekly moves).
 // Notes live in the "Marketing Notes" tab: Date | Kind | Title | Note | Status. Ad drafts are only ever drafts here.
 // Nothing here publishes or spends. Festival dates are fixed calendar dates only, lunar ones are added by hand as notes.
 
@@ -7,7 +7,7 @@ const { summarise, periodOf } = require('./reports');
 
 const TAB = 'Marketing Notes';
 const HEADERS = ['Date', 'Kind', 'Title', 'Note', 'Status'];
-const KINDS = ['Competitor', 'Inspo', 'Trend', 'Ad draft', 'Date'];
+const KINDS = ['Competitor', 'Inspo', 'Trend', 'Ad draft', 'Date', 'Move'];
 
 // month (1-12), day, label
 const FIXED_DATES = [

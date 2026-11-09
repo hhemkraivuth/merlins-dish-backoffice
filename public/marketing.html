@@ -27,6 +27,56 @@
     form.add select, form.add input, form.add textarea { font: inherit; font-size: 16px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); width: 100%; box-sizing: border-box; }
     form.add button { font: inherit; padding: 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--card); font-weight: 600; cursor: pointer; }
     details > summary { cursor: pointer; font-size: 15px; font-weight: 600; padding: 6px 0; }
+    /* Weekly Insight, phone first. Answer on top, detail on tap. */
+    .insight { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+    .insight h2 { margin: 10px 0 0; font-size: 20px; line-height: 1.25; font-weight: 700; }
+    .insight h2:first-child { margin-top: 0; }
+    .insight .stack { display: flex; flex-direction: column; gap: 12px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    .card > summary { list-style: none; cursor: pointer; padding: 14px 16px; min-height: 44px; display: flex; flex-direction: column; gap: 6px; font-weight: 400; }
+    .card > summary::-webkit-details-marker { display: none; }
+    .card .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .card .name { font-size: 16px; font-weight: 700; line-height: 1.3; }
+    .card .hint { font-size: 15px; line-height: 1.35; color: var(--muted); }
+    .card .more { padding: 0 16px 14px; font-size: 15px; line-height: 1.4; }
+    .card.move > summary { flex-direction: row; align-items: center; gap: 12px; }
+    .card.move .num { flex: none; width: 32px; height: 32px; border-radius: 16px; background: var(--blue); color: #fff; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .card.move .name { flex: 1; min-width: 0; }
+    .card.move .open { flex: none; font-size: 13px; color: var(--muted); }
+    .card.move[open] .open::after { content: 'Close'; }
+    .card.move:not([open]) .open::after { content: 'Open'; }
+    .card.move .more { padding-left: 60px; display: flex; flex-direction: column; gap: 8px; }
+    .card.first { border: 2px solid var(--blue); }
+    .card.plain { padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .chip { display: inline-block; align-self: flex-start; font-size: 13px; line-height: 1.2; font-weight: 600; padding: 6px 10px; border-radius: 999px; background: #ECECF2; color: #3F4663; }
+    .chip.open { background: #DDF4F1; color: #0B5C57; }
+    .chip.watch { background: #FFF0C2; color: #6B4A00; }
+    .chip.borrow { background: #EAEEFF; color: #1F3AA8; }
+    .chip.first { background: var(--blue); color: #fff; }
+    .chip.tag { background: #F3ECE4; color: var(--muted); font-weight: 600; margin-left: 6px; padding: 3px 8px; }
+    .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-height: 118px; display: flex; flex-direction: column; gap: 4px; }
+    .tile .lab { font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.3; }
+    .tile .val { font-size: 32px; font-weight: 700; line-height: 1.1; }
+    .tile .ctx { font-size: 13px; line-height: 1.35; color: var(--muted); }
+    .lanes { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 16px; }
+    .lane .lh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .lane .ln { font-size: 15px; font-weight: 700; }
+    .lane .lr { font-size: 14px; color: var(--muted); }
+    .lane .track { position: relative; height: 14px; border-radius: 7px; background: #F3ECE4; margin-top: 6px; }
+    .lane .bar { position: absolute; top: 0; bottom: 0; border-radius: 7px; background: var(--blue); }
+    .axis { position: relative; height: 18px; font-size: 13px; color: var(--muted); }
+    .axis span { position: absolute; }
+    .datelist { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px 16px; }
+    .datelist .d { display: flex; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .datelist .d:last-child { border-bottom: 0; }
+    .datelist .dd { flex: none; width: 56px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+    .datelist .wd { font-size: 12px; font-weight: 600; color: var(--muted); line-height: 1; }
+    .datelist .dn { font-size: 17px; font-weight: 700; color: var(--blue); line-height: 1.1; }
+    .datelist .dl { font-size: 16px; font-weight: 600; }
+    .datelist .da { font-size: 13px; color: var(--muted); }
+    .empty { font-size: 15px; color: var(--muted); margin: 0; }
+    @media (min-width: 760px) { .insight { max-width: 640px; } .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     @media (max-width: 600px) { .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; } }
   </style>
 </head>
@@ -53,8 +103,9 @@
     </nav>
     <main class="main wide">
       <div class="status" id="status">Loading…</div>
-      <div class="grid" id="top"></div>
+      <div class="insight" id="top"></div>
       <p><button type="button" id="dlNotes" style="font:inherit;font-size:13px;padding:8px 14px;border:0;border-radius:8px;background:var(--accent);color:var(--card);font-weight:600;cursor:pointer">Download all notes (CSV)</button></p>
+      <h2 style="font-size:20px;margin:18px 0 10px">All notes</h2>
       <div id="sections"></div>
       <details class="box"><summary>Add a note by hand</summary>
         <h3>&nbsp;</h3>
