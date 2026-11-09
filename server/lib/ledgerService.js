@@ -231,11 +231,23 @@ async function pit() {
   return buildPit({ noteRows, today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
 }
 
+// The order bot's public menu feed (read only), for Merlin's own price range. Never blocks the page if the bot is slow or away.
+async function botMenu() {
+  try {
+    const base = require('./botStock').botUrl();
+    if (!base) return null;
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 4000);
+    const res = await fetch(`${base}/api/menu`, { headers: { Accept: 'application/json' }, signal: ctl.signal });
+    clearTimeout(t);
+    return res.ok ? await res.json() : null;
+  } catch { return null; }
+}
+
 async function marketing() {
   const today = bangkokToday();
   const d = await loadAll();
   const noteRows = await readOrEmpty(marketingLib.TAB);
-  return marketingLib.buildMarketing({ today, ledger: d.ledger, noteRows });
+  return marketingLib.buildMarketing({ today, ledger: d.ledger, noteRows, menu: await botMenu() });
 }
 async function addMarketingNote({ kind, title, note, status }) {
   if (!marketingLib.KINDS.includes(kind)) throw Object.assign(new Error(`Kind must be one of ${marketingLib.KINDS.join(', ')}.`), { status: 400 });

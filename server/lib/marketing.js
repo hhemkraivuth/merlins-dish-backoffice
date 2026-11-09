@@ -103,7 +103,18 @@ function comingUp(today, dateNotes, within = 60) {
   return [...byDate.values()].sort((a, b) => a.away - b.away);
 }
 
-function buildMarketing({ today, ledger = [], noteRows = [] }) {
+// Merlin's own price range, from the order bot's public menu. Grab prices carry the +฿25 markup (project rule).
+// Drinks, sides and extras are left out so the range compares with the competitors' mains and soups.
+const GRAB_MARKUP = 25;
+function merlinRange(menu) {
+  const items = (menu && Array.isArray(menu.items) ? menu.items : []).filter((i) => Number(i.price) > 0 && !/drink|beverage|side|extra|add.?on|dessert/i.test(String(i.category || '')));
+  if (!items.length) return null;
+  const prices = items.map((i) => Number(i.price));
+  const lo = Math.min(...prices); const hi = Math.max(...prices);
+  return { direct: { lo, hi }, grab: { lo: lo + GRAB_MARKUP, hi: hi + GRAB_MARKUP }, count: items.length };
+}
+
+function buildMarketing({ today, ledger = [], noteRows = [], menu = null }) {
   const find = (grain) => summarise(ledger, [], [], grain, { through: today }).find((p) => p.key === periodOf(today, grain).key) || null;
   const notes = notesFrom(noteRows);
   const byKind = {};
@@ -116,6 +127,7 @@ function buildMarketing({ today, ledger = [], noteRows = [] }) {
     week: line(find('week'), igIn(ledger, periodOf(today, 'week'))),
     month: line(find('month'), igIn(ledger, periodOf(today, 'month'))),
     notes: byKind,
+    merlin: merlinRange(menu),
     kinds: KINDS,
     dates: comingUp(today, byKind.Date),
     history: [...notes].reverse(),
@@ -129,4 +141,4 @@ function parseNoteDate(text) {
   return m ? new Date(Date.UTC(+m[3], +m[2] - 1, +m[1])) : new Date(0);
 }
 
-module.exports = { buildMarketing, notesFrom, upcomingDates, comingUp, latestOnly, sortDateNotes, titleDate, TAB, HEADERS, KINDS };
+module.exports = { buildMarketing, merlinRange, notesFrom, upcomingDates, comingUp, latestOnly, sortDateNotes, titleDate, TAB, HEADERS, KINDS };

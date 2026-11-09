@@ -65,6 +65,8 @@
     .lane .lr { font-size: 14px; color: var(--muted); }
     .lane .track { position: relative; height: 14px; border-radius: 7px; background: #F3ECE4; margin-top: 6px; }
     .lane .bar { position: absolute; top: 0; bottom: 0; border-radius: 7px; background: var(--blue); }
+    .lane.us .bar { background: var(--red); }
+    .lane.us .ln { color: var(--red); }
     .axis { position: relative; height: 18px; font-size: 13px; color: var(--muted); }
     .axis span { position: absolute; }
     .datelist { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px 16px; }
@@ -105,7 +107,6 @@
       <div class="status" id="status">Loading…</div>
       <div class="insight" id="top"></div>
       <p><button type="button" id="dlNotes" style="font:inherit;font-size:13px;padding:8px 14px;border:0;border-radius:8px;background:var(--accent);color:var(--card);font-weight:600;cursor:pointer">Download all notes (CSV)</button></p>
-      <h2 style="font-size:20px;margin:18px 0 10px">All notes</h2>
       <div id="sections"></div>
       <details class="box"><summary>Add a note by hand</summary>
         <h3>&nbsp;</h3>

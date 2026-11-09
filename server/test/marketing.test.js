@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { buildMarketing, upcomingDates, notesFrom } = require('../lib/marketing');
+const { buildMarketing, upcomingDates, notesFrom, merlinRange } = require('../lib/marketing');
 
 const today = new Date(Date.UTC(2026, 10, 5));
 const rows = [['Date', 'Kind', 'Title', 'Note', 'Status'], ['01/11/2026', 'Competitor', 'Sen and Sauce promo', 'Set lunch 199', ''], ['03/11/2026', 'Ad draft', 'Bolognese reel', 'Direct order angle', 'Draft']];
@@ -61,4 +61,13 @@ test('weekly moves are a note kind and come back newest first', () => {
   const m = buildMarketing({ today, ledger: [], noteRows: r });
   assert.ok(m.kinds.includes('Move'));
   assert.strictEqual(m.notes.Move[0].title, 'New move');
+});
+
+test('Merlin price range comes from the bot menu, mains only, with the 25 baht Grab markup', () => {
+  const menu = { items: [{ category: 'Stews', price: 225 }, { category: 'Pasta', price: 185 }, { category: 'Drinks', price: 45 }, { category: 'Stews', price: 265 }] };
+  const r = merlinRange(menu);
+  assert.deepStrictEqual(r.direct, { lo: 185, hi: 265 });
+  assert.deepStrictEqual(r.grab, { lo: 210, hi: 290 });
+  assert.strictEqual(merlinRange(null), null);
+  assert.strictEqual(buildMarketing({ today, ledger: [], noteRows: rows, menu }).merlin.count, 3);
 });
