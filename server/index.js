@@ -99,6 +99,7 @@ app.get('/api/pit/layout', async (req, res) => { try { res.json(await pitLayout.
 app.post('/api/pit/layout', async (req, res) => { try { res.json(await pitLayout.save(req.body)); } catch (err) { res.status(500).json({ error: err.message }); } });
 app.get('/api/marketing', ledgerRoute.marketing);
 app.post('/api/marketing/note', ledgerRoute.addMarketingNote);
+app.post('/api/handoffs', ledgerRoute.addHandoff);
 app.get('/api/summary/spend', ledgerRoute.spendSummary);
 app.get('/api/summary/cooking', ledgerRoute.cookingSummary);
 app.post('/api/ledger/delete-range', ledgerRoute.deleteRange);

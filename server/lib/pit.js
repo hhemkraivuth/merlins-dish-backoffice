@@ -2,7 +2,7 @@
 // Teams follow the Handoffs tab: App sales (Grab), Direct sales (LINE), Operations (cooking), Purchasing.
 // Grab data arrives late (the CSV lags), so every card says how far its own data runs.
 
-const { formatDMY, daysBetween } = require('./dates');
+const { formatDMY, daysBetween, parseDate } = require('./dates');
 const { summarise, periodOf, riderGaps, priceMoves } = require('./reports');
 const { notesFrom } = require('./marketing');
 
@@ -34,9 +34,15 @@ function weekOf(periods, today) {
 }
 
 // open handoffs from the Handoffs tab (header first). Newest first.
-function openRows(rows) {
+function openRows(rows, today) {
   return (rows || []).slice(1)
     .filter((r) => String(r[4] || '').trim().toLowerCase() === 'open')
+    // Notes typed by the marketing team have no Key, so nothing closes them. They drop off after 14 days.
+    .filter((r) => {
+      if (String(r[6] || '').trim() || !today) return true;
+      const raised = parseDate(String(r[0] || ''));
+      return !raised || daysBetween(today, raised) <= 14;
+    })
     .map((r) => ({ raised: String(r[0] || ''), from: String(r[1] || ''), to: String(r[2] || ''), message: String(r[3] || '') }))
     .reverse();
 }
@@ -48,7 +54,7 @@ const staleLine = (today, last, what) => (last ? `${what} data to ${formatDMY(la
 function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expense = [], stock = [], handoffRows = [], lowIngredients = [], lowPacks = [], noteRows = [] }) {
   const weeks = summarise(ledger, cookBatches, purchases, 'week', { through: today });
   const wk = weekOf(weeks, today);
-  const open = openRows(handoffRows);
+  const open = openRows(handoffRows, today);
 
   // App sales (Grab)
   const grabLast = lastDateOf(ledger, 'Grab');
@@ -137,10 +143,27 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
     mk.updates.push(`Latest note (${notes[0].kind}): ${notes[0].title}.`);
   } else mk.updates.push('No marketing notes logged yet.');
   const drafts = notes.filter((n) => n.kind === 'Ad draft' && n.status.toLowerCase() === 'draft');
-  if (drafts.length) mk.updates.push(`${plural(drafts.length, 'ad draft')} waiting for approval.`);
 
-  const teams = [app, direct, ops, buy, mk];
+  // Strategy: the month's bet (a "Bet" note) and the latest weekly move. Creative: briefs waiting for it. Paid Media: ad drafts waiting for approval.
+  const bet = notes.find((n) => n.kind === 'Bet');
+  const move = notes.find((n) => n.kind === 'Move');
+  const strategy = { name: 'Strategy', key: 'Strategy', channel: null, updates: [] };
+  strategy.top = bet ? bet.title : 'No bet set';
+  strategy.line = bet ? "this month's bet" : 'set on the first Monday';
+  strategy.headline = strategy.top; strategy.when = bet ? bet.date : undefined;
+  if (bet) strategy.updates.push(`Bet (${bet.date}): ${bet.title}.`); else strategy.updates.push('No monthly bet set yet.');
+  if (move) strategy.updates.push(`Latest move (${move.date}): ${move.title}.`);
+
+  const creative = { name: 'Creative', key: 'Creative', channel: null, updates: [] };
+  const paid = { name: 'Paid Media', key: 'Paid Media', channel: null, updates: [] };
+  paid.top = plural(drafts.length, 'ad draft'); paid.line = 'waiting for approval'; paid.headline = paid.top;
+  paid.updates.push(drafts.length ? `${plural(drafts.length, 'ad draft')} waiting for approval.` : 'No ad drafts waiting.');
+
+  const teams = [app, direct, ops, buy, mk, strategy, creative, paid];
   for (const t of teams) t.open = open.filter(involves(t.key || t.name));
+  const briefs = creative.open.filter((h) => h.to.includes('Creative')).length;
+  creative.top = plural(briefs, 'brief'); creative.line = 'waiting to be worked'; creative.headline = creative.top;
+  creative.updates.push(briefs ? `${plural(briefs, 'brief')} waiting from Strategy.` : 'No briefs waiting.');
   return { today: formatDMY(today), teams, openTotal: open.length };
 }
 

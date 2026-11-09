@@ -256,6 +256,16 @@ async function addMarketingNote({ kind, title, note, status }) {
   await appendRows(marketingLib.TAB, [[formatDMY(bangkokToday()), kind, String(title).trim(), String(note || '').trim(), String(status || (kind === 'Ad draft' ? 'Draft' : '')).trim()]]);
 }
 
+// A note from one marketing desk to another, shown as team chatter on the home page. Key is left empty on purpose.
+const CHATTER_TEAMS = ['Marketing', 'Strategy', 'Creative', 'Paid Media', 'Lily'];
+async function addHandoff({ from, to, message }) {
+  if (!CHATTER_TEAMS.includes(from) || !CHATTER_TEAMS.includes(to)) throw Object.assign(new Error(`From and To must be one of ${CHATTER_TEAMS.join(', ')}.`), { status: 400 });
+  const text = String(message || '').trim();
+  if (!text) throw Object.assign(new Error('Add a short message.'), { status: 400 });
+  await ensureTab(HANDOFF_TAB, HANDOFF_HEADERS);
+  await appendRows(HANDOFF_TAB, [[formatDMY(bangkokToday()), from, to, text, 'Open', '', '']], { raw: true });
+}
+
 // Summaries above the Weekly Receipts and Batch Cook boxes. Read only, each reads just the tabs it needs.
 async function spendSummary() {
   const [expenseRows, overheadRows] = await Promise.all([readOrEmpty('Expense Log'), readOrEmpty('Overheads')]);
@@ -271,4 +281,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { readOrEmpty, marketing, addMarketingNote, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };

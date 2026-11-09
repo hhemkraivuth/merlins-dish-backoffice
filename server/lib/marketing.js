@@ -7,7 +7,7 @@ const { summarise, periodOf } = require('./reports');
 
 const TAB = 'Marketing Notes';
 const HEADERS = ['Date', 'Kind', 'Title', 'Note', 'Status'];
-const KINDS = ['Competitor', 'Inspo', 'Trend', 'Ad draft', 'Date', 'Move'];
+const KINDS = ['Competitor', 'Inspo', 'Trend', 'Ad draft', 'Date', 'Move', 'Bet'];
 
 // month (1-12), day, label
 const FIXED_DATES = [

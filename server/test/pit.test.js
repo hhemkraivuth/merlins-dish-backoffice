@@ -18,7 +18,7 @@ test('pit has the five teams and says how far each one runs', () => {
     ['04/11/2026', 'Operations', 'App sales, Direct sales', 'Noir Ragu is sold out.', 'Open', '', 'k'],
     ['03/11/2026', 'Purchasing', 'Operations', 'Pork is up 12%.', 'Done', '', 'k2']];
   const pit = buildPit({ today, ledger, cookBatches, purchases, handoffRows, stock: [{ dish: 'Noir Ragu', remaining: 4, oldestAgeDays: 2 }] });
-  assert.deepStrictEqual(pit.teams.map((t) => t.name), ['Grab sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing']);
+  assert.deepStrictEqual(pit.teams.map((t) => t.name), ['Grab sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing', 'Strategy', 'Creative', 'Paid Media']);
   const [app, direct, ops, buy] = pit.teams;
   assert.strictEqual(app.asOf, '04/11/2026');
   assert.match(app.updates[0], /1 order, ฿300 gross, ฿210 after fees/);
@@ -42,7 +42,7 @@ test('pit has the five teams and says how far each one runs', () => {
 
 test('pit copes with nothing logged', () => {
   const pit = buildPit({ today });
-  assert.strictEqual(pit.teams.length, 5);
+  assert.strictEqual(pit.teams.length, 8);
   assert.match(pit.teams[0].updates[0], /No Grab data/);
   assert.strictEqual(pit.openTotal, 0);
 });

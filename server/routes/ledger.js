@@ -149,8 +149,11 @@ async function saveBorrowed(req, res) {
 async function marketing(req, res) {
   try { res.json(await svc.marketing()); } catch (err) { fail(res, err); }
 }
+async function addHandoff(req, res) {
+  try { await svc.addHandoff(req.body || {}); res.json({ ok: true }); } catch (err) { fail(res, err); }
+}
 async function addMarketingNote(req, res) {
   try { await svc.addMarketingNote(req.body || {}); res.json({ ok: true }); } catch (err) { fail(res, err); }
 }
 
-module.exports = { marketing, addMarketingNote, driveImport, sendDriveImport, saveBorrowed, saveBank, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary };
+module.exports = { marketing, addMarketingNote, addHandoff, driveImport, sendDriveImport, saveBorrowed, saveBank, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary };
