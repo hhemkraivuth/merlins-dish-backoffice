@@ -30,7 +30,7 @@ function stateFromPublic(menu, shop) {
     storewidePromo: sw ? { active: true, label: sw.promoLabel, percentOff: sw.promoPercentOff, startDate: null, endDate: null } : { active: false, label: '', percentOff: 0, startDate: null, endDate: null },
     itemPromos: Object.fromEntries(promoIds.filter((i) => i.promoIsItemSpecific).map((i) => [i.id, { active: true, label: i.promoLabel, percentOff: i.promoPercentOff }])),
     categories: (menu && menu.categories) || [],
-    menu: items.map((i) => ({ id: i.id, name: i.name, price: i.price, category: i.category, description: i.description || '', available: i.available !== false, image: i.image || null })),
+    menu: items.map((i) => ({ id: i.id, name: i.name, price: i.price, category: i.category, description: i.description || '', available: i.available !== false, image: i.image || null, requiresPasta: !!i.requiresPasta, requiresSize: !!i.requiresSize })),
     removed: [],
     delivery: shop ? { ...DEFAULT_DELIVERY, freeMin: shop.freeDeliveryMin ?? 300, smallFee: shop.smallOrderFee ?? 30, ...(shop.zoneFees || {}) } : DEFAULT_DELIVERY,
   };

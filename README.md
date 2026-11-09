@@ -267,3 +267,7 @@ Stock now is estimated from receipts minus usual daily use, so keep logging rece
 - Monthly overheads: type "railway 5usd, monthly" or tap Repeat monthly on an overhead row. Logged by itself on the 1st (timer at 06:00 Bangkok, MONTHLY_OVERHEADS_AUTO=off to stop, MONTHLY_OVERHEADS_TIME to change). List kept in App State key `recurring_overheads`, each item remembers the last month logged.
 - Dollar prices (5usd, $5) are stored as dollars. Baht = dollars x that day's rate (open.er-api.com, last good rate kept in App State `usd_thb_rate`), written in Remarks as "USD 5.00 at 33.2". No rate means the dollar item waits, nothing is guessed.
 - Receipts page: Monthly overheads box with Stop, Repeat monthly button on each overhead row.
+
+## Update 64 notes
+- Index tab: Add a menu item and the edit panel have "Customer chooses": nothing, a pasta (like Noir Ragu and Bolognese) or a size (Regular or Large like the stews). Needs the matching order app update (adminApi.js and server.js in merlins-dish-bot). Until the bot is updated the new menu item still saves, but the choice is ignored.
+- Home screen icon: apple-touch-icon.png (brand red with the logo) added to every page. On iPhone, remove the old home screen shortcut and add it again from Safari (Share, Add to Home Screen).
