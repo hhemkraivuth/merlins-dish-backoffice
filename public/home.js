@@ -16,12 +16,21 @@ function chatter(h) {
   return `<p class="ho"><span class="who">${TEAM(h.from)} to ${TEAM(h.to)}</span>${esc(short(h.message))}</p>`;
 }
 
+
+// Long headline text: the word before the first colon stays big, the rest drops to a smaller size so it reads calmly.
+function topHtml(text) {
+  const top = String(text || '');
+  const m = top.length > 18 && top.match(/^([^:]{1,20}:)\s*(.+)$/);
+  if (m) return `<span class="top">${esc(m[1])}<span class="sub">${esc(m[2])}</span></span>`;
+  return `<span class="top${top.length > 18 ? ' long' : ''}">${esc(top)}</span>`;
+}
+
 function card(t) {
   const open = t.open || [];
   return `<section class="team" id="team-${slug(t.name)}">
     <a class="tlink" href="${PAGE[t.name] || '#'}">
       <span class="tname">${esc(t.name)}</span>
-      <span class="top">${esc(t.top || '')}</span>
+      ${topHtml(t.top)}
       <span class="line">${esc(t.line || '')}</span>
       ${t.note ? `<span class="note ${t.stale ? 'stale' : ''}">${esc(t.note)}</span>` : ''}
     </a>
