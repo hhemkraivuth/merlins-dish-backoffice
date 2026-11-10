@@ -14,6 +14,7 @@ const { processAlias } = require('./ingredientAlias');
 const { processSwap } = require('./swapCommand');
 const { bangkokToday } = require('./dates');
 const { processOpenCommand } = require('./openBatches');
+const { processWaste } = require('./wasteLog');
 
 async function runCommands(text, deps, nowMs = Date.now()) {
   const t = String(text || '').trim();
@@ -25,6 +26,7 @@ async function runCommands(text, deps, nowMs = Date.now()) {
     || (deps.rider && await processRider(t, day, deps.rider))
     || (deps.reports && await processReports(t, deps.reports))
     || (deps.receipt && deps.receipt.appendExpenseRows && await processTypedReceipt(t, day, deps.receipt))
+    || (deps.waste && await processWaste(t, day, deps.waste))
     || (deps.lots && await processLots(t, day, deps.lots))
     || (deps.stock && await processStock(t, deps.stock))
     || (deps.note && deps.note.openBatches && await processOpenCommand(t, {

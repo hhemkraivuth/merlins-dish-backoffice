@@ -64,6 +64,18 @@ function defaultDeps() {
       openBatches: require('../lib/openBatches').api(),
     },
     lots: lotDeps,
+    waste: {
+      loadShorthand: async () => {
+        try { return applyShorthandRows(defaultShorthand(), await cookLog.readShorthandRows()); }
+        catch (err) { return defaultShorthand(); }
+      },
+      loadCookBatches: async () => {
+        const svc = require('../lib/ledgerService');
+        return svc.cookBatchesFrom(await svc.readOrEmpty('Cook Log'), await svc.readOrEmpty('Cook Log Sizes'));
+      },
+      ensureTab: cookLog.ensureTab,
+      appendRows,
+    },
     swap: {
       loadShorthand: async () => {
         try { return applyShorthandRows(defaultShorthand(), await cookLog.readShorthandRows()); }

@@ -286,11 +286,12 @@ function heatmap(ledger, per = null, masterEvents = []) {
 }
 
 // ---- cooked against sold, stock sitting, price creep, break-even --------------------------------------
-function dishPerformance({ ledger, cookBatches, expense, today, per = null }) {
+function dishPerformance({ ledger, cookBatches, expense, today, per = null, waste = [] }) {
   ledger = ledger.filter((r) => inPeriod(r.date, per)); cookBatches = cookBatches.filter((b) => inPeriod(b.date, per));
   if (per) expense = expense.filter((e) => !e.date || ((!per.from || e.date >= per.from) && (!per.to || e.date <= per.to)));
-  const st = sellThrough(ledger, cookBatches, today);
-  const sitting = st.map((d) => ({ dish: d.dish, cooked: d.cooked, sold: d.sold, remaining: d.remaining, sellPct: d.cooked ? Math.round((d.sold / d.cooked) * 100) : null, oldestAgeDays: d.oldestAgeDays, old: d.oldestAgeDays > 5 && d.remaining > 0 }));
+  waste = waste.filter((w) => inPeriod(w.date, per));
+  const st = sellThrough(ledger, cookBatches, today, waste);
+  const sitting = st.map((d) => ({ dish: d.dish, cooked: d.cooked, sold: d.sold, wasted: d.wasted, wasteCost: Math.round(d.wasteCost), remaining: d.remaining, sellPct: d.cooked ? Math.round((d.sold / d.cooked) * 100) : null, oldestAgeDays: d.oldestAgeDays, old: d.oldestAgeDays > 5 && d.remaining > 0 }));
 
   const batches = new Map();
   for (const b of cookBatches.filter((x) => x.date >= FROM && x.portions > 0 && x.cost > 0)) {
@@ -358,7 +359,7 @@ function resultWithBoh(res, months) {
   return { ...res, months: [...res.months, ...boh] };
 }
 
-function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [], period = null }) {
+function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [], waste = [], period = null }) {
   const per = period && (period.from || period.to) ? period : null;
   const overlaps = (p) => !per || ((!per.from || p.to >= per.from) && (!per.to || p.from <= per.to));
   const chW = channelOrders(ledger, 'week'); const chM = channelOrders(ledger, 'month');
@@ -381,7 +382,7 @@ function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master =
     today: formatDMY(today), from: formatDMY(FROM), weeks, months, mix: itemMix(ledger, today, per, masterEvents), notes, best: best && best.label, worst: worst && worst.label,
     history: { ...buildHistory({ events, today }), result: withBoh(monthlyResult(master, today), months) },
     heatmap: heatmap(ledger, per, masterEvents),
-    dishes: dishPerformance({ ledger, cookBatches, expense, today, per }),
+    dishes: dishPerformance({ ledger, cookBatches, expense, today, per, waste }),
     period: per ? { from: per.from ? formatDMY(per.from) : null, to: per.to ? formatDMY(per.to) : null } : null,
   };
 }

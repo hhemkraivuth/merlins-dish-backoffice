@@ -155,13 +155,14 @@ function purchasesFrom(rows) {
 }
 
 async function loadAll() {
-  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows] = await Promise.all([
-    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'),
+  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows, wasteRows] = await Promise.all([
+    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'),
   ]);
   const purchases = purchasesFrom(expense);
   return {
     ledger: ledgerObjects(ledgerRows),
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
+    waste: require('./wasteLog').wasteFrom(wasteRows),
     purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows), ...walletPaidFrom(walletRows)],
     expense: purchases.map((p) => ({ date: p.date, name: p.name, unitCost: p.unitCost })),
     handoffRows: handoffs,
@@ -197,7 +198,7 @@ async function refreshReports() {
 
 async function refreshHandoffs(data, today = bangkokToday()) {
   const d = data || await loadAll();
-  const stock = sellThrough(d.ledger, d.cookBatches, today);
+  const stock = sellThrough(d.ledger, d.cookBatches, today, d.waste);
   const current = currentHandoffs({ stock, moves: priceMoves(d.expense), today, gaps: riderGaps(d.ledger, today) });
   await ensureTab(HANDOFF_TAB, HANDOFF_HEADERS);
   const existing = d.handoffRows.length ? d.handoffRows : [HANDOFF_HEADERS];
@@ -226,7 +227,7 @@ async function huddle({ sync = true } = {}) {
 async function pit() {
   const today = bangkokToday();
   const d = await loadAll();
-  const stock = sellThrough(d.ledger, d.cookBatches, today);
+  const stock = sellThrough(d.ledger, d.cookBatches, today, d.waste);
   const noteRows = await readOrEmpty(marketingLib.TAB);
   return buildPit({ noteRows, today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
 }
@@ -281,4 +282,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };

@@ -214,10 +214,10 @@ function reportRows(periods) {
 // ---- sell-through (first in, first out) ------------------------------------------------------
 // Cooked portions per batch come off the Cook Log. Sold portions are Order rows for that dish on either channel.
 // Sales before a dish's first logged batch are ignored (the cook notes only start on a date).
-function sellThrough(ledger, cookBatches, today) {
+function sellThrough(ledger, cookBatches, today, waste = []) {
   const dishes = new Map();
   const dish = (name) => {
-    if (!dishes.has(name)) dishes.set(name, { dish: name, events: [], cooked: 0, sold: 0, oversold: 0, batches: [] });
+    if (!dishes.has(name)) dishes.set(name, { dish: name, events: [], cooked: 0, sold: 0, oversold: 0, wasted: 0, wasteCost: 0, batches: [] });
     return dishes.get(name);
   };
   for (const b of cookBatches) {
@@ -238,6 +238,10 @@ function sellThrough(ledger, cookBatches, today) {
     if (dishes.has(name)) dishes.get(name).events.push({ t, order: 1, sold: qty });
   }
 
+  for (const w of waste) {
+    if (dishes.has(w.dish)) dishes.get(w.dish).events.push({ t: w.date.getTime(), order: 2, wasted: w.portions, wasteCost: w.cost });
+  }
+
   const out = [];
   for (const d of dishes.values()) {
     const firstCook = Math.min(...d.events.filter((e) => e.batch).map((e) => e.t));
@@ -245,19 +249,19 @@ function sellThrough(ledger, cookBatches, today) {
     for (const e of d.events) {
       if (e.batch) { d.batches.push(e.batch); d.cooked += e.batch.portions; continue; }
       if (e.t < firstCook) continue;
-      let need = e.sold;
-      d.sold += e.sold;
+      let need = e.wasted !== undefined ? e.wasted : e.sold;
+      if (e.wasted !== undefined) { d.wasted += e.wasted; d.wasteCost += e.wasteCost || 0; } else d.sold += e.sold;
       for (const b of d.batches) {
         if (!need) break;
         const take = Math.min(b.remaining, need);
         b.remaining -= take; need -= take;
       }
-      d.oversold += need;
+      if (e.wasted === undefined) d.oversold += need;
     }
     const live = d.batches.filter((b) => b.remaining > 0).map((b) => ({ ...b, ageDays: today ? daysBetween(today, b.date) : 0 }));
     const latest = d.batches[d.batches.length - 1];
     out.push({
-      dish: d.dish, cooked: d.cooked, sold: d.sold, oversold: d.oversold,
+      dish: d.dish, cooked: d.cooked, sold: d.sold, oversold: d.oversold, wasted: d.wasted, wasteCost: d.wasteCost,
       remaining: live.reduce((s, b) => s + b.remaining, 0), live,
       latestBatch: latest ? { key: latest.key, date: latest.date } : null,
       oldestAgeDays: live.length ? Math.max(...live.map((b) => b.ageDays)) : 0,
