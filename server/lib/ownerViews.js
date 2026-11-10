@@ -67,6 +67,7 @@ function mondayPage({ weeks, delivery, breakEven, cash, dishes }) {
   const chg = (a, b) => (b > 0 ? `${a >= b ? '+' : ''}${Math.round(((a - b) / b) * 100)}%` : 'n/a');
   const lines = [];
   lines.push(`Week ${last.label}: gross ${money(last.gross)}${prev ? ` (${chg(last.gross, prev.gross)} on the week before)` : ''}, margin ${money(last.margin)}${prev ? ` (${chg(last.margin, prev.margin)})` : ''}, ${last.orders} orders.`);
+  if (prev && last.grabOrders === 0 && prev.grabOrders > 0) lines.unshift('Check first: no Grab orders are loaded for this week, so the comparison below is not real. Import the latest Grab CSV.');
   const direct = last.lineOnlyOrders + last.igOrders;
   lines.push(`Direct orders ${direct} of ${last.orders} (${pct(direct, last.orders) ?? 0}%)${last.repeatPct !== null ? `, repeat customers ${last.repeatPct}%` : ''}.`);
   if (breakEven && breakEven.breakEvenRevenue) lines.push(`Break-even is about ${money(breakEven.breakEvenRevenue)} of sales a week (${breakEven.breakEvenOrders} orders). Last week sold ${money(last.revenue)}, ${last.revenue >= breakEven.breakEvenRevenue ? 'above' : 'below'} it.`);
