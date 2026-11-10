@@ -4,7 +4,7 @@
 
 const { formatDMY, daysBetween, parseDate } = require('./dates');
 const { summarise, periodOf, riderGaps, priceMoves } = require('./reports');
-const { notesFrom } = require('./marketing');
+const { notesFrom, comingUp } = require('./marketing');
 
 const baht = (n) => `฿${Math.round(n || 0).toLocaleString('en-AU')}`;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
@@ -127,17 +127,19 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   const low = [...lowPacks, ...lowIngredients];
   if (low.length) buy.updates.push(`Running low: ${low.join(', ')}.`);
 
-  // Marketing: this week's orders across both channels, and the newest note the team logged
+  // Marketing (the scout desk): the next date to prepare for, and how many competitor notes landed this week.
+  // Orders are left to the Grab and Direct cards.
   const mk = { name: 'Marketing', channel: null, updates: [] };
   const notes = notesFrom(noteRows);
-  if (wk) {
-    const orders = wk.grab.orders + wk.line.orders;
-    mk.headline = plural(orders, 'order') + ' this week';
-    mk.sub = `Grab ${wk.grab.orders}, LINE ${wk.line.orders}`;
-    mk.updates.push(`This week: ${plural(orders, 'order')} across Grab and LINE.`);
-  } else { mk.headline = 'No sales this week yet'; }
-  mk.top = wk ? plural(wk.grab.orders + wk.line.orders, 'order') : '0 orders';
-  mk.line = 'this week, all channels';
+  const next = comingUp(today, notes.filter((n) => n.kind === 'Date'))[0];
+  const nextName = next ? String(next.label).replace(/[,\s]+(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*$/i, '').replace(/[,\s]+$/, '') : '';
+  mk.top = next ? (next.away === 0 ? 'Today' : plural(next.away, 'day')) : 'No date';
+  mk.line = next ? `to ${nextName}, ${next.day} ${next.date.slice(0, 5)}` : 'nothing fixed in the next 60 days';
+  mk.headline = mk.top; mk.sub = mk.line;
+  const recentComp = notes.filter((n) => n.kind === 'Competitor' && (() => { const d = parseDate(n.date); return d && daysBetween(today, d) <= 7; })());
+  mk.note = `${plural(recentComp.length, 'competitor note')} this week`;
+  if (next) mk.updates.push(`Next date: ${nextName}, ${next.day} ${next.date} (${next.away === 0 ? 'today' : plural(next.away, 'day')} away).`);
+  mk.updates.push(`${plural(recentComp.length, 'competitor note')} in the last 7 days.`);
   if (notes[0]) {
     mk.when = notes[0].date;
     mk.updates.push(`Latest note (${notes[0].kind}): ${notes[0].title}.`);

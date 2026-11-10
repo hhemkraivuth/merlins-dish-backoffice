@@ -324,7 +324,7 @@
         return `<g data-di="${i}" transform="translate(${it.x} ${it.y})"${dim}>${hit}${DECOR[it.t].draw()}${ring}</g>`;
       }).join('');
       const chars = PIGS.map((p, n) => `<g class="ch" data-n="${n}"><g transform="scale(1.1)">${p.giraffe ? giraffe() : pig(p.shirt)}${costume(costumeOf, Boolean(p.giraffe))}</g></g>`).join('');
-      svg.innerHTML = `${PRIDE_DEFS}${room()}<text x="98" y="117.4" text-anchor="middle" font-size="3.2" font-weight="700" letter-spacing=".5" fill="#294bd4" opacity=".55">MARKETING TEAM</text>${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}${floorText(state.theme, state.bday)}<g>${preset}</g><g>${placed}</g>${chars}`;
+      svg.innerHTML = `${PRIDE_DEFS}${room()}<text x="98" y="104.2" text-anchor="middle" font-size="3" font-weight="700" letter-spacing=".5" fill="#294bd4" opacity=".55">MARKETING TEAM</text>${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}${floorText(state.theme, state.bday)}<g>${preset}</g><g>${placed}</g>${chars}`;
       const els = [...svg.querySelectorAll('.ch')];
       pigs.forEach((p, n) => { p.el = els[n]; });
       paint();

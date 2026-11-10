@@ -103,15 +103,36 @@ function comingUp(today, dateNotes, within = 60) {
   return [...byDate.values()].sort((a, b) => a.away - b.away);
 }
 
-// Merlin's own price range, from the order bot's public menu. Grab prices carry the +฿25 markup (project rule).
+// Merlin's own price range. Direct prices come from the order bot's public menu. Grab prices are what Grab orders were
+// actually charged (the most common unit price per dish in the ledger over the last 60 days, which mirrors the Master Log),
+// because Grab's price is not a flat markup on the direct price. A dish with no Grab order yet falls back to direct + 25.
 // Drinks, sides and extras are left out so the range compares with the competitors' mains and soups.
 const GRAB_MARKUP = 25;
-function merlinRange(menu) {
+const baseName = (name) => String(name || '').replace(/\s*\+\s*pasta.*$/i, '').trim();
+
+function grabPrices(ledger, today, within = 60) {
+  const counts = new Map();
+  for (const r of ledger || []) {
+    if (r.channel !== 'Grab' || r.type !== 'Order' || !(r.qty > 0) || !(r.moneyIn > 0) || !r.date) continue;
+    if (daysBetween(today, r.date) > within) continue;
+    const name = baseName(r.desc);
+    const price = Math.round((r.moneyIn / r.qty) * 100) / 100;
+    const byPrice = counts.get(name) || new Map();
+    byPrice.set(price, (byPrice.get(price) || 0) + 1);
+    counts.set(name, byPrice);
+  }
+  const out = {};
+  for (const [name, byPrice] of counts) out[name] = [...byPrice.entries()].sort((x, y) => y[1] - x[1] || y[0] - x[0])[0][0];
+  return out;
+}
+
+function merlinRange(menu, grab = {}) {
   const items = (menu && Array.isArray(menu.items) ? menu.items : []).filter((i) => Number(i.price) > 0 && !/drink|beverage|side|extra|add.?on|dessert/i.test(String(i.category || '')));
   if (!items.length) return null;
   const prices = items.map((i) => Number(i.price));
-  const lo = Math.min(...prices); const hi = Math.max(...prices);
-  return { direct: { lo, hi }, grab: { lo: lo + GRAB_MARKUP, hi: hi + GRAB_MARKUP }, count: items.length };
+  const onGrab = items.map((i) => (grab[baseName(i.name)] > 0 ? grab[baseName(i.name)] : Number(i.price) + GRAB_MARKUP));
+  const seen = items.filter((i) => grab[baseName(i.name)] > 0).length;
+  return { direct: { lo: Math.min(...prices), hi: Math.max(...prices) }, grab: { lo: Math.min(...onGrab), hi: Math.max(...onGrab) }, count: items.length, grabSeen: seen };
 }
 
 function buildMarketing({ today, ledger = [], noteRows = [], menu = null }) {
@@ -127,7 +148,7 @@ function buildMarketing({ today, ledger = [], noteRows = [], menu = null }) {
     week: line(find('week'), igIn(ledger, periodOf(today, 'week'))),
     month: line(find('month'), igIn(ledger, periodOf(today, 'month'))),
     notes: byKind,
-    merlin: merlinRange(menu),
+    merlin: merlinRange(menu, grabPrices(ledger, today)),
     kinds: KINDS,
     dates: comingUp(today, byKind.Date),
     history: [...notes].reverse(),
@@ -141,4 +162,4 @@ function parseNoteDate(text) {
   return m ? new Date(Date.UTC(+m[3], +m[2] - 1, +m[1])) : new Date(0);
 }
 
-module.exports = { buildMarketing, merlinRange, notesFrom, upcomingDates, comingUp, latestOnly, sortDateNotes, titleDate, TAB, HEADERS, KINDS };
+module.exports = { buildMarketing, merlinRange, grabPrices, notesFrom, upcomingDates, comingUp, latestOnly, sortDateNotes, titleDate, TAB, HEADERS, KINDS };

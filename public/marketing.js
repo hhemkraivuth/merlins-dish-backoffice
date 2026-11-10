@@ -90,7 +90,7 @@ function priceLanes(grab, merlin) {
   const max = Math.ceil(Math.max(...rows.map((r) => r.hi)) / 50) * 50;
   const pct = (v) => Math.max(0, Math.min(100, (v / max) * 100));
   const lanes = rows.map((r) => `<div class="lane ${r.us ? 'us' : ''}"><div class="lh"><span class="ln">${esc(r.name)}${r.us ? ' on Grab' : ''}</span><span class="lr">${baht(r.lo)} to ${baht(r.hi)}</span></div><div class="track"><div class="bar" style="left:${pct(r.lo).toFixed(1)}%;width:${Math.max(pct(r.hi) - pct(r.lo), 2).toFixed(1)}%"></div></div>${r.extra ? `<div class="lr" style="margin-top:4px">${esc(r.extra)}</div>` : ''}</div>`).join('');
-  const foot = merlin ? "Merlin's Grab prices are the order bot menu plus the ฿25 Grab markup, mains only." : "Merlin's price range is not available right now, the order bot did not answer.";
+  const foot = merlin ? "Merlin's Grab prices are what Grab orders were charged in the last 60 days, mains only. A dish with no Grab order yet is the order bot price plus ฿25." : "Merlin's price range is not available right now, the order bot did not answer.";
   return `<h2>Price lanes on Grab</h2><div class="lanes">${lanes}<div class="axis"><span style="left:0">${baht(0)}</span><span style="left:50%;transform:translateX(-50%)">${baht(max / 2)}</span><span style="right:0">${baht(max)}</span></div><p class="sub" style="margin:0">${esc(foot)} Competitor ranges are read from the latest Grab notes.</p></div>`;
 }
 const baht = (n) => `฿${Math.round(n).toLocaleString('en-AU')}`;
