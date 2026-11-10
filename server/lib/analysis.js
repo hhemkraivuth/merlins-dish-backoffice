@@ -322,7 +322,27 @@ function dishPerformance({ ledger, cookBatches, expense, today, per = null }) {
     const be = earn > 0 ? Math.ceil(last.cost / earn) : null;
     return { dish: c.dish, batchCost: last.cost, batchDate: last.date, portions: last.portions, earnPerPortion: earn === null ? null : Math.round(earn), basis, breakEvenPortions: be, breakEvenPct: be && last.portions ? Math.round((be / last.portions) * 100) : null };
   });
-  return { sitting, creep, moves, breakEven };
+  // Menu engineering: profit per serve in each channel (Grab after Grab's cut, direct in full), units sold, then the four boxes.
+  // Popular = at least 70% of an even share of units. Profitable = at or above the average profit per serve, weighted by units.
+  const rows = [];
+  for (const c of creep) {
+    const p = price.get(c.dish); if (!p) continue;
+    const cost = c.latest; const grabUnits = p.grab[1]; const lineUnits = p.line[1]; const units = grabUnits + lineUnits;
+    if (!(units > 0) || !(cost > 0)) continue;
+    const grabEarn = grabUnits > 0 ? (p.grab[0] / grabUnits) * (1 - GRAB_CUT) : null;
+    const lineEarn = lineUnits > 0 ? p.line[0] / lineUnits : null;
+    const totalProfit = (grabEarn === null ? 0 : (grabEarn - cost) * grabUnits) + (lineEarn === null ? 0 : (lineEarn - cost) * lineUnits);
+    rows.push({ dish: c.dish, cost, units, grabUnits, lineUnits, grabProfit: grabEarn === null ? null : Math.round(grabEarn - cost), lineProfit: lineEarn === null ? null : Math.round(lineEarn - cost), perServe: totalProfit / units, totalProfit: Math.round(totalProfit) });
+  }
+  const allUnits = rows.reduce((a, r) => a + r.units, 0);
+  const avgProfit = allUnits ? rows.reduce((a, r) => a + r.perServe * r.units, 0) / allUnits : 0;
+  const popularAt = rows.length ? (allUnits / rows.length) * 0.7 : 0;
+  const engineering = rows.map((r) => {
+    const popular = r.units >= popularAt; const profitable = r.perServe >= avgProfit;
+    const box = popular && profitable ? 'Star' : popular ? 'Plowhorse' : profitable ? 'Puzzle' : 'Dog';
+    return { ...r, perServe: Math.round(r.perServe), box };
+  }).sort((a, b) => b.totalProfit - a.totalProfit);
+  return { sitting, creep, moves, breakEven, engineering, engineeringBars: { avgProfit: Math.round(avgProfit), popularAt: Math.round(popularAt) } };
 }
 
 // Master Log months to September, then BOH months from October (sales after Grab fees, and what is left after costs).
