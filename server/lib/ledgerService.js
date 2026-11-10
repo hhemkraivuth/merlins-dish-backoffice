@@ -159,14 +159,16 @@ async function loadAll() {
     readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'),
   ]);
   const purchases = purchasesFrom(expense);
+  const lotBook = new LotBook(lotRows, [], bangkokToday());
   return {
+    lotBook,
     ledger: ledgerObjects(ledgerRows),
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
     waste: require('./wasteLog').wasteFrom(wasteRows),
     purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows), ...walletPaidFrom(walletRows)],
     expense: purchases.map((p) => ({ date: p.date, name: p.name, unitCost: p.unitCost })),
     handoffRows: handoffs,
-    lowIngredients: lowItems(new LotBook(lotRows, [], bangkokToday()), parseLevels(levelRows)).map((x) => `${x.name}: ${Math.round(x.left)}${x.unit} left`),
+    lowIngredients: lowItems(lotBook, parseLevels(levelRows)).map((x) => `${x.name}: ${Math.round(x.left)}${x.unit} left`),
     lowPacks: (stockCounts || []).slice(1).filter((r) => String(r[1] || '').toLowerCase() === 'pack' && Number(r[2]) <= 1).map((r) => `${r[0]}: ${Number(r[2])}`),
   };
 }

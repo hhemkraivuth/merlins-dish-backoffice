@@ -359,7 +359,7 @@ function resultWithBoh(res, months) {
   return { ...res, months: [...res.months, ...boh] };
 }
 
-function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [], waste = [], period = null }) {
+function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [], waste = [], lotBook = null, period = null }) {
   const per = period && (period.from || period.to) ? period : null;
   const overlaps = (p) => !per || ((!per.from || p.to >= per.from) && (!per.to || p.from <= per.to));
   const chW = channelOrders(ledger, 'week'); const chM = channelOrders(ledger, 'month');
@@ -378,11 +378,20 @@ function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master =
   const notes = [];
   if (last.length === 2) notes.push({ title: 'Last finished week against the one before', text: `Gross ${change(last[1].gross, last[0].gross) ?? 'n/a'}%, margin ${change(last[1].margin, last[0].margin) ?? 'n/a'}%, orders ${last[1].orders} against ${last[0].orders}.` });
   if (best && worst && best !== worst) notes.push({ title: 'Best and weakest full week', text: `Best: ${best.label}, margin ฿${best.margin.toLocaleString('en-AU')}. Weakest: ${worst.label}, margin ฿${worst.margin.toLocaleString('en-AU')}.` });
+  const dishes = dishPerformance({ ledger, cookBatches, expense, today, per, waste });
+  const owner = (() => {
+    const own = require('./ownerViews');
+    const delivery = own.deliveryScorecard(ledger.filter((r) => inPeriod(r.date, per)));
+    const breakEven = own.weeklyBreakEven(weeks);
+    const cash = own.cashTiedUp(lotBook, dishes.sitting, dishes.creep);
+    return { delivery, breakEven, cash, monday: own.mondayPage({ weeks, delivery, breakEven, cash, dishes }) };
+  })();
   return {
+    owner,
     today: formatDMY(today), from: formatDMY(FROM), weeks, months, mix: itemMix(ledger, today, per, masterEvents), notes, best: best && best.label, worst: worst && worst.label,
     history: { ...buildHistory({ events, today }), result: withBoh(monthlyResult(master, today), months) },
     heatmap: heatmap(ledger, per, masterEvents),
-    dishes: dishPerformance({ ledger, cookBatches, expense, today, per, waste }),
+    dishes,
     period: per ? { from: per.from ? formatDMY(per.from) : null, to: per.to ? formatDMY(per.to) : null } : null,
   };
 }

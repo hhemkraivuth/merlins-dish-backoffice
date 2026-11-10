@@ -13,7 +13,7 @@ async function analysisJson(req, res) {
     catch (err) { warnings.push(`Could not read the Master Log (${err.message}), so the history to September is missing.`); }
     const iso = (v) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || '')); return m ? utc(+m[1], +m[2], +m[3]) : null; };
     const period = { from: iso(req.query.from), to: iso(req.query.to) };
-    const out = buildAnalysis({ period, weekly, monthly, ledger: d.ledger, today: bangkokToday(), master, cookBatches: d.cookBatches, expense: d.expense, waste: d.waste });
+    const out = buildAnalysis({ period, weekly, monthly, ledger: d.ledger, today: bangkokToday(), master, cookBatches: d.cookBatches, expense: d.expense, waste: d.waste, lotBook: d.lotBook });
     out.warnings = warnings;
     res.json(out);
   } catch (err) { console.error(err); res.status(500).json({ error: String((err && err.message) || err) }); }
