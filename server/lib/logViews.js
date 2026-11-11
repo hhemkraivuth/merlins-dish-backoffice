@@ -167,18 +167,21 @@ function latestCounts(countRows = []) {
 }
 
 function buildReadyStock({ today, ledger = [], cookBatches = [], countRows = [] }) {
-  const st = new Map(sellThrough(ledger, cookBatches, today).map((d) => [d.dish, d]));
-  const counts = latestCounts(countRows);
-  const names = [...new Set([...BATCH_DISHES.map(([n]) => n), ...st.keys(), ...counts.keys()])];
-  const items = names.map((dish) => {
-    const s = st.get(dish);
-    const batches = cookBatches.filter((b) => b.dish === dish && b.portions);
+  // Dish names are matched without regard to capital letters ("Dark Beer Stew" in the Cook Log, "Dark beer Stew" in the count).
+  const lc = (n) => String(n || '').toLowerCase();
+  const st = new Map(sellThrough(ledger, cookBatches, today).map((d) => [lc(d.dish), d]));
+  const counts = new Map([...latestCounts(countRows)].map(([n, c]) => [lc(n), c]));
+  const shown = new Map();
+  [...BATCH_DISHES.map(([n]) => n), ...[...st.values()].map((d) => d.dish), ...latestCounts(countRows).keys()].forEach((n) => { if (!shown.has(lc(n))) shown.set(lc(n), n); });
+  const items = [...shown.values()].map((dish) => {
+    const s = st.get(lc(dish));
+    const batches = cookBatches.filter((b) => lc(b.dish) === lc(dish) && b.portions);
     const lastCooked = batches.length ? new Date(Math.max(...batches.map((b) => b.date.getTime()))) : null;
-    const c = counts.get(dish);
+    const c = counts.get(lc(dish));
     let left; let basis; let ageDays;
     if (c) {
       const cookedAfter = batches.filter((b) => b.date.getTime() > c.date.getTime()).reduce((x, b) => x + b.portions, 0);
-      const soldAfter = ledger.filter((r) => r.type === 'Order' && r.qty && r.date.getTime() > c.date.getTime() && batchDishOf(r.desc) === dish).reduce((x, r) => x + r.qty, 0);
+      const soldAfter = ledger.filter((r) => r.type === 'Order' && r.qty && r.date.getTime() > c.date.getTime() && lc(batchDishOf(r.desc)) === lc(dish)).reduce((x, r) => x + r.qty, 0);
       left = c.count + cookedAfter - soldAfter;
       basis = 'counted';
       ageDays = lastCooked ? daysBetween(today, lastCooked) : null;

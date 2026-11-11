@@ -382,3 +382,21 @@ test('huddle: a late restart does not send a missed one, and an unreadable store
   await new Promise((r) => setTimeout(r, 30)); assert.strictEqual(sent, 0);
   clearInterval(t); delete process.env.HUDDLE_AUTO; delete process.env.HUDDLE_TIME;
 });
+
+// ---- counted stock beats cooked minus sold ---------------------------------------------------
+test('a count overrides cooked minus sold, ignores capital letters in the dish name, and Analysis uses it', () => {
+  const { buildReadyStock } = require('../lib/logViews');
+  const { buildAnalysis } = require('../lib/analysis');
+  const cook = [{ key: 'a', date: utc(2026, 10, 20), dish: 'Dark Beer Stew', portions: 11, cost: 1062 }];
+  const today = utc(2026, 11, 12);
+  const counts = [['Dish', 'Count', 'Counted on', 'Logged at'], ['Dark beer Stew', 0, '11/11/2026', 'x']];
+  // a Grab sale dated on the count day arrives later and is already inside the count, so it is not taken off again
+  const ledger = ledgerFrom([sale('11/11/2026', 'Dark Beer Stew (Large 525g)', 1)]);
+  const ready = buildReadyStock({ today, ledger, cookBatches: cook, countRows: counts });
+  const dbs = ready.items.filter((i) => i.dish.toLowerCase() === 'dark beer stew');
+  assert.strictEqual(dbs.length, 1);
+  assert.strictEqual(dbs[0].left, 0);
+  assert.strictEqual(dbs[0].basis, 'counted');
+  const a = buildAnalysis({ today, ledger, cookBatches: cook, countRows: counts });
+  assert.strictEqual(a.dishes.sitting.find((s) => s.dish === 'Dark Beer Stew').remaining, 0);
+});

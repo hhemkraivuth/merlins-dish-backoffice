@@ -286,12 +286,20 @@ function heatmap(ledger, per = null, masterEvents = []) {
 }
 
 // ---- cooked against sold, stock sitting, price creep, break-even --------------------------------------
-function dishPerformance({ ledger, cookBatches, expense, today, per = null, waste = [] }) {
+function dishPerformance({ ledger, cookBatches, expense, today, per = null, waste = [], countRows = [] }) {
+  const allLedger = ledger; const allBatches = cookBatches;
   ledger = ledger.filter((r) => inPeriod(r.date, per)); cookBatches = cookBatches.filter((b) => inPeriod(b.date, per));
   if (per) expense = expense.filter((e) => !e.date || ((!per.from || e.date >= per.from) && (!per.to || e.date <= per.to)));
   waste = waste.filter((w) => inPeriod(w.date, per));
   const st = sellThrough(ledger, cookBatches, today, waste);
-  const sitting = st.map((d) => ({ dish: d.dish, cooked: d.cooked, sold: d.sold, wasted: d.wasted, wasteCost: Math.round(d.wasteCost), remaining: d.remaining, sellPct: d.cooked ? Math.round((d.sold / d.cooked) * 100) : null, oldestAgeDays: d.oldestAgeDays, old: d.oldestAgeDays > 5 && d.remaining > 0 }));
+  // A count typed on the Ready Counts tab beats cooked minus sold for that dish (count, plus cooked after it, minus sold after it).
+  const counted = new Map(require('./logViews').buildReadyStock({ today, ledger: allLedger, cookBatches: allBatches, countRows }).items.filter((i) => i.basis === 'counted').map((i) => [String(i.dish).toLowerCase(), i]));
+  const sitting = st.map((d) => {
+    const c = counted.get(String(d.dish).toLowerCase());
+    const remaining = c ? c.left : d.remaining;
+    const age = c ? (c.ageDays || 0) : d.oldestAgeDays;
+    return { dish: d.dish, cooked: d.cooked, sold: d.sold, wasted: d.wasted, wasteCost: Math.round(d.wasteCost), remaining, counted: !!c, sellPct: d.cooked ? Math.round((d.sold / d.cooked) * 100) : null, oldestAgeDays: age, old: age > 5 && remaining > 0 };
+  });
 
   const batches = new Map();
   for (const b of cookBatches.filter((x) => x.date >= FROM && x.portions > 0 && x.cost > 0)) {
@@ -359,7 +367,7 @@ function resultWithBoh(res, months) {
   return { ...res, months: [...res.months, ...boh] };
 }
 
-function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [], waste = [], lotBook = null, period = null }) {
+function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [], waste = [], lotBook = null, period = null, countRows = [] }) {
   const per = period && (period.from || period.to) ? period : null;
   const overlaps = (p) => !per || ((!per.from || p.to >= per.from) && (!per.to || p.from <= per.to));
   const chW = channelOrders(ledger, 'week'); const chM = channelOrders(ledger, 'month');
@@ -378,7 +386,7 @@ function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master =
   const notes = [];
   if (last.length === 2) notes.push({ title: 'Last finished week against the one before', text: `Gross ${change(last[1].gross, last[0].gross) ?? 'n/a'}%, margin ${change(last[1].margin, last[0].margin) ?? 'n/a'}%, orders ${last[1].orders} against ${last[0].orders}.` });
   if (best && worst && best !== worst) notes.push({ title: 'Best and weakest full week', text: `Best: ${best.label}, margin ฿${best.margin.toLocaleString('en-AU')}. Weakest: ${worst.label}, margin ฿${worst.margin.toLocaleString('en-AU')}.` });
-  const dishes = dishPerformance({ ledger, cookBatches, expense, today, per, waste });
+  const dishes = dishPerformance({ ledger, cookBatches, expense, today, per, waste, countRows });
   const owner = (() => {
     const own = require('./ownerViews');
     const delivery = own.deliveryScorecard(ledger.filter((r) => inPeriod(r.date, per)));
