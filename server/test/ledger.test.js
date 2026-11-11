@@ -400,3 +400,19 @@ test('a count overrides cooked minus sold, ignores capital letters in the dish n
   const a = buildAnalysis({ today, ledger, cookBatches: cook, countRows: counts });
   assert.strictEqual(a.dishes.sitting.find((s) => s.dish === 'Dark Beer Stew').remaining, 0);
 });
+
+test('to do items follow the count: no "sold beyond", and a batch only flags while some of it is really left', () => {
+  const { applyCounts } = require('../lib/logViews');
+  const today = utc(2026, 11, 12);
+  const cook = [{ key: 'old', date: utc(2026, 10, 20), dish: 'Polished Pork Bolognese', portions: 12, cost: 300 }, { key: 'new', date: utc(2026, 10, 29), dish: 'Polished Pork Bolognese', portions: 18, cost: 500 }];
+  const ledger = ledgerFrom([sale('05/11/2026', 'Polished Pork Bolognese', 36)]);
+  const raw = sellThrough(ledger, cook, today);
+  assert.ok(raw[0].oversold > 0);
+  const counts = [['Dish', 'Count', 'Counted on', 'Logged at'], ['Polished Pork Bolognese', 9, '11/11/2026', 'x']];
+  const [s] = applyCounts(raw, { today, ledger, cookBatches: cook, countRows: counts });
+  assert.strictEqual(s.remaining, 9);
+  assert.strictEqual(s.oversold, 0);
+  assert.deepStrictEqual(s.live.map((b) => [b.key, b.remaining]), [['new', 9]]);
+  const keys = currentHandoffs({ stock: [s], moves: [], today }).map((c) => c.key.split('|')[0]);
+  assert.ok(!keys.includes('over'));
+});

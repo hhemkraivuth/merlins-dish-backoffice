@@ -191,15 +191,37 @@ function buildReadyStock({ today, ledger = [], cookBatches = [], countRows = [] 
       ageDays = s && s.live.length ? s.oldestAgeDays : null;
     }
     const negative = left < 0;
+    const short = negative ? -left : 0;
     if (negative) left = 0;
     return {
-      dish, left, basis, negative,
+      dish, left, basis, negative, short,
       countedOn: c ? formatDMY(c.date) : '',
       lastCooked: lastCooked ? formatDMY(lastCooked) : '',
       ageDays, stale: left > 0 && ageDays !== null && ageDays > STALE_DAYS,
     };
   });
   return { today: formatDMY(today), staleDays: STALE_DAYS, items: items.sort((a, b) => b.left - a.left || a.dish.localeCompare(b.dish)) };
+}
+
+// Stock for the to do list and the daily huddle: sellThrough() results, with a counted dish taken from its count instead.
+// The counted portions are given to the newest batches first (the oldest are sold first), so a batch that is 14 days old
+// still flags for a flash sale only while some of it is really left. A count settles old "sold beyond the cook notes" gaps.
+function applyCounts(stock, { today, ledger = [], cookBatches = [], countRows = [] }) {
+  const ready = new Map(buildReadyStock({ today, ledger, cookBatches, countRows }).items.filter((i) => i.basis === 'counted').map((i) => [String(i.dish).toLowerCase(), i]));
+  return stock.map((s) => {
+    const c = ready.get(String(s.dish).toLowerCase());
+    if (!c) return s;
+    let left = c.left;
+    const live = [];
+    for (const b of cookBatches.filter((x) => String(x.dish).toLowerCase() === String(s.dish).toLowerCase() && x.portions).sort((a, z) => z.date - a.date)) {
+      if (left <= 0) break;
+      const take = Math.min(left, b.portions);
+      live.push({ key: b.key, date: b.date, portions: b.portions, remaining: take, ageDays: daysBetween(today, b.date) });
+      left -= take;
+    }
+    live.reverse();
+    return { ...s, remaining: c.left, oversold: c.short, live, oldestAgeDays: live.length ? Math.max(...live.map((b) => b.ageDays)) : 0 };
+  });
 }
 
 // ---- csv ------------------------------------------------------------------------------------------
@@ -214,5 +236,5 @@ function toCsv(headers, rows) {
 module.exports = {
   receiptItems, cookItems, parseMonth, monthKey, buildReceiptLog, receiptCsvRows, priceLogCsvRows, RECEIPT_CSV_HEADERS, PRICE_LOG_HEADERS,
   buildCookLog, cookCsvRows, COOK_CSV_HEADERS, cookLinesCsvRows, COOK_LINES_CSV_HEADERS,
-  buildReadyStock, latestCounts, READY_HEADERS, STALE_DAYS, toCsv,
+  buildReadyStock, applyCounts, latestCounts, READY_HEADERS, STALE_DAYS, toCsv,
 };

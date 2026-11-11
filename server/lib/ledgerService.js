@@ -220,7 +220,8 @@ async function refreshReports() {
 
 async function refreshHandoffs(data, today = bangkokToday()) {
   const d = data || await loadAll();
-  const stock = sellThrough(d.ledger, d.cookBatches, today, d.waste);
+  const countRows = await readOrEmpty('Ready Counts');
+  const stock = require('./logViews').applyCounts(sellThrough(d.ledger, d.cookBatches, today, d.waste), { today, ledger: d.ledger, cookBatches: d.cookBatches, countRows });
   const current = currentHandoffs({ stock, moves: priceMoves(d.expense), today, gaps: riderGaps(d.ledger, today) });
   await ensureTab(HANDOFF_TAB, HANDOFF_HEADERS);
   const existing = d.handoffRows.length ? d.handoffRows : [HANDOFF_HEADERS];
