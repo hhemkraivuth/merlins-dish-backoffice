@@ -14,6 +14,7 @@ async function current() {
 async function get(req, res) { try { res.json(await current()); } catch (err) { fail(res, err); } }
 async function seen(req, res) { try { res.json(await lib.markSeen(req.body && req.body.keys)); } catch (err) { fail(res, err); } }
 // To do changes return the fresh list so the page can redraw without a second call.
-const todo = (fn) => async (req, res) => { try { await fn(req.body || {}); const b = await current(); res.json({ ok: true, todos: b.todos, done: b.done, today: b.today }); } catch (err) { fail(res, err); } };
+const { bangkokToday, formatDMY } = require('../lib/dates');
+const todo = (fn) => async (req, res) => { try { await fn(req.body || {}); const b = await lib.todoView(lib.isoFromDmy(formatDMY(bangkokToday()))); res.json({ ok: true, todos: b.todos, done: b.done, today: b.today }); } catch (err) { fail(res, err); } };
 
 module.exports = { get, seen, add: todo(lib.addTodo), done: todo(lib.setDone), remove: todo(lib.removeTodo) };

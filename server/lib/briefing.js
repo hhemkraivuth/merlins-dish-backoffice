@@ -102,14 +102,19 @@ async function markSeen(keys) {
   return { ok: true };
 }
 
+// Just the to do lists with their due wording. Cheap, so adding or ticking an item does not rebuild the Pit.
+async function todoView(todayIso) {
+  const { open, done } = sortTodos(await loadTodos());
+  const todos = open.map((t) => ({ ...t, dueText: dueLabel(t.due, todayIso), overdue: Boolean(t.due && dayNum(t.due) < dayNum(todayIso)), today: t.due === todayIso }));
+  return { today: dmyFromIso(todayIso), todos, done: done.slice(0, 10) };
+}
+
 // { pit, marketingList, todayIso } -> what the pop up shows.
 async function build({ pit, marketingList, todayIso }) {
   const seen = new Set(parseJson(await getState(SEEN_KEY), []));
   const all = [...reportsFromMarketing(marketingList), ...reportsFromPit(pit)];
   const reports = all.filter((r) => !seen.has(r.key));
-  const { open, done } = sortTodos(await loadTodos());
-  const todos = open.map((t) => ({ ...t, dueText: dueLabel(t.due, todayIso), overdue: Boolean(t.due && dayNum(t.due) < dayNum(todayIso)), today: t.due === todayIso }));
-  return { today: dmyFromIso(todayIso), reports, todos, done: done.slice(0, 10), teams: TEAMS };
+  return { ...(await todoView(todayIso)), reports, teams: TEAMS };
 }
 
-module.exports = { build, addTodo, setDone, removeTodo, markSeen, dueLabel, reportsFromPit, reportsFromMarketing, cleanTodo, sortTodos, isoFromDmy, dmyFromIso, TEAMS };
+module.exports = { build, todoView, addTodo, setDone, removeTodo, markSeen, dueLabel, reportsFromPit, reportsFromMarketing, cleanTodo, sortTodos, isoFromDmy, dmyFromIso, TEAMS };
