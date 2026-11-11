@@ -161,3 +161,21 @@ test('merged date cells: a blank date takes the date of the row above (Price Log
   assert.ok(!exp.lookup('Garlic', utc(2026, 10, 7)));
   assert.strictEqual(exp.skipped.noDate, 1);
 });
+
+test('a note accepts the pack-out words before or after the counts, and a single letter finds the one matching ingredient', () => {
+  const { parseNote } = require('../lib/noteParser');
+  const { findRecipeIngredient } = require('../lib/costBatch');
+  const { defaultShorthand } = require('../lib/aliases');
+  const sh = defaultShorthand();
+  for (const tail of ['portions r9 l4', 'portions 9r 4l', '9r 4l portions', 'r9 l4 portions']) {
+    const r = parseNote(`11/11\nDbs\nMeat 1608\n${tail}`, sh);
+    assert.deepStrictEqual(r.problems, [], tail);
+    assert.deepStrictEqual(r.batches[0].sizeCounts, [{ name: 'Regular', count: 9 }, { name: 'Large', count: 4 }], tail);
+  }
+  const recipe = { dish: 'Dark beer Stew', ingredients: [{ name: 'Beef - chuck roll' }, { name: 'Onion' }, { name: 'Potato' }, { name: 'Bay leaf' }] };
+  assert.strictEqual(findRecipeIngredient('P', recipe, sh).line.name, 'Potato');
+  const two = { dish: 'X', ingredients: [{ name: 'Potato' }, { name: 'Paprika' }] };
+  const amb = findRecipeIngredient('P', two, sh);
+  assert.strictEqual(amb.line, null);
+  assert.deepStrictEqual(amb.ambiguous, ['Potato', 'Paprika']);
+});

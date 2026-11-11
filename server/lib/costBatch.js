@@ -32,6 +32,12 @@ function findRecipeIngredient(token, recipe, shorthand) {
     });
     if (cands.length === 1) return { line: cands[0] };
   }
+  // One or two letters ("P 748"): the one ingredient of this dish that starts with that letter. If two start with it, say which.
+  if (!mapped && target.length >= 1 && target.length < 3) {
+    const cands = recipe.ingredients.filter((i) => normName(i.name).startsWith(target));
+    if (cands.length === 1) return { line: cands[0] };
+    if (cands.length > 1) return { line: null, target: token, ambiguous: cands.map((c) => c.name) };
+  }
   return { line: null, target: mapped || token };
 }
 
@@ -70,12 +76,12 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
   const qtyFor = new Map(); // normalised recipe name -> qty from note
   const extras = []; // note lines that aren't in the recipe
   for (const nl of batch.lines) {
-    const { line, viaMeat, target } = findRecipeIngredient(nl.token, recipe, shorthand);
+    const { line, viaMeat, target, ambiguous } = findRecipeIngredient(nl.token, recipe, shorthand);
     if (line) {
       qtyFor.set(normName(line.name), nl.qty);
       if (viaMeat) notes.push(`Meat read as ${line.name}`);
     } else {
-      extras.push({ name: target, qty: nl.qty, unit: nl.unit, token: nl.token });
+      extras.push({ name: target, qty: nl.qty, unit: nl.unit, token: nl.token, ambiguous });
     }
   }
 
@@ -144,7 +150,9 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
       flags.push(`"${ex.token}" is not in the ${recipe.dish} recipe. Costed as an extra line.`);
       priceLine('Ingredient', ex.name, ex.qty, ex.unit, null, 'note (extra)');
     } else {
-      flags.push(`"${ex.token}" not recognised in the ${recipe.dish} recipe or the Price Log. Left out of the cost. Add it to the Shorthand tab if it is shorthand.`);
+      flags.push(ex.ambiguous
+        ? `"${ex.token}" could be ${ex.ambiguous.join(' or ')} in the ${recipe.dish} recipe. Left out of the cost. Type the full name or add it to the Shorthand tab.`
+        : `"${ex.token}" not recognised in the ${recipe.dish} recipe or the Price Log. Left out of the cost. Add it to the Shorthand tab if it is shorthand.`);
     }
   }
 

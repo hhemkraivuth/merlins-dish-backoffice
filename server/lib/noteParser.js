@@ -28,9 +28,11 @@ const sumOf = (txt) => String(txt).split('+').reduce((a, n) => a + Number(n.trim
 const SIZE_SHORT_WORD = /\s*(?:portions?|servings?)$/i;
 const SIZE_SHORT_BODY = /^(?:(?:\d+\s*[rl]|[rl]\s*\d+)(?:\s+|$)){1,2}$/i;
 const SIZE_SHORT_ITEM = /(\d+)\s*([rl])\b|\b([rl])\s*(\d+)/gi;
+// The word can come before or after the counts: "9r 4l portions", "portions r9 l4", "portions 9r 4l".
+const SIZE_SHORT_LEAD = /^(?:portions?|servings?)\s*[:=]?\s*/i;
 function parseSizeShort(line) {
-  const hadWord = SIZE_SHORT_WORD.test(line);
-  const body = line.replace(SIZE_SHORT_WORD, '').trim();
+  const hadWord = SIZE_SHORT_WORD.test(line) || SIZE_SHORT_LEAD.test(line);
+  const body = line.replace(SIZE_SHORT_WORD, '').replace(SIZE_SHORT_LEAD, '').trim();
   if (!SIZE_SHORT_BODY.test(`${body} `)) return null;
   const out = [];
   for (const m of body.matchAll(SIZE_SHORT_ITEM)) {
