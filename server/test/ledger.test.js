@@ -416,3 +416,15 @@ test('to do items follow the count: no "sold beyond", and a batch only flags whi
   const keys = currentHandoffs({ stock: [s], moves: [], today }).map((c) => c.key.split('|')[0]);
   assert.ok(!keys.includes('over'));
 });
+
+test('an open handoff that is still true gets its wording refreshed when the numbers move', () => {
+  const { reconcile } = require('../lib/handoffs');
+  const head = ['Raised', 'From', 'To', 'Message', 'Status', 'Reply', 'Key'];
+  const existing = [head, ['11/11/2026', 'Operations', 'Sales', 'Red Wine Beef Stew: 5 portions from the 28/10/2026 batch are 8 days old.', 'Open', '', 'age|Red Wine Beef Stew|k1']];
+  const current = [{ from: 'Operations', to: 'Sales', key: 'age|Red Wine Beef Stew|k1', message: 'Red Wine Beef Stew: 4 portions from the 28/10/2026 batch are 8 days old.' }];
+  const { add, update } = reconcile(existing, current, utc(2026, 11, 11));
+  assert.strictEqual(add.length, 0);
+  assert.strictEqual(update.length, 1);
+  assert.strictEqual(update[0].row[3], current[0].message);
+  assert.strictEqual(update[0].row[4], 'Open');
+});

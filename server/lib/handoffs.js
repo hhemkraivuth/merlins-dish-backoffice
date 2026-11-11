@@ -56,12 +56,16 @@ function reconcile(existing, current, today) {
   const nowKeys = new Set(current.map((c) => c.key));
   const add = current.filter((c) => !seen.has(c.key)).map((c) => [formatDMY(today), c.from, c.to, c.message, 'Open', '', c.key]);
   const update = [];
+  const messageOf = new Map(current.map((c) => [c.key, c.message]));
   rows.forEach((r, i) => {
     const status = String(r[4] || '').trim().toLowerCase();
     const key = String(r[6] || '').trim();
     if (status === 'open' && key && !nowKeys.has(key)) {
       const row = [r[0] || '', r[1] || '', r[2] || '', r[3] || '', 'Done (cleared)', r[5] || '', key];
       update.push({ rowIndex: i + 2, row });
+    } else if (status === 'open' && key && messageOf.has(key) && messageOf.get(key) !== String(r[3] || '')) {
+      // Still true, but the numbers moved (a count, a sale): keep the row and its date, refresh the wording.
+      update.push({ rowIndex: i + 2, row: [r[0] || '', r[1] || '', r[2] || '', messageOf.get(key), r[4] || 'Open', r[5] || '', key] });
     }
   });
   return { add, update };
