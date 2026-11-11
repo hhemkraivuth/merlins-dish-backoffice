@@ -116,6 +116,16 @@ function insightTop(d) {
     + (moves.length ? `<div class="stack">${moves.map(moveCard).join('')}</div>` : '<p class="empty">No moves yet. The Sunday check writes three each week.</p>');
 }
 
+// The bet detail is one long line. Put each labelled part on its own line, label in bold.
+function betLines(text) {
+  const t = String(text || '');
+  const re = /\s*\b(Number|Test|Lever|Baseline|Grab New against RT|Review):\s*/g;
+  const out = []; let label = ''; let last = 0; let m;
+  while ((m = re.exec(t))) { out.push([label, t.slice(last, m.index).trim()]); label = m[1]; last = m.index + m[0].length; }
+  out.push([label, t.slice(last).trim()]);
+  return out.filter(([, b]) => b).map(([l, b]) => `<p style="margin:0 0 6px">${l ? `<b>${esc(l)}:</b> ` : ''}${esc(b)}</p>`).join('');
+}
+
 // The month's bet, one line. Tap for the detail note. "November:" stays bold like the Strategy card on Home.
 function betStrip(d) {
   const list = d.notes.Bet || [];
@@ -125,7 +135,7 @@ function betStrip(d) {
   const ends = [...head.title.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g)].pop();
   const left = ends ? Math.round(Date.UTC(+ends[3], +ends[2] - 1, +ends[1]) / 864e5 - dayNum(d.today)) : null;
   const tail = left === null ? '' : left < 0 ? 'ended' : left === 0 ? 'last day' : `${left} ${left === 1 ? 'day' : 'days'} left`;
-  const more = list.filter((n) => n !== head).map((n) => `<p style="margin:0 0 8px"><b>${esc(n.title)}</b><br>${esc(parts(n.note).summary)}</p>`).join('');
+  const more = list.filter((n) => n !== head).map((n) => `<p style="margin:0 0 6px"><b>${esc(n.title)}</b></p>${betLines(parts(n.note).summary)}`).join('');
   return `<details class="bet"><summary><span><b>${esc(m ? m[1] : 'Bet:')}</b> ${esc(m ? m[2] : head.title)}${tail ? ` <span class="left">${esc(tail)}</span>` : ''}</span><span class="chev" aria-hidden="true"></span></summary>${more ? `<div class="more">${more}</div>` : ''}</details>`;
 }
 
