@@ -72,7 +72,9 @@ async function listIngredientStock(req, res) {
     let brands = {};
     try { brands = JSON.parse((await require('../lib/appState').getState(BRAND_KEY)) || '{}'); } catch (err) { /* no brands yet */ }
     const dmy = (d) => { if (!d) return ''; const t = d instanceof Date ? d.toISOString().slice(0, 10) : String(d || ''); const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : t; };
-    res.json({ items: items.map((i) => {
+    let tracked = [];
+    try { tracked = (await require('../lib/ingredientLots').loadLotBook(bangkokToday())).names(); } catch (err) { /* the list still works without it */ }
+    res.json({ tracked, items: items.map((i) => {
       const category = CATEGORIES.includes(over[normName(i.name)]) ? over[normName(i.name)] : (guessCategory(i.name) || 'Ingredients');
       return { ...i, oldest: dmy(i.oldest), category, brand: brands[normName(i.name)] || '', daysLeft: i.daysLeft === null || i.daysLeft === undefined ? null : Math.round(i.daysLeft), red: ls.statusOf({ count: i.left, days: i.daysLeft, category: 'Ingredients', low: i.low }) };
     }) });

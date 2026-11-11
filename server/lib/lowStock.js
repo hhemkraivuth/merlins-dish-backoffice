@@ -119,7 +119,7 @@ async function ingredientStockItems(usage = null) {
     const lv = levels.get(normName(name));
     // Used up completely: stays in the list at 0 (red) only when Lily tracks it, meaning it has a pack size or an alert level.
     // Otherwise a one off buy would sit at 0 for ever.
-    if (!live.length && !lv && !sizes.get(normName(name))) return null;
+    if (!live.length && !lv && !sizes.get(normName(name)) && !all.some((l) => l.source === 'Manual')) return null;
     const unit = (live[0] || all[0]).unit;
     const left = book.totalRemaining(name);
     return { name, left: Math.round(left * 100) / 100, unit, oldest: live.length ? live[0].date : null, low: Boolean(lv && lv.unit === unit && left < lv.qty), level: lv ? lv.text : '', pack: packView(left, unit, sizes.get(normName(name))), daysLeft: daysLeft({ name, count: left, unit, usage }) };

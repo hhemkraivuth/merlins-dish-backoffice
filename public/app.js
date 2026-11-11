@@ -743,6 +743,9 @@ async function renderStock() {
     // Bagged meat is counted in grams as one item, so the receipts based row for the same meat is hidden.
     const bagged = new Set(stock.filter((x) => x.bags).map((x) => plainName(x.itemName)));
     ingredients = (ing.items || []).filter((i) => !bagged.has(plainName(i.name)));
+    // An ingredient tracked by purchases (brand, date, price, used oldest first) replaces its hand counted card.
+    const byPurchase = new Set((ing.tracked || []).map((n) => plainName(n)));
+    stock = stock.filter((x) => x.bags || (x.category || catOf(x)) !== 'Ingredients' || !byPurchase.has(plainName(x.itemName)));
     swaps = (await get('/api/ingredient-swaps').catch(() => ({ swaps: [] }))).swaps || [];
   } catch (err) {
     main.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
@@ -899,9 +902,14 @@ async function renderStock() {
         <select class="stock-edit-input" name="cat" style="width:auto">${catOptions(r.cat, 'Category')}</select>
         <input class="stock-edit-input" name="brand" placeholder="Brand" value="${escapeHtml(r.item.brand || '')}" maxlength="60" style="grid-column:1 / -1;width:auto" />
         <div style="grid-column:1 / -1;display:grid;grid-template-columns:1fr 80px;gap:8px"><input class="stock-edit-input" name="size" type="number" step="any" inputmode="decimal" placeholder="Size of one ${escapeHtml(r.unit || 'can')}, e.g. 330" value="${r.item.size || ''}" style="width:auto" /><select class="stock-edit-input" name="sizeUnit" style="width:auto">${sizeUnitOptions(r.item.sizeUnit || 'ml')}</select></div>
+        ${r.cat === 'Ingredients' ? '<div id="lotsBox" style="grid-column:1 / -1"><div class="stock-meta" style="margin-bottom:4px">Bought in different brands or on sale? Log each purchase below. Cooking then uses the oldest purchase first, at the price you paid, and this hand count card is replaced by the purchases.</div><div id="lotsMount"></div></div>' : ''}
         <div style="grid-column:1 / -1;display:flex;gap:8px"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
       </form>`);
     rowEl.replaceWith(form);
+    if (form.querySelector('#lotsMount')) {
+      mountLots(form.querySelector('#lotsMount'), r.name, 'g');
+      form.querySelector('#lotsBox').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+    }
     form.querySelector('[name=name]').focus();
     form.querySelector('[data-cancel]').addEventListener('click', () => renderStock());
     form.addEventListener('submit', async (e) => {
