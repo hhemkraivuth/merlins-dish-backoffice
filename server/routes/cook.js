@@ -105,7 +105,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       for (const l of b.lines || []) {
         const q = num(l.qty);
         if (!l.name || !(q >= 0)) { bad.push(`Ingredient "${l.name || '?'}" has no valid quantity`); continue; }
-        lines.push({ token: String(l.name), qty: q, unit: 'g' });
+        lines.push({ token: String(l.name), qty: q, unit: String(l.unit || 'g').trim().slice(0, 12) || 'g' });
       }
       const packagingQty = {};
       for (const p of b.packaging || []) {

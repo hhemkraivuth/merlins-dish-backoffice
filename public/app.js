@@ -434,7 +434,8 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     <datalist id="catalogueList">${Object.keys(recipe.catalogue).map((n) => `<option value="${escapeHtml(n)}"></option>`).join('')}</datalist>
     <div class="size-row">
       <input class="input" id="extraName" list="catalogueList" placeholder="Add an ingredient not in the recipe" />
-      <input class="size-input" id="extraQty" type="number" placeholder="g" />
+      <input class="size-input" id="extraQty" type="number" step="any" placeholder="qty" />
+      <input class="size-input" id="extraUnit" type="text" value="g" aria-label="unit" style="width:56px" />
       <button class="stock-count-button" id="extraAdd" type="button">Add</button>
     </div>
     <div class="subheading">Packaging and utilities</div>
@@ -478,10 +479,37 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
           <span class="recipe-qty">${escapeHtml(unitLabel)}</span>
           <span class="recipe-price">${priceTxt}</span>
           <span class="recipe-qty line-cost"></span>
+          ${r.type === 'Ingredient' ? '<button class="stock-count-button swap-btn" type="button" style="margin-left:6px">Swap</button>' : ''}
         </div>`);
       const inp = node.querySelector('.qty');
       inp.addEventListener('input', () => { r.qty = inp.value === '' ? '' : Number(inp.value); r.edited = true; refresh(); });
       (r.type === 'Ingredient' ? ingBox : otherBox).appendChild(node);
+      if (r.type === 'Ingredient') {
+        // Swap: "instead of 2 cans of Spacecraft I used 1 Chiangmai Winter". The old line goes to 0 and the new one is added in its place.
+        const panel = el(`
+          <div class="size-row swap-panel" style="display:none">
+            <input class="input swapName" list="catalogueList" placeholder="Used instead (pick from the list)" />
+            <input class="size-input swapQty" type="number" step="any" placeholder="qty" />
+            <input class="size-input swapUnit" type="text" value="${escapeHtml(r.unit || 'g')}" aria-label="unit" style="width:56px" />
+            <button class="stock-count-button swapOk" type="button">Swap</button>
+          </div>`);
+        ingBox.appendChild(panel);
+        node.querySelector('.swap-btn').addEventListener('click', () => { panel.style.display = panel.style.display === 'none' ? '' : 'none'; });
+        panel.querySelector('.swapOk').addEventListener('click', () => {
+          const name = panel.querySelector('.swapName').value.trim();
+          const qty = Number(panel.querySelector('.swapQty').value);
+          const unit = panel.querySelector('.swapUnit').value.trim() || 'g';
+          const res = $('batchResult');
+          if (!name || !(qty > 0)) { res.innerHTML = '<div class="result-card"><div class="error-item">Pick what you used instead and type how much.</div></div>'; return; }
+          const known = recipe.catalogue[name];
+          if (!known) { res.innerHTML = `<div class="result-card"><div class="error-item">"${escapeHtml(name)}" isn't in the Price Tracker, so it can't be costed. Pick one from the list.</div></div>`; return; }
+          res.innerHTML = '';
+          r.qty = 0; r.edited = true;
+          rows.splice(idx + 1, 0, { type: 'Ingredient', name, unit, unitCost: known.unitCost, priceDate: known.priceDate, note: `used instead of ${r.name}`, original: 0, qty, edited: true, extra: true });
+          recipe.ingredients.push({});
+          drawRows();
+        });
+      }
     });
     refresh();
   }
@@ -489,14 +517,20 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
   function yieldN() {
     const y = Number(yieldInput.value);
     if (y > 0) return y;
-    if (recipe.sized) return sizeList().reduce((a, z) => a + z.count, 0) || 0;
+    if (recipe.sized) return cupCounts().reduce((a, z) => a + z.count, 0) || 0;
     return 0;
+  }
+  // Packed counts for the cups and the yield. They never wait for a weight: Regular goes in a 16oz cup, Large in a 26oz cup.
+  function cupCounts() {
+    if (!recipe.sized) return [];
+    return [{ name: 'Regular', count: Number($('regCount').value) }, { name: 'Large', count: Number($('lgCount').value) }].filter((z) => z.count > 0);
   }
   function sizeList() {
     if (!recipe.sized) return [];
     const out = [];
-    const reg = { name: 'Regular', weight: Number($('regWeight').value), count: Number($('regCount').value) };
-    const lg = { name: 'Large', weight: Number($('lgWeight').value), count: Number($('lgCount').value) };
+    const pw = recipe.portionWeights || {};
+    const reg = { name: 'Regular', weight: Number($('regWeight').value) || Number(pw.Regular) || 0, count: Number($('regCount').value) };
+    const lg = { name: 'Large', weight: Number($('lgWeight').value) || Number(pw.Large) || 0, count: Number($('lgCount').value) };
     [reg, lg].forEach((z) => { if (z.weight > 0 && z.count > 0) out.push(z); });
     return out;
   }
@@ -507,7 +541,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     if (r.type === 'Packaging' && recipe.sized) {
       // Regular is packed in a 16oz cup, Large in a 26oz cup
       const cupOf = { Regular: /16oz/i, Large: /26oz/i };
-      return sizeList().filter((z) => cupOf[z.name].test(r.name)).reduce((a, z) => a + z.count, 0);
+      return cupCounts().filter((z) => cupOf[z.name].test(r.name)).reduce((a, z) => a + z.count, 0);
     }
     if (r.type === 'Packaging' && yieldN() > 0) return yieldN();
     if (r.type === 'Utility' && /reheat/i.test(r.name) && yieldN() > 0) return yieldN();
@@ -549,11 +583,11 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     const name = $('extraName').value.trim();
     const qty = Number($('extraQty').value);
     const res = $('batchResult');
-    if (!name || !(qty > 0)) { res.innerHTML = '<div class="result-card"><div class="error-item">Type an ingredient name and a quantity in grams to add it.</div></div>'; return; }
+    if (!name || !(qty > 0)) { res.innerHTML = '<div class="result-card"><div class="error-item">Type an ingredient name and a quantity to add it.</div></div>'; return; }
     const known = recipe.catalogue[name];
     if (!known) { res.innerHTML = `<div class="result-card"><div class="error-item">"${escapeHtml(name)}" isn't in the Price Tracker, so it can't be costed. Pick one from the list.</div></div>`; return; }
     res.innerHTML = '';
-    rows.splice(recipe.ingredients.length, 0, { type: 'Ingredient', name, unit: 'g', unitCost: known.unitCost, priceDate: known.priceDate, note: '', original: 0, qty, edited: true, extra: true });
+    rows.splice(recipe.ingredients.length, 0, { type: 'Ingredient', name, unit: ($('extraUnit').value.trim() || 'g'), unitCost: known.unitCost, priceDate: known.priceDate, note: '', original: 0, qty, edited: true, extra: true });
     recipe.ingredients.push({});
     $('extraName').value = ''; $('extraQty').value = '';
     drawRows();
@@ -561,7 +595,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
 
   $('logBatch').addEventListener('click', async () => {
     const res = $('batchResult');
-    const lines = rows.filter((r) => r.type === 'Ingredient' && r.edited && (r.extra || Number(r.qty) !== r.original)).map((r) => ({ name: r.name, qty: r.qty }));
+    const lines = rows.filter((r) => r.type === 'Ingredient' && r.edited && (r.extra || Number(r.qty) !== r.original)).map((r) => ({ name: r.name, qty: r.qty, unit: r.unit }));
     const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
     const body = {
       dish: recipe.tab, date: dateInput.value,
@@ -589,7 +623,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
   $('saveOpen').addEventListener('click', async () => {
     const res = $('batchResult');
     // Every ingredient as it stands now is saved, so the batch is frozen as cooked even if the recipe changes before you count the portions.
-    const lines = rows.filter((r) => r.type === 'Ingredient').map((r) => ({ name: r.name, qty: r.qty !== undefined ? r.qty : r.original })).filter((l) => Number(l.qty) >= 0);
+    const lines = rows.filter((r) => r.type === 'Ingredient').map((r) => ({ name: r.name, qty: r.qty !== undefined ? r.qty : r.original, unit: r.extra ? r.unit : undefined })).filter((l) => Number(l.qty) >= 0);
     const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
     const body = { dish: recipe.tab, date: dateInput.value, lines, packaging, sizes: [], yield: undefined };
     res.innerHTML = '<div class="loading">Saving…</div>';
