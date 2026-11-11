@@ -252,9 +252,9 @@ async function pit() {
   const estimated = sellThrough(d.ledger, d.cookBatches, today, d.waste);
   // A count Lily typed beats the cooked minus sold estimate, for the dishes she counted.
   const countRows = await readOrEmpty('Ready Counts');
-  const counted = new Map(buildReadyStock({ today, ledger: d.ledger, cookBatches: d.cookBatches, countRows }).items.filter((i) => i.basis === 'counted').map((i) => [i.dish, i]));
-  const stock = estimated.map((e) => { const c = counted.get(e.dish); return c ? { ...e, remaining: c.left, oldestAgeDays: c.ageDays } : e; });
-  counted.forEach((c, dish) => { if (!estimated.some((e) => e.dish === dish)) stock.push({ dish, remaining: c.left, oldestAgeDays: c.ageDays, live: [] }); });
+  const counted = new Map(buildReadyStock({ today, ledger: d.ledger, cookBatches: d.cookBatches, countRows }).items.filter((i) => i.basis === 'counted').map((i) => [i.dish.toLowerCase(), i]));
+  const stock = estimated.map((e) => { const c = counted.get(String(e.dish).toLowerCase()); return c ? { ...e, remaining: c.left, oldestAgeDays: c.ageDays } : e; });
+  counted.forEach((c, key) => { if (!estimated.some((e) => String(e.dish).toLowerCase() === key)) stock.push({ dish: c.dish, remaining: c.left, oldestAgeDays: c.ageDays, live: [] }); });
   const noteRows = await readOrEmpty(marketingLib.TAB);
   return buildPit({ noteRows, today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
 }
