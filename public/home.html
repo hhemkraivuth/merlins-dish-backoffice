@@ -86,7 +86,7 @@
         <div>
           <h2 id="today">The Pit</h2>
         </div>
-        <button id="reload">Refresh</button>
+        <span style="display:flex;gap:8px"><button id="teamReport" type="button">Team report</button><button id="reload">Refresh</button></span>
       </div>
       <div class="office" id="office"></div>
       <div class="pit-tools"><label>Look <select id="pitTheme"></select></label><button id="pitEdit" type="button">Decorate</button><span class="muted" id="pitMsg"></span></div>
@@ -98,6 +98,7 @@
       </div>
       <div class="status" id="status">Loading…</div>
       <p class="week">This week, Sunday to Saturday. Tap a card for the detail.</p>
+      <section class="shop-box" id="todoBox"><h2>To do</h2><div data-card></div></section>
       <section class="shop-box" id="stockBox"><h2>Stock left</h2><div id="stockLeft"></div></section>
       <section class="shop-box" id="shopBox"><h2>Shopping plan</h2><div id="shopPlan"></div></section>
       <div class="grid" id="teams"></div>
@@ -106,5 +107,6 @@
   <script src="office.js"></script>
   <script src="shopping.js"></script>
   <script src="home.js"></script>
+  <script src="briefing.js"></script>
 </body>
 </html>
