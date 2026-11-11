@@ -72,8 +72,14 @@ async function readyCount(req, res) {
     if (!dish) return res.status(400).json({ error: 'Send the dish name.' });
     if (!BATCH_DISHES.some(([n]) => n === dish)) return res.status(400).json({ error: `"${dish}" is not one of the batch dishes.` });
     if (!Number.isInteger(count) || count < 0) return res.status(400).json({ error: 'The count must be a whole number of zero or more.' });
+    // The day the count was taken. A count typed after midnight for the night before says so with a date, so cooking and sales of the new day stay outside it.
+    let day = bangkokToday();
+    if (req.body && req.body.date) {
+      day = require('../lib/dates').parseDate(String(req.body.date), bangkokToday());
+      if (!day) return res.status(400).json({ error: 'That date is not valid. Use DD/MM/YYYY.' });
+    }
     await ensureTab('Ready Counts', v.READY_HEADERS);
-    await appendRows('Ready Counts', [[dish, count, formatDMY(bangkokToday()), bangkokNow()]], { raw: true });
+    await appendRows('Ready Counts', [[dish, count, formatDMY(day), bangkokNow()]], { raw: true });
     res.json({ dish, count });
   } catch (err) { fail(res, err); }
 }
