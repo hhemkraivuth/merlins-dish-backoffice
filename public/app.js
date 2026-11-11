@@ -182,7 +182,7 @@ function cookLogTotals(log) {
 }
 function cookLogTable(log) {
   const dishes = log.byDish.length ? `<details class="sum-more"><summary>By dish</summary>${log.byDish.map((d) => `<div class="sum-row"><span>${escapeHtml(d.dish)}<small>${d.batches} ${d.batches === 1 ? 'batch' : 'batches'}${d.perPortion === null ? '' : `, ${money(d.perPortion)} a portion`}</small></span><span>${d.portions} portions</span></div>`).join('')}</details>` : '';
-  const rows = log.rows.map((r) => `<tr${r.lowYield ? ' class="warn"' : ''}><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.dish)}${r.sizes ? `<small>${escapeHtml(r.sizes)}</small>` : ''}${r.lowYield ? '<small>Low yield, check the margin</small>' : ''}</td><td class="r">${r.portions}</td><td class="r">${num2(r.total)}</td><td class="r">${r.perPortion === null ? '' : num2(r.perPortion)}</td><td class="r"><button type="button" class="stock-count-button" data-del-batch="${escapeHtml(r.key)}" data-del-label="${escapeHtml(r.dish)} ${escapeHtml(dmyShort(r.date))}, ${r.portions} portions">Delete</button></td></tr>`).join('');
+  const rows = log.rows.map((r) => `<tr${r.lowYield ? ' class="warn"' : ''}><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.dish)}${r.sizes ? `<small>${escapeHtml(r.sizes)}</small>` : ''}${r.lowYield ? '<small>Low yield, check the margin</small>' : ''}</td><td class="r">${r.portions}</td><td class="r">${num2(r.total)}</td><td class="r">${r.perPortion === null ? '' : num2(r.perPortion)}</td><td class="r"><div style="display:flex;flex-direction:column;gap:4px;align-items:stretch"><button type="button" class="stock-count-button" data-edit-batch="${escapeHtml(r.key)}" data-edit-dish="${escapeHtml(r.dish)}" data-edit-date="${escapeHtml(r.date)}">Edit</button><button type="button" class="stock-count-button" data-del-batch="${escapeHtml(r.key)}" data-del-label="${escapeHtml(r.dish)} ${escapeHtml(dmyShort(r.date))}, ${r.portions} portions">Delete</button></div></td></tr>`).join('');
   return `${dishes}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Dish</th><th class="r">Portions</th><th class="r">Cost ฿</th><th class="r">Per portion ฿</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -316,6 +316,17 @@ async function renderBatchCook() {
     links: [{ label: 'Download CSV', query: '' }, { label: 'Download every ingredient line', query: 'detail=1' }],
   });
   section.querySelector('#cookLog').addEventListener('click', async (e) => {
+    const ed = e.target.closest('[data-edit-batch]');
+    if (ed) {
+      const opt = [...section.querySelector('#dishSelect').options].find((o) => o.value.toLowerCase() === ed.dataset.editDish.toLowerCase());
+      if (!opt) { window.alert(`${ed.dataset.editDish} is not in the dish list, so it can't be edited here.`); return; }
+      section.querySelector('#dishSelect').value = opt.value;
+      section.querySelector('#cookDate').value = ed.dataset.editDate;
+      editKey = ed.dataset.editBatch;
+      await load();
+      section.querySelector('#templateArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     const b = e.target.closest('[data-del-batch]');
     if (!b) return;
     if (!window.confirm(`Delete ${b.dataset.delLabel}? It comes out of the Cook Log and the stock lots get its quantity back.`)) return;
@@ -364,10 +375,12 @@ async function renderBatchCook() {
   const dateInput = section.querySelector('#cookDate');
   const area = section.querySelector('#templateArea');
 
+  let editKey = '';
   async function load() {
     area.innerHTML = '<div class="loading">Loading recipe…</div>';
+    const edit = editKey; editKey = '';
     try {
-      const res = await fetch(`/api/cook/recipe?dish=${encodeURIComponent(dishSelect.value)}&date=${encodeURIComponent(dateInput.value)}`);
+      const res = await fetch(`/api/cook/recipe?dish=${encodeURIComponent(dishSelect.value)}&date=${encodeURIComponent(dateInput.value)}${edit ? `&edit=${encodeURIComponent(edit)}` : ''}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
       renderCookForm(area, data, dateInput, reloadCooking);
@@ -620,6 +633,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       yield: Number(yieldInput.value) || undefined,
       lines, packaging, sizes: sizeList(),
       cookedWeight: recipe.sized ? Number($('cookedWeight').value) || undefined : undefined,
+      replaceKey: container.dataset.editKey || undefined,
     };
     if (!yieldN()) { res.innerHTML = '<div class="result-card"><div class="error-item">Add the servings yielded first. Nothing was logged.</div></div>'; return; }
     res.innerHTML = '<div class="loading">Logging…</div>';
@@ -673,11 +687,17 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       rows.splice(recipe.ingredients.length, 0, { type: 'Ingredient', name: l.name, unit: l.unit || 'g', unitCost: known.unitCost, priceDate: known.priceDate, note: 'from your note', original: 0, qty: l.qty, edited: true, extra: true });
       recipe.ingredients.push({});
     });
+    if (fn.edit) {
+      // An ingredient the logged batch did not use stays at 0.
+      rows.forEach((r) => { if (r.type === 'Ingredient' && !r.extra && !fn.lines.some((l) => norm(l.name) === norm(r.name))) { r.qty = 0; r.edited = true; } });
+      if (!recipe.sized && fn.yield) yieldInput.value = fn.yield;
+      if (recipe.sized) fn.sizeCounts.forEach((z) => { const w = $(z.name === 'Large' ? 'lgWeight' : 'regWeight'); if (w && z.weight) w.value = z.weight; if (z.cookedWeight && $('cookedWeight')) $('cookedWeight').value = z.cookedWeight; });
+    }
     if (recipe.sized) fn.sizeCounts.forEach((z) => { const box = $(z.name === 'Large' ? 'lgCount' : 'regCount'); if (box) box.value = z.count; });
     drawRows();
-    const banner = el(`<div class="result-card"><div class="result-headline">Filled from the cook note you sent for ${escapeHtml(dateInput.value)}. Check it, change anything, add the portions and log it.${unknown.length ? ` Not found in the Price Tracker, so left out: ${escapeHtml(unknown.join(', '))}.` : ''}</div></div>`);
+    const banner = el(`<div class="result-card"><div class="result-headline">${fn.edit ? `Editing the batch logged for ${escapeHtml(dateInput.value)}. Change what you need and press Log this batch. The old one is replaced, and its stock is given back first.` : `Filled from the cook note you sent for ${escapeHtml(dateInput.value)}. Check it, change anything, add the portions and log it.`}${unknown.length ? ` Not found in the Price Tracker, so left out: ${escapeHtml(unknown.join(', '))}.` : ''}</div></div>`);
     container.insertBefore(banner, container.firstChild);
-    container.dataset.openKey = fn.key;
+    if (fn.edit) container.dataset.editKey = fn.key; else container.dataset.openKey = fn.key;
   }
 }
 

@@ -79,7 +79,24 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
 
       // A cook note already sent (saved as an open batch for this dish and day) fills the form, so it is not typed twice.
       let fromNote = null;
-      try {
+      const editKey = String(req.query.edit || '');
+      if (editKey) {
+        // Editing a batch already logged: its own lines, sizes and portions fill the form.
+        try {
+          const sheets = require('../lib/sheets');
+          const [logRows, lineRows, sizeRows] = await Promise.all(['Cook Log', 'Cook Log Lines', 'Cook Log Sizes'].map((t) => sheets.readTab(t).catch(() => [])));
+          const head = logRows.find((x, i) => i > 0 && String(x[0]) === editKey);
+          if (head) {
+            const sz = sizeRows.filter((x, i) => i > 0 && String(x[0]) === editKey);
+            fromNote = {
+              key: editKey, edit: true, yield: Number(head[3]) || 0,
+              lines: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Ingredient').map((x) => ({ name: String(x[4]), inRecipe: true, qty: Number(x[5]), unit: String(x[6] || '') })),
+              sizeCounts: sz.map((x) => ({ name: String(x[3]), count: Number(x[5]) || 0, weight: Number(x[4]) || 0, cookedWeight: Number(x[7]) || 0 })).filter((z) => z.count > 0),
+            };
+          }
+        } catch (err) { console.error('Edit lookup failed:', err.message); }
+      }
+      if (!fromNote) try {
         const hit = deps.openBatches ? (await deps.openBatches.find(tab, date)).matches[0] : null;
         if (hit) {
           const sh = await deps.loadShorthand();
@@ -146,6 +163,11 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       };
       const shorthand = await deps.loadShorthand();
       const priceBook = await deps.loadPriceBook();
+      // Editing a logged batch: the old one is taken out (its grams go back to the lots) just before the corrected one is logged.
+      if (b.replaceKey) {
+        const gone = await require('../lib/batchUndo').undoByKey(String(b.replaceKey));
+        if (gone.status !== 'undone') return res.status(404).json({ error: gone.text });
+      }
       const out = await handleBatch(batch, deps, shorthand, priceBook, { today: bangkokToday(), source: 'Web' });
       if (out.status === 'logged' && deps.tidy) { try { await deps.tidy(); } catch (err) { console.error('tidy failed:', err.message); } }
       res.json({ status: out.status, text: out.text, result: out.result || null });
