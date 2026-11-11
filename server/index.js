@@ -67,6 +67,7 @@ app.post('/api/cook/submit', cookRoute.submit);
 app.get('/api/cook/open', cookRoute.openList);
 app.post('/api/cook/open/complete', cookRoute.openComplete);
 app.post('/api/cook/open/drop', cookRoute.openDrop);
+app.post('/api/cook/log/delete', cookRoute.deleteBatch);
 app.post('/api/cook/note', cookRoute.note);
 
 // Mode 4: Stock Counts

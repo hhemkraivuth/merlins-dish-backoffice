@@ -194,6 +194,15 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
     }
   }
 
+  // Delete one logged batch (Cook Log, its lines and sizes, and the lot usage, with the grams returned to stock).
+  async function deleteBatch(req, res) {
+    try {
+      const out = await require('../lib/batchUndo').undoByKey(String((req.body && req.body.key) || ''));
+      if (out.status !== 'undone') return res.status(404).json({ error: out.text });
+      res.json({ ok: true, text: out.text });
+    } catch (err) { console.error('Batch delete failed:', err); res.status(500).json({ error: `Couldn't delete it. Nothing was changed.\nReason: ${err.message}` }); }
+  }
+
   async function openDrop(req, res) {
     try {
       const deps = getDeps();
@@ -221,7 +230,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
     }
   }
 
-  return { dishes, recipe, submit, note, openList, openComplete, openDrop };
+  return { dishes, recipe, submit, note, openList, openComplete, openDrop, deleteBatch };
 }
 
 let d = null;

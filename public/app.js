@@ -182,8 +182,8 @@ function cookLogTotals(log) {
 }
 function cookLogTable(log) {
   const dishes = log.byDish.length ? `<details class="sum-more"><summary>By dish</summary>${log.byDish.map((d) => `<div class="sum-row"><span>${escapeHtml(d.dish)}<small>${d.batches} ${d.batches === 1 ? 'batch' : 'batches'}${d.perPortion === null ? '' : `, ${money(d.perPortion)} a portion`}</small></span><span>${d.portions} portions</span></div>`).join('')}</details>` : '';
-  const rows = log.rows.map((r) => `<tr${r.lowYield ? ' class="warn"' : ''}><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.dish)}${r.sizes ? `<small>${escapeHtml(r.sizes)}</small>` : ''}${r.lowYield ? '<small>Low yield, check the margin</small>' : ''}</td><td class="r">${r.portions}</td><td class="r">${num2(r.total)}</td><td class="r">${r.perPortion === null ? '' : num2(r.perPortion)}</td></tr>`).join('');
-  return `${dishes}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Dish</th><th class="r">Portions</th><th class="r">Cost ฿</th><th class="r">Per portion ฿</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const rows = log.rows.map((r) => `<tr${r.lowYield ? ' class="warn"' : ''}><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.dish)}${r.sizes ? `<small>${escapeHtml(r.sizes)}</small>` : ''}${r.lowYield ? '<small>Low yield, check the margin</small>' : ''}</td><td class="r">${r.portions}</td><td class="r">${num2(r.total)}</td><td class="r">${r.perPortion === null ? '' : num2(r.perPortion)}</td><td class="r"><button type="button" class="stock-count-button" data-del-batch="${escapeHtml(r.key)}" data-del-label="${escapeHtml(r.dish)} ${escapeHtml(dmyShort(r.date))}, ${r.portions} portions">Delete</button></td></tr>`).join('');
+  return `${dishes}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Dish</th><th class="r">Portions</th><th class="r">Cost ฿</th><th class="r">Per portion ฿</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 // ---- Mode 2: Weekly Receipts (typed) ----
@@ -314,6 +314,18 @@ async function renderBatchCook() {
   const reloadCookLog = monthlyLog(section.querySelector('#cookLog'), {
     title: 'What I cooked, by month', api: '/api/cook/log', totalsOf: cookLogTotals, draw: cookLogTable,
     links: [{ label: 'Download CSV', query: '' }, { label: 'Download every ingredient line', query: 'detail=1' }],
+  });
+  section.querySelector('#cookLog').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-del-batch]');
+    if (!b) return;
+    if (!window.confirm(`Delete ${b.dataset.delLabel}? It comes out of the Cook Log and the stock lots get its quantity back.`)) return;
+    b.disabled = true;
+    try {
+      const res = await fetch('/api/cook/log/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: b.dataset.delBatch }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+      reloadCookLog(); reloadCooking0();
+    } catch (err) { b.disabled = false; window.alert(err.message); }
   });
   const openBox = section.querySelector('#openBatches');
   async function loadOpen() {

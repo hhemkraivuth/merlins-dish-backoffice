@@ -86,6 +86,26 @@ test('undo gives the grams back and removes the batch rows', async () => {
   assert.strictEqual(none.status, 'none');
 });
 
+test('undoByKey removes only the chosen one of two identical batches', async () => {
+  const tabs = {
+    'Cook Log': [['Batch Key', 'Date Cooked', 'Dish'], ['A', '11/11/2026', 'Dark Beer Stew', 13], ['B', '11/11/2026', 'Dark Beer Stew', 13]],
+    'Cook Log Lines': [['Batch Key'], ['A', '', '', 'Ingredient'], ['B', '', '', 'Ingredient']],
+    'Lot Usage': [['Batch Key']],
+    'Ingredient Lots': [['Lot ID']],
+  };
+  const io = {
+    readTab: async (t) => tabs[t].map((r) => r.slice()),
+    updateRow: async () => {},
+    deleteRowsWhere: async (t, fn) => { tabs[t] = tabs[t].filter((r, i) => i === 0 || !fn(r)); },
+  };
+  const { undoByKey } = require('../lib/batchUndo');
+  const r = await undoByKey('B', io);
+  assert.strictEqual(r.status, 'undone');
+  assert.deepStrictEqual(tabs['Cook Log'].map((x) => x[0]), ['Batch Key', 'A']);
+  assert.deepStrictEqual(tabs['Cook Log Lines'].map((x) => x[0]), ['Batch Key', 'A']);
+  assert.strictEqual((await undoByKey('B', io)).status, 'none');
+});
+
 const { packView, packsToBase, packLabel } = require('../lib/packSizes');
 const test2 = require('node:test');
 const assert2 = require('node:assert');

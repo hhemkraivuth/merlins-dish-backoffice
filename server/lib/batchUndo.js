@@ -29,8 +29,21 @@ async function undoBatch(dishWords, date, io = realIo()) {
   if (hits.length > 1) {
     return { status: 'many', text: `More than one batch matches (${hits.map((h) => `${h[2]}, ${h[3]} serves`).join('; ')}). Nothing was changed. Add the dish name to be exact.` };
   }
-  const key = hits[0][0];
-  const dish = hits[0][2];
+  return removeBatch(hits[0], dmy, io);
+}
+
+// The same takeback for one batch picked by its key, so two identical batches can be told apart (used by the Delete button).
+async function undoByKey(key, io = realIo()) {
+  const rows = await io.readTab(COOK_LOG).catch(() => []);
+  const hit = rows.find((r, i) => i > 0 && String(r[0]) === String(key));
+  if (!hit) return { status: 'none', text: 'That batch is no longer in the Cook Log. Nothing was changed.' };
+  return removeBatch(hit, formatDMY(parseDate(hit[1], new Date()) || new Date()), io);
+}
+
+async function removeBatch(hit, dmy, io) {
+  const hits = [hit];
+  const key = hit[0];
+  const dish = hit[2];
 
   // Give the grams back to the lots they came from.
   const usage = (await io.readTab(USAGE).catch(() => [])).filter((r, i) => i > 0 && r[0] === key);
@@ -63,4 +76,4 @@ async function undoBatch(dishWords, date, io = realIo()) {
   return { status: 'undone', text: parts.join('\n') };
 }
 
-module.exports = { undoBatch };
+module.exports = { undoBatch, undoByKey };
