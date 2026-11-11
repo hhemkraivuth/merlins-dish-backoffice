@@ -212,3 +212,13 @@ body {
 .shop-drop[open] > summary::before { content: '▾ '; }
 .shop-drop > summary small { font-weight: 400; color: var(--muted); margin-left: 6px; }
 .shop-drop .log-scroll { padding: 0 8px 10px; }
+
+/* Kitchen Production rows: every row has the same two lines, so the boxes line up whatever the name length. */
+.recipe-table .recipe-row { display: grid; grid-template-columns: 84px 44px 1fr auto; grid-template-areas: "name name name cost" "qty unit price actions"; align-items: center; column-gap: 8px; row-gap: 4px; }
+.recipe-table .recipe-row .recipe-name { grid-area: name; flex: none; }
+.recipe-table .recipe-row .line-cost { grid-area: cost; margin: 0; width: auto; text-align: right; }
+.recipe-table .recipe-row .qty { grid-area: qty; width: 84px; box-sizing: border-box; }
+.recipe-table .recipe-row .unit-cell { grid-area: unit; width: auto; text-align: left; }
+.recipe-table .recipe-row .recipe-price { grid-area: price; width: auto; text-align: left; font-size: 12px; }
+.recipe-table .recipe-row .row-actions { grid-area: actions; display: flex; gap: 6px; justify-content: flex-end; }
+.recipe-row.removed .recipe-name, .recipe-row.removed .line-cost { text-decoration: line-through; opacity: .5; }

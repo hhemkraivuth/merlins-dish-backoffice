@@ -473,13 +473,13 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       const unitLabel = r.type === 'Ingredient' ? (r.unit || 'g') : r.unit;
       const priceTxt = r.unitCost != null ? `${baht(r.unitCost)}/${escapeHtml(r.unit || 'unit')}${r.priceDate ? ' · ' + r.priceDate : ''}${r.note ? ' · ' + escapeHtml(r.note) : ''}` : 'no price';
       const node = el(`
-        <div class="recipe-row" data-idx="${idx}">
+        <div class="recipe-row${r.removed ? ' removed' : ''}" data-idx="${idx}">
           <span class="recipe-name">${escapeHtml(r.name)}${r.extra ? ' <em>(added)</em>' : ''}</span>
           <input class="size-input qty" type="number" step="any" value="${r.qty !== undefined ? r.qty : r.original}"${r.type === 'Utility' ? ' disabled title="Set by the recipe tab and the servings yielded"' : ''} />
-          <span class="recipe-qty">${escapeHtml(unitLabel)}</span>
+          <span class="recipe-qty unit-cell">${escapeHtml(unitLabel)}</span>
           <span class="recipe-price">${priceTxt}</span>
           <span class="recipe-qty line-cost"></span>
-          ${r.type === 'Ingredient' ? '<button class="stock-count-button swap-btn" type="button" style="margin-left:6px">Swap</button>' : ''}
+          ${r.type === 'Ingredient' ? `<span class="row-actions"><button class="stock-count-button swap-btn" type="button">Swap</button><button class="stock-count-button del-btn" type="button">${r.removed ? 'Restore' : 'Delete'}</button></span>` : ''}
         </div>`);
       const inp = node.querySelector('.qty');
       inp.addEventListener('input', () => { r.qty = inp.value === '' ? '' : Number(inp.value); r.edited = true; refresh(); });
@@ -494,6 +494,12 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
             <button class="stock-count-button swapOk" type="button">Swap</button>
           </div>`);
         ingBox.appendChild(panel);
+        node.querySelector('.del-btn').addEventListener('click', () => {
+          if (r.extra) { rows.splice(idx, 1); recipe.ingredients.pop(); }
+          else if (r.removed) { r.removed = false; r.qty = r.prevQty !== undefined ? r.prevQty : r.original; r.edited = r.qty !== r.original; }
+          else { r.prevQty = r.qty !== undefined ? r.qty : r.original; r.removed = true; r.qty = 0; r.edited = true; }
+          drawRows();
+        });
         node.querySelector('.swap-btn').addEventListener('click', () => { panel.style.display = panel.style.display === 'none' ? '' : 'none'; });
         panel.querySelector('.swapOk').addEventListener('click', () => {
           const name = panel.querySelector('.swapName').value.trim();
