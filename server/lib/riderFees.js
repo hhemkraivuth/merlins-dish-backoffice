@@ -52,14 +52,24 @@ function riderView(ledger, today, days = 21) {
   return { orders: list, missing, month };
 }
 
-// The text the LINE command understands, built from the web form.
-function commandText({ dmy, orderNos, fee }) {
-  const nos = (Array.isArray(orderNos) ? orderNos : [orderNos]).map((n) => String(n || '').replace(/[^\d]/g, '')).filter(Boolean);
+// Rows to save for a rider fee typed on the web. Works with any order number ("#001", "#MF174"), unlike the LINE command
+// which only reads numbers. orders: [{ orderNo, customer }] found for that day. Several orders on one trip split the fee evenly.
+// Returns { rows, keys, shares, nos }.
+function buildRiderRows({ dmy, orderNos, fee }, orders) {
+  const { riderRow } = require('./ledger');
+  const { splitEvenly } = require('./riderCommand');
+  const nos = [...new Set((Array.isArray(orderNos) ? orderNos : [orderNos]).map((n) => String(n || '').trim().replace(/^#?/, '#')).filter((n) => n !== '#'))];
   if (!nos.length) throw Object.assign(new Error('Pick the order the rider fee is for.'), { status: 400 });
   const amount = String(fee ?? '').replace(/[฿,\s]/g, '').replace(/thb|baht/i, '');
   if (!/^\d+(?:\.\d{1,2})?$/.test(amount)) throw Object.assign(new Error('Type the rider fee as a number, for example 55. Type 0 if there was no rider (pickup).'), { status: 400 });
   if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(dmy || ''))) throw Object.assign(new Error('That order has no date.'), { status: 400 });
-  return `rider ${nos.join(',')} ${amount} ${dmy}`;
+  const byNo = new Map((orders || []).map((o) => [String(o.orderNo).toUpperCase(), o]));
+  const found = nos.map((n) => byNo.get(n.toUpperCase()));
+  const missing = nos.filter((n, i) => !found[i]);
+  if (missing.length) throw Object.assign(new Error(`I can't find LINE order ${missing.join(', ')} on ${dmy}. Nothing was saved. Press "Fetch new LINE orders" and try again.`), { status: 400 });
+  const shares = splitEvenly(Number(amount), nos.length);
+  const rows = nos.map((n, i) => riderRow({ dmy, orderNo: found[i].orderNo, customer: found[i].customer, fee: shares[i], note: nos.length > 1 ? `Shared trip ${nos.join(' + ')}, ฿${Number(amount)} split evenly` : '' }));
+  return { rows, keys: rows.map((r) => r[12]), shares, nos: found.map((o) => o.orderNo) };
 }
 
-module.exports = { riderView, commandText };
+module.exports = { riderView, buildRiderRows };

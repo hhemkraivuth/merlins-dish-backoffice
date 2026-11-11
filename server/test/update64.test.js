@@ -46,26 +46,21 @@ test('a rider fee of 0 counts as logged (customer collected)', () => {
   assert.strictEqual(v.missing, 0);
 });
 
-test('commandText builds the LINE command and rejects bad input', () => {
-  assert.strictEqual(riderFees.commandText({ dmy: '10/11/2026', orderNos: ['#001'], fee: '55' }), 'rider 001 55 10/11/2026');
-  assert.strictEqual(riderFees.commandText({ dmy: '10/11/2026', orderNos: ['001', '#002'], fee: '฿80' }), 'rider 001,002 80 10/11/2026');
-  assert.strictEqual(riderFees.commandText({ dmy: '10/11/2026', orderNos: ['001'], fee: '0' }), 'rider 001 0 10/11/2026');
-  assert.throws(() => riderFees.commandText({ dmy: '10/11/2026', orderNos: [], fee: '55' }), /Pick the order/);
-  assert.throws(() => riderFees.commandText({ dmy: '10/11/2026', orderNos: ['001'], fee: 'abc' }), /number/);
-  assert.throws(() => riderFees.commandText({ dmy: '10/11/2026', orderNos: ['001'], fee: '-5' }), /number/);
-  assert.throws(() => riderFees.commandText({ dmy: 'tomorrow', orderNos: ['001'], fee: '5' }), /date/);
-});
-
-test('the web command goes through the LINE rider command and saves rows', async () => {
-  const { processRider } = require('../lib/riderCommand');
-  let saved = null;
-  const out = await processRider(riderFees.commandText({ dmy: '10/11/2026', orderNos: ['#001', '#002'], fee: 80 }), day('11/11/2026'), {
-    findOrders: async () => [{ orderNo: '#001', customer: 'Cee' }, { orderNo: '#002', customer: 'Ann' }],
-    saveRider: async (rows, keys) => { saved = { rows, keys }; return { replaced: 0 }; },
-  });
-  assert.match(out[0], /^Rider fee logged/);
-  assert.strictEqual(saved.rows.length, 2);
-  assert.deepStrictEqual(saved.keys, ['R|10/11/2026|#001', 'R|10/11/2026|#002']);
+test('buildRiderRows works with any order number, splits trips and rejects bad input', () => {
+  const orders = [{ orderNo: '#MF174', customer: 'Nin' }, { orderNo: '#002', customer: 'Ann' }];
+  const one = riderFees.buildRiderRows({ dmy: '02/11/2026', orderNos: ['#MF174'], fee: '฿55' }, orders);
+  assert.deepStrictEqual(one.keys, ['R|02/11/2026|#MF174']);
+  assert.deepStrictEqual(one.shares, [55]);
+  const zero = riderFees.buildRiderRows({ dmy: '02/11/2026', orderNos: ['MF174'], fee: '0' }, orders);
+  assert.deepStrictEqual(zero.shares, [0]);
+  const trip = riderFees.buildRiderRows({ dmy: '02/11/2026', orderNos: ['#MF174', '002'], fee: 81 }, orders);
+  assert.deepStrictEqual(trip.shares, [40.5, 40.5]);
+  assert.strictEqual(trip.rows.length, 2);
+  assert.throws(() => riderFees.buildRiderRows({ dmy: '02/11/2026', orderNos: [], fee: '55' }, orders), /Pick the order/);
+  assert.throws(() => riderFees.buildRiderRows({ dmy: '02/11/2026', orderNos: ['#1'], fee: 'abc' }, orders), /number/);
+  assert.throws(() => riderFees.buildRiderRows({ dmy: '02/11/2026', orderNos: ['#1'], fee: '-5' }, orders), /number/);
+  assert.throws(() => riderFees.buildRiderRows({ dmy: 'soon', orderNos: ['#MF174'], fee: '5' }, orders), /date/);
+  assert.throws(() => riderFees.buildRiderRows({ dmy: '02/11/2026', orderNos: ['#999'], fee: '5' }, orders), /can't find LINE order #999/);
 });
 
 // ---------------- automatic to dos ----------------

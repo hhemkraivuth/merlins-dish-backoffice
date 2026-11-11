@@ -94,15 +94,15 @@ async function riderOrders({ sync = false } = {}) {
   return riderView(ledgerObjects(await readOrEmpty(LEDGER_TAB)), bangkokToday(), 21);
 }
 
-// Saves a rider fee typed on the web, through the same code as the "rider 001 55" LINE command.
+// Saves a rider fee typed on the web. Same Rider rows as the "rider 001 55" LINE command, but any order number works.
 async function saveRiderFee({ dmy, orderNos, fee }) {
-  const { commandText } = require('./riderFees');
-  const { processRider } = require('./riderCommand');
-  const text = commandText({ dmy, orderNos, fee });
-  const out = await processRider(text, bangkokToday(), { findOrders: findLineOrders, saveRider });
-  const message = (out && out[0]) || '';
-  if (/^Rider fee logged/.test(message)) return { ok: true, message };
-  throw Object.assign(new Error(message || 'The rider fee was not saved.'), { status: 400 });
+  const { buildRiderRows } = require('./riderFees');
+  let orders = await findLineOrders(dmy); // syncs the newest LINE orders first
+  const built = buildRiderRows({ dmy, orderNos, fee }, orders);
+  const { replaced } = await saveRider(built.rows, built.keys);
+  const money = (n) => `฿${Number(n).toLocaleString('en-AU', { maximumFractionDigits: 2 })}`;
+  const lines = built.nos.map((n, i) => `${n}: ${money(built.shares[i])}`);
+  return { ok: true, message: `Rider fee logged for ${dmy}${replaced ? ` (replaced ${replaced})` : ''}:\n${lines.join('\n')}` };
 }
 
 // Sending a fee again for the same order replaces the earlier one.

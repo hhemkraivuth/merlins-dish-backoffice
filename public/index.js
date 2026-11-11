@@ -280,8 +280,8 @@ function drawRider() {
     <div class="row"><label style="flex-direction:row;align-items:center;gap:6px;color:inherit;font-size:14px"><input type="checkbox" id="riderAll" ${riderAll ? 'checked' : ''} /> Show every order from the last three weeks</label><button class="small-button" id="riderSync" type="button">Fetch new LINE orders</button></div>
     <div>${riderRows(list)}</div>
     <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--accent)">One rider trip carried more than one order</summary>
-      <div class="row"><label>Day<select id="trD">${dates.map((d) => `<option>${esc(d)}</option>`).join('')}</select></label><label>Order numbers<input id="trO" placeholder="001, 002" style="width:140px" /></label><label>Total paid (฿)<input id="trF" type="number" min="0" step="1" style="width:100px" /></label><button class="small-button" id="trGo" type="button">Save, split evenly</button></div>
-      <p class="sub">One trip, two orders, ฿80 paid: each order is given ฿40.</p></details>`;
+      <div class="row"><label>Day<select id="trD">${dates.map((d) => `<option>${esc(d)}</option>`).join('')}</select></label><label>Order numbers<input id="trO" placeholder="#MF174, #ME66B" style="width:140px" /></label><label>Total paid (฿)<input id="trF" type="number" min="0" step="1" style="width:100px" /></label><button class="small-button" id="trGo" type="button">Save, split evenly</button></div>
+      <p class="sub">One trip, two orders, ฿80 paid: each order is given ฿40. Use the order numbers exactly as listed above.</p></details>`;
   $('riderAll').addEventListener('change', (e) => { riderAll = e.target.checked; drawRider(); });
   $('riderSync').addEventListener('click', () => loadRider(true));
   box.querySelectorAll('[data-rider-save]').forEach((b) => b.addEventListener('click', async () => {
