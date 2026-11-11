@@ -159,9 +159,10 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
   const portions = yieldN && yieldN > 0 ? yieldN : null;
   for (const u of recipe.utility) {
     const isReheat = /reheat/i.test(u.name);
-    const qty = isReheat ? (portions ?? u.qty) : u.qty;
+    const uo = (batch.utilityQty || {})[normName(u.name)];
+    const qty = uo !== undefined ? uo : (isReheat ? (portions ?? u.qty) : u.qty);
     if (qty <= 0) continue;
-    priceLine('Utility', u.name, qty, u.unit, u.sheetCost, isReheat ? 'yield' : 'recipe');
+    priceLine('Utility', u.name, qty, u.unit, u.sheetCost, uo !== undefined ? 'edited' : (isReheat ? 'yield' : 'recipe'));
   }
   const pkgOverride = batch.packagingQty || {};
   // Stews: each packed portion takes its own cup (Regular 16oz, Large 26oz). Everything else: one cup per serving.

@@ -91,6 +91,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
             fromNote = {
               key: editKey, edit: true, yield: Number(head[3]) || 0,
               lines: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Ingredient').map((x) => ({ name: String(x[4]), inRecipe: true, qty: Number(x[5]), unit: String(x[6] || '') })),
+              utility: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Utility').map((x) => ({ name: String(x[4]), qty: Number(x[5]) })),
               sizeCounts: sz.map((x) => ({ name: String(x[3]), count: Number(x[5]) || 0, weight: Number(x[4]) || 0, cookedWeight: Number(x[7]) || 0 })).filter((z) => z.count > 0),
             };
           }
@@ -146,6 +147,12 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
         if (!p.name || !(q >= 0)) { bad.push(`Packaging "${p.name || '?'}" has no valid quantity`); continue; }
         packagingQty[normName(p.name)] = q;
       }
+      const utilityQty = {};
+      for (const u of b.utility || []) {
+        const q = num(u.qty);
+        if (!u.name || !(q >= 0)) { bad.push(`Utility "${u.name || '?'}" has no valid quantity`); continue; }
+        utilityQty[normName(u.name)] = q;
+      }
       const sizes = [];
       for (const z of b.sizes || []) {
         const c = num(z.count); const w = num(z.weight);
@@ -158,7 +165,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       const batch = {
         dishTab: b.dish, dishWord: b.dish, date,
         yield: b.yield ? num(b.yield) : null,
-        lines, packagingQty, sizes,
+        lines, packagingQty, utilityQty, sizes,
         cookedWeight: b.cookedWeight ? num(b.cookedWeight) : null,
       };
       const shorthand = await deps.loadShorthand();

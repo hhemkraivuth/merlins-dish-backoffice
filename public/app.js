@@ -500,7 +500,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       const node = el(`
         <div class="recipe-row${r.removed ? ' removed' : ''}" data-idx="${idx}">
           <span class="recipe-name">${escapeHtml(r.name)}${r.extra ? ' <em>(added)</em>' : ''}</span>
-          <input class="size-input qty" type="number" step="any" value="${r.qty !== undefined ? r.qty : r.original}"${r.type === 'Utility' ? ' disabled title="Set by the recipe tab and the servings yielded"' : ''} />
+          <input class="size-input qty" type="number" step="any" value="${r.qty !== undefined ? r.qty : r.original}" />
           <span class="recipe-qty unit-cell">${escapeHtml(unitLabel)}</span>
           <span class="recipe-price">${priceTxt}</span>
           <span class="recipe-qty line-cost"></span>
@@ -575,7 +575,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       return cupCounts().filter((z) => cupOf[z.name].test(r.name)).reduce((a, z) => a + z.count, 0);
     }
     if (r.type === 'Packaging' && yieldN() > 0) return yieldN();
-    if (r.type === 'Utility' && /reheat/i.test(r.name) && yieldN() > 0) return yieldN();
+    if (r.type === 'Utility' && /reheat/i.test(r.name) && yieldN() > 0 && !r.edited) return yieldN();
     return r.qty !== undefined ? Number(r.qty) : r.original;
   }
 
@@ -633,6 +633,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       yield: Number(yieldInput.value) || undefined,
       lines, packaging, sizes: sizeList(),
       cookedWeight: recipe.sized ? Number($('cookedWeight').value) || undefined : undefined,
+      utility: rows.filter((r) => r.type === 'Utility' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) })),
       replaceKey: container.dataset.editKey || undefined,
     };
     if (!yieldN()) { res.innerHTML = '<div class="result-card"><div class="error-item">Add the servings yielded first. Nothing was logged.</div></div>'; return; }
@@ -687,6 +688,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       rows.splice(recipe.ingredients.length, 0, { type: 'Ingredient', name: l.name, unit: l.unit || 'g', unitCost: known.unitCost, priceDate: known.priceDate, note: 'from your note', original: 0, qty: l.qty, edited: true, extra: true });
       recipe.ingredients.push({});
     });
+    if (fn.edit) (fn.utility || []).forEach((u) => { const r = rows.find((x) => x.type === 'Utility' && norm(x.name) === norm(u.name)); if (r) { const same = /reheat/i.test(r.name) ? u.qty === fn.yield : u.qty === r.original; if (!same) { r.qty = u.qty; r.edited = true; } } });
     if (fn.edit) {
       // An ingredient the logged batch did not use stays at 0.
       rows.forEach((r) => { if (r.type === 'Ingredient' && !r.extra && !fn.lines.some((l) => norm(l.name) === norm(r.name))) { r.qty = 0; r.edited = true; } });

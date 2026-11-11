@@ -91,6 +91,19 @@ test('shorthand tab rows add and override keywords', () => {
   assert.strictEqual(sh.dishes.get('bolo'), 'Polished Pork Bolognese');
 });
 
+test('an edited utility quantity (a faster cook) lowers the utility cost', () => {
+  const sh = defaultShorthand();
+  const recipe = parseDishTab(bologneseRows);
+  const book = buildPriceBook({ priceLogRows: priceLog, today: TODAY });
+  const { batches } = parseNote(NOTE, sh, TODAY);
+  const base = costBatch({ batch: batches[0], recipe, shorthand: sh, priceBook: book });
+  const stove = recipe.utility.find((u) => /stove/i.test(u.name));
+  const { normName } = require('../lib/priceBook');
+  const fast = costBatch({ batch: { ...batches[0], utilityQty: { [normName(stove.name)]: stove.qty / 2 } }, recipe, shorthand: sh, priceBook: book });
+  assert.ok(fast.utilityCost < base.utilityCost);
+  assert.strictEqual(fast.lines.find((l) => l.name === stove.name).qty, stove.qty / 2);
+});
+
 test('7/10 bolognese costs 614.69 / 29.27 per portion', () => {
   const sh = defaultShorthand();
   const recipe = parseDishTab(bologneseRows);
