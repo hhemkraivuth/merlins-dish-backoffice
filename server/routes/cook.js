@@ -77,7 +77,23 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       const catalogueCosts = {};
       for (const n of catalogue) { const p = pb.lookup(n, date); if (p && !p.missing) catalogueCosts[n] = { unitCost: p.cost, priceDate: fmtDMY(p.date) }; }
 
+      // A cook note already sent (saved as an open batch for this dish and day) fills the form, so it is not typed twice.
+      let fromNote = null;
+      try {
+        const hit = deps.openBatches ? (await deps.openBatches.find(tab, date)).matches[0] : null;
+        if (hit) {
+          const sh = await deps.loadShorthand();
+          const { findRecipeIngredient } = require('../lib/costBatch');
+          fromNote = {
+            key: hit.key, source: hit.source,
+            lines: (hit.payload.lines || []).map((l) => { const f = findRecipeIngredient(l.token, { ingredients: r.ingredients }, sh); return { name: f.line ? f.line.name : (f.target || l.token), inRecipe: !!f.line, qty: l.qty, unit: l.unit || '' }; }),
+            sizeCounts: (hit.payload.sizeCounts || (hit.payload.sizes || []).map((z) => ({ name: z.name, count: z.count }))).filter((z) => z.count > 0),
+          };
+        }
+      } catch (err) { console.error('Open batch lookup for the form failed:', err.message); }
+
       res.json({
+        fromNote,
         portionWeights: r.portionWeights, dish: r.dish || tab, tab, sized: SIZED.has(tab), date: fmtDMY(date), usualYield: r.usualYield, sellingPrice: r.sellingPrice,
         ingredients: shape(r.ingredients, 'Ingredient'),
         packaging: shape(SIZED.has(tab) ? r.packaging : r.packaging.filter((p) => p.qty > 0), 'Packaging'),

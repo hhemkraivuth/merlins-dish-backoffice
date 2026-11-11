@@ -612,6 +612,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       if (!r.ok) throw new Error(data.error || 'Request failed');
       const bad = data.status !== 'logged';
       res.innerHTML = `<div class="result-card"><div class="${bad ? 'error-item' : 'result-headline'}" style="white-space:pre-wrap">${escapeHtml(data.text)}</div></div>`;
+      if (!bad && container.dataset.openKey) { try { await fetch('/api/cook/open/drop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: container.dataset.openKey }) }); } catch (e) { /* the list shows it until it is dropped */ } }
       if (!bad && onLogged) onLogged();
     } catch (err) {
       res.innerHTML = `<div class="result-card"><div class="error-item" style="white-space:pre-wrap">${escapeHtml(err.message)}</div></div>`;
@@ -641,6 +642,25 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
   });
 
   drawRows();
+
+  // A note already sent from the LINE group for this dish and day: its quantities fill the form.
+  if (recipe.fromNote) {
+    const fn = recipe.fromNote; const unknown = [];
+    const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    fn.lines.forEach((l) => {
+      const row = rows.find((r) => r.type === 'Ingredient' && !r.extra && norm(r.name) === norm(l.name));
+      if (row) { row.qty = l.qty; row.edited = true; return; }
+      const known = recipe.catalogue[l.name];
+      if (!known) { unknown.push(l.name); return; }
+      rows.splice(recipe.ingredients.length, 0, { type: 'Ingredient', name: l.name, unit: l.unit || 'g', unitCost: known.unitCost, priceDate: known.priceDate, note: 'from your note', original: 0, qty: l.qty, edited: true, extra: true });
+      recipe.ingredients.push({});
+    });
+    if (recipe.sized) fn.sizeCounts.forEach((z) => { const box = $(z.name === 'Large' ? 'lgCount' : 'regCount'); if (box) box.value = z.count; });
+    drawRows();
+    const banner = el(`<div class="result-card"><div class="result-headline">Filled from the cook note you sent for ${escapeHtml(dateInput.value)}. Check it, change anything, add the portions and log it.${unknown.length ? ` Not found in the Price Tracker, so left out: ${escapeHtml(unknown.join(', '))}.` : ''}</div></div>`);
+    container.insertBefore(banner, container.firstChild);
+    container.dataset.openKey = fn.key;
+  }
 }
 
 
