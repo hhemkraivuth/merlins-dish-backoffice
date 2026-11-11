@@ -13,7 +13,7 @@
   .bf-card{background:var(--card,#fff);color:var(--ink,#222);width:100%;max-width:520px;max-height:88vh;overflow:auto;border-radius:16px 16px 0 0;border:3px solid var(--blue,#2b4c9b);padding:14px 16px 16px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
   @media(min-width:600px){.bf-card{border-radius:16px}}
   .bf-head{display:flex;gap:10px;align-items:flex-end;margin-bottom:10px}
-  .bf-head img{width:58px;height:auto;flex:0 0 auto}
+  .bf-pig{width:58px;height:58px;flex:0 0 auto}
   .bf-bubble{position:relative;flex:1;background:#fff8d6;border:2px solid var(--blue,#2b4c9b);border-radius:14px;padding:8px 12px;font-weight:700;font-size:15px;line-height:1.3}
   .bf-bubble:before{content:"";position:absolute;left:-9px;bottom:12px;border:8px solid transparent;border-right-color:var(--blue,#2b4c9b);border-left:0}
   .bf-bubble small{display:block;font-weight:500;font-size:12px;color:var(--muted,#666);margin-top:2px}
@@ -94,7 +94,7 @@
     const late = data.todos.filter((t) => t.overdue).length;
     const line = n ? `${n} ${n === 1 ? 'thing' : 'things'} to tell you.` : 'Nothing new since you last looked.';
     modal.querySelector('.bf-card').innerHTML = `
-      <div class="bf-head"><img src="pig-giraffe.png" alt=""><div class="bf-bubble">Boss, got a minute?<small>${esc(data.today)}. ${esc(line)}${late ? ` ${late} overdue.` : ''}</small></div><button class="bf-x" data-x type="button" aria-label="Close">×</button></div>
+      <div class="bf-head"><svg class="bf-pig" viewBox="0 0 64 64" aria-hidden="true"><circle cx="14" cy="14" r="7" fill="#f4a3b5"/><circle cx="50" cy="14" r="7" fill="#f4a3b5"/><circle cx="32" cy="34" r="25" fill="#f7b8c6" stroke="#2b4c9b" stroke-width="3"/><ellipse cx="32" cy="42" rx="11" ry="8" fill="#f08aa3" stroke="#2b4c9b" stroke-width="2"/><circle cx="28" cy="42" r="2" fill="#2b4c9b"/><circle cx="36" cy="42" r="2" fill="#2b4c9b"/><circle cx="22" cy="29" r="3" fill="#2b4c9b"/><circle cx="42" cy="29" r="3" fill="#2b4c9b"/></svg><div class="bf-bubble">Boss, got a minute?<small>${esc(data.today)}. ${esc(line)}${late ? ` ${late} overdue.` : ''}</small></div><button class="bf-x" data-x type="button" aria-label="Close">×</button></div>
       <h3>Reports</h3>${n ? data.reports.map(repHtml).join('') : '<p class="bf-none">All quiet.</p>'}
       <h3>To do</h3><div data-list>${todoList()}</div>${addForm()}
       <div class="bf-foot"><button class="bf-btn" data-noted type="button">Noted</button></div>`;
