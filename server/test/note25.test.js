@@ -41,10 +41,10 @@ test('typo dish words from the October note resolve', () => {
 });
 
 test('an unknown dish word does not push its lines into the batch above', () => {
-  const { batches, problems } = parse('19/10\nBolo\nMeat 1000\n20 portions\nsr\nbacon 8\npelati 1300\n8 portions');
+  const { batches, problems } = parse('19/10\nBolo\nMeat 1000\n20 portions\nzzz\nbacon 8\npelati 1300\n8 portions');
   assert.strictEqual(batches.length, 1);
   assert.strictEqual(batches[0].lines.length, 1);
-  assert.ok(problems.some((p) => /"sr" is not a dish word/.test(p)));
+  assert.ok(problems.some((p) => /"zzz" is not a dish word/.test(p)));
   assert.ok(problems.some((p) => /bacon 8/.test(p) && /no dish above/.test(p)));
 });
 

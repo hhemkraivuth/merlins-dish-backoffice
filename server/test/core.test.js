@@ -192,3 +192,10 @@ test('a note accepts the pack-out words before or after the counts, and a single
   assert.strictEqual(amb.line, null);
   assert.deepStrictEqual(amb.ambiguous, ['Potato', 'Paprika']);
 });
+
+test('Spicy Rosso is a batch dish with its own shorthand', () => {
+  const { batchDishOf } = require('../lib/dishes');
+  const sh = defaultShorthand();
+  assert.strictEqual(sh.dishes.get('rosso'), 'Spicy Rosso');
+  assert.strictEqual(batchDishOf('Spicy Rosso - Cured Bacon Tomato Sauce Pasta'), 'Spicy Rosso');
+});

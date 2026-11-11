@@ -9,6 +9,7 @@ const BATCH_DISHES = [
   ['Dark beer Stew', /^dark beer stew/i],
   ['Creamy Chicken Soup', /^creamy chicken soup/i],
   ['Pecorino & Broccoli Cream Soup', /^pecorino/i],
+  ['Spicy Rosso', /^spicy rosso/i],
 ];
 
 // Rows that look like a dish name but are not a portion: size upgrades and side charges.
