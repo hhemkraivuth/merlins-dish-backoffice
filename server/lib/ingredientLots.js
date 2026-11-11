@@ -60,7 +60,7 @@ class LotBook {
       const remaining = toNumber(r[6]);
       const total = toNumber(r[7]);
       if (!id || !name || !date || qty === null || qty <= 0 || remaining === null || total === null) return;
-      const lot = { id, rowIndex: i + 1, name, date, source: String(r[3] || ''), qty, unit: baseUnit(r[5]), remaining, total, unitCost: total / qty, seq: seq++ };
+      const lot = { id, rowIndex: i + 1, name, date, source: String(r[3] || ''), qty, unit: baseUnit(r[5]), remaining, total, unitCost: total / qty, note: String(r[11] || ''), seq: seq++ };
       const key = normName(name);
       if (!this.lots.has(key)) this.lots.set(key, []);
       this.lots.get(key).push(lot);
@@ -74,19 +74,32 @@ class LotBook {
   blendOf(name) { return this.blends && this.blends.get(normName(name)) || null; }
   isUntracked(name) { return this.untracked.has(looseKey(name)); }
   hasLots(name) { return this.lotsFor(name).length > 0; }
-  names() { return [...this.lots.values()].map((l) => l[0].name); }
+  // One entry per ingredient: "Tomato paste (Brand A)" and "(Brand B)" are both listed as "Tomato paste".
+  names() {
+    const out = new Map();
+    for (const list of this.lots.values()) {
+      const n = list[0].name;
+      const base = baseName(n);
+      const plain = String(n).replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim() || n;
+      if (!out.has(base) || n === plain) out.set(base, plain);
+    }
+    return [...out.values()];
+  }
   // The lots a recipe name draws from. A blend: its parts. Otherwise the exact name, and when there is none, every brand of it:
   // "Tomato paste" takes from "Tomato paste (Brand A)" and "Tomato paste (Brand B)" together, oldest first, each at its own price.
   // So changing brand never means changing the recipe.
   lotsFor(name) {
     const b = this.blendOf(name);
     if (b) return b.parts.flatMap((p) => this.lots.get(normName(p.name)) || []);
-    const exact = this.lots.get(normName(name));
-    if (exact) return exact;
+    const key = normName(name);
+    const exact = this.lots.get(key) || [];
+    // A name written with a (brand) or (size) in brackets asks for exactly that lot. A plain name takes its own lots AND every brand of it,
+    // oldest first, each at its own price, so "Butter" bought from two brands is one stock that uses the oldest purchase first.
+    if (exact.length && /\(/.test(String(name))) return exact;
     const base = baseName(name);
-    const pooled = [];
-    for (const [key, list] of this.lots) if (baseName(key) === base && key !== base) pooled.push(...list);
-    return pooled.sort((a, c) => a.date - c.date || a.seq - c.seq);
+    const merged = exact.slice();
+    for (const [k, list] of this.lots) if (k !== key && baseName(k) === base) merged.push(...list);
+    return merged.sort((a, c) => a.date - c.date || a.seq - c.seq);
   }
   // A blend is limited by whichever part runs out first: what is left of the blend = the smallest (part left / its share).
   totalRemaining(name) {

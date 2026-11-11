@@ -205,3 +205,18 @@ test('low levels: set one, "low" lists what is below it, and "lots" marks it LOW
   assert.doesNotMatch((await processLots('low', TODAY, d))[0], /Pork/);
   assert.match((await processLots('lots', TODAY, d))[0], /Salt: 300g LOW/);
 });
+
+test('two brands of one ingredient are one stock, used oldest purchase first at each own price', () => {
+  const rows = [
+    ['A', 'Butter', '01/11/2026', 'Receipt', 500, 'g', 100, 100, 0.2, 'Active', '', 'Allowrie'],
+    ['B', 'Butter (Meadow Lea)', '08/11/2026', 'Manual', 500, 'g', 500, 90, 0.18, 'Active', '', ''],
+  ];
+  const b = book(rows);
+  assert.deepStrictEqual(b.names(), ['Butter']);
+  assert.strictEqual(b.totalRemaining('Butter'), 600);
+  assert.strictEqual(b.lotsFor('Butter')[0].note, 'Allowrie');
+  const got = b.allocate('Butter', 150, 'g', utc(2026, 11, 10));
+  assert.deepStrictEqual(got.parts.map((p) => [p.lot.id, p.qty]), [['A', 100], ['B', 50]]);
+  assert.strictEqual(got.short, 0);
+  assert.strictEqual(b.lotsFor('Butter (Meadow Lea)').length, 1);
+});

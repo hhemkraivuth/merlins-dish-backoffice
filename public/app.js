@@ -915,6 +915,65 @@ async function renderStock() {
     });
   }
 
+  // Every purchase of one ingredient: date, brand, how much is left of what was bought, and what was paid. The oldest is used first.
+  async function mountLots(box, name, unitHint) {
+    const money2 = (n) => `฿${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const load = async () => {
+      let d;
+      try { const r = await fetch(`/api/stock/lots?name=${encodeURIComponent(name)}`); d = await r.json(); if (!r.ok) throw new Error(d.error || 'Not available'); }
+      catch (err) { box.innerHTML = `<div class="stock-meta">Purchases not available: ${escapeHtml(err.message)}</div>`; return; }
+      const unit = d.unit || unitHint || 'g';
+      const live = d.lots.filter((l) => l.left > 1e-6);
+      const used = d.lots.filter((l) => l.left <= 1e-6);
+      const lotRow = (l, n) => `<div class="stock-row" data-lot="${escapeHtml(l.id)}" style="margin:6px 0;${l.left > 1e-6 ? '' : 'opacity:.55'}">
+          <div><div class="stock-name">${n ? `<span class="stock-meta">${n}. </span>` : ''}${escapeHtml(l.date)}${l.brand ? ` <span class="stock-meta" style="font-weight:600">· ${escapeHtml(l.brand)}</span>` : ''}</div>
+          <div class="stock-meta">${escapeHtml(String(Math.round(l.left * 100) / 100))}${escapeHtml(l.unit)} left of ${escapeHtml(String(Math.round(l.qty * 100) / 100))}${escapeHtml(l.unit)} · paid ${money2(l.total)} · ${money2(l.unitCost * (l.unit === 'g' || l.unit === 'ml' ? 100 : 1))} per ${l.unit === 'g' || l.unit === 'ml' ? '100' + escapeHtml(l.unit) : escapeHtml(l.unit)}</div></div>
+          <span style="display:flex;gap:6px"><button type="button" class="stock-count-button" data-lot-edit>Edit</button><button type="button" class="stock-count-button" data-lot-del>Delete</button></span></div>`;
+      box.innerHTML = `
+        <div class="stock-name" style="margin-top:6px">Purchases <span class="stock-meta">· used oldest first</span></div>
+        ${live.length ? live.map((l, k) => lotRow(l, k + 1)).join('') : '<div class="stock-meta">Nothing left from any purchase.</div>'}
+        ${used.length ? `<details class="sum-more"><summary>Used up (${used.length})</summary>${used.map((l) => lotRow(l, 0)).join('')}</details>` : ''}
+        <div class="stock-name" style="margin-top:10px">Add a purchase</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+          <input class="stock-edit-input" data-f="brand" placeholder="Brand, e.g. Allowrie" maxlength="60" style="width:auto;grid-column:1 / -1" />
+          <input class="stock-edit-input" data-f="qty" type="number" step="any" inputmode="decimal" placeholder="How much" style="width:auto" />
+          <select class="stock-edit-input" data-f="unit" style="width:auto">${['g', 'kg', 'ml', 'l', 'pcs'].map((u) => `<option value="${u}"${u === unit ? ' selected' : ''}>${u}</option>`).join('')}</select>
+          <input class="stock-edit-input" data-f="price" type="number" step="any" inputmode="decimal" placeholder="Paid in total ฿" style="width:auto" />
+          <input class="stock-edit-input" data-f="date" placeholder="Date bought" value="${todayBangkokDMY()}" style="width:auto" />
+          <button type="button" class="primary-button" data-lot-add style="grid-column:1 / -1">Add purchase</button>
+        </div>`;
+      const field = (f) => box.querySelector(`[data-f=${f}]`);
+      box.querySelector('[data-lot-add]').addEventListener('click', async () => {
+        try {
+          await stockPost('/api/stock/purchase', { name, brand: field('brand').value, qty: field('qty').value, unit: field('unit').value, price: field('price').value, date: field('date').value });
+          await load();
+        } catch (err) { /* shown */ }
+      });
+      box.querySelectorAll('[data-lot]').forEach((rowNode) => {
+        const id = rowNode.dataset.lot; const l = d.lots.find((x) => x.id === id);
+        rowNode.querySelector('[data-lot-del]').addEventListener('click', async () => {
+          if (!window.confirm(`Delete the ${l.date}${l.brand ? ' ' + l.brand : ''} purchase of ${Math.round(l.qty * 100) / 100}${l.unit}? Batches already logged keep the cost they were logged with.`)) return;
+          try { await stockPost('/api/stock/lot-delete', { id }); await load(); } catch (err) { /* shown */ }
+        });
+        rowNode.querySelector('[data-lot-edit]').addEventListener('click', () => {
+          const ed = el(`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0;padding:8px;border:1px solid var(--line);border-radius:10px">
+            <input class="stock-edit-input" data-e="brand" placeholder="Brand" value="${escapeHtml(l.brand)}" maxlength="60" style="width:auto;grid-column:1 / -1" />
+            <label class="stock-meta">Paid ฿ <input class="stock-edit-input" data-e="price" type="number" step="any" value="${Math.round(l.total * 100) / 100}" style="width:90px" /></label>
+            <label class="stock-meta">Date <input class="stock-edit-input" data-e="date" value="${escapeHtml(l.date)}" style="width:110px" /></label>
+            <label class="stock-meta" style="grid-column:1 / -1">Left (${escapeHtml(l.unit)}) <input class="stock-edit-input" data-e="left" type="number" step="any" value="${Math.round(l.left * 100) / 100}" style="width:110px" /></label>
+            <button type="button" class="primary-button" data-e-save>Save purchase</button><button type="button" class="small-button" data-e-cancel>Cancel</button></div>`);
+          rowNode.after(ed);
+          ed.querySelector('[data-e-cancel]').addEventListener('click', () => ed.remove());
+          ed.querySelector('[data-e-save]').addEventListener('click', async () => {
+            const g = (k) => ed.querySelector(`[data-e=${k}]`).value;
+            try { await stockPost('/api/stock/lot-edit', { id, brand: g('brand'), price: g('price'), date: g('date'), left: g('left') }); await load(); } catch (err) { /* shown */ }
+          });
+        });
+      });
+    };
+    await load();
+  }
+
   // A row built from receipts (the stock lots). The name comes from the Price Log so it is not renamed here; a recipe that says
   // "Tomato paste" takes from any "Tomato paste (brand)" together, so a change of brand needs no change to the recipe.
   function openIngredientEdit(rowEl, r) {
@@ -927,9 +986,12 @@ async function renderStock() {
         <input class="stock-edit-input" name="packs" type="number" step="any" inputmode="decimal" placeholder="${i.pack ? escapeHtml(i.pack.word) + 's left' : 'Packs left'}" value="${i.pack ? i.pack.packs : ''}" style="width:auto" />
         <input class="stock-edit-input" name="size" placeholder="Size of one pack, e.g. 450${escapeHtml(i.unit)}" value="${i.pack ? escapeHtml(i.pack.size) : ''}" style="width:auto" />
         <input class="stock-edit-input" name="word" placeholder="Pack word" value="${i.pack ? escapeHtml(i.pack.word) : 'bottle'}" style="width:auto" />
+        <div id="lotsBox" style="grid-column:1 / -1"><div class="stock-meta">Loading purchases…</div></div>
         <div style="grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary-button" type="submit" style="flex:1">Save</button><button class="small-button" type="button" data-swap>Different ingredient name now? Switch recipes</button><button class="small-button" type="button" data-cancel>Cancel</button></div>
       </form>`);
     rowEl.replaceWith(form);
+    mountLots(form.querySelector('#lotsBox'), r.name, i.unit);
+    form.querySelector('#lotsBox').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
     form.querySelector('[data-cancel]').addEventListener('click', () => renderStock());
     form.querySelector('[data-swap]').addEventListener('click', () => {
       const o = document.querySelector('#swapOld'); o.value = r.name; document.querySelector('#swapNew').focus();

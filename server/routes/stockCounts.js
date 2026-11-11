@@ -268,6 +268,70 @@ async function seedMeat(req, res) {
   } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 }
 
+
+// ---- Purchases (stock lots) for one ingredient: every buy with its date, brand and price, used oldest first ----
+const brandOfLot = (l) => l.note || ((String(l.name).match(/\(([^)]*)\)/) || [])[1] || '');
+async function ingredientLots(req, res) {
+  try {
+    const { bangkokToday, formatDMY } = require('../lib/dates');
+    const book = await require('../lib/ingredientLots').loadLotBook(bangkokToday());
+    const name = String(req.query.name || '').trim();
+    const lots = book.lotsFor(name);
+    res.json({ name, unit: lots.length ? lots[0].unit : '', lots: lots.map((l) => ({ id: l.id, date: formatDMY(l.date), brand: brandOfLot(l), source: l.source, qty: l.qty, unit: l.unit, left: Math.max(l.remaining, 0), total: l.total, unitCost: l.unitCost })) });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+}
+
+async function addPurchase(req, res) {
+  try {
+    const { bangkokToday, parseDate } = require('../lib/dates');
+    const il = require('../lib/ingredientLots');
+    const b = req.body || {};
+    const today = bangkokToday();
+    const date = b.date ? parseDate(String(b.date), today) : today;
+    if (!date) return res.status(400).json({ error: 'That date is not valid. Use DD/MM/YYYY.' });
+    const base = il.toBaseQty(`${String(b.qty || '').trim()}${String(b.unit || '').trim()}`);
+    const price = Number(b.price);
+    if (!b.name || !base || !(base.qty > 0)) return res.status(400).json({ error: 'Type how much you bought, for example 500 and g.' });
+    if (!Number.isFinite(price) || price < 0) return res.status(400).json({ error: 'Type what you paid in baht for all of it.' });
+    const book = await il.loadLotBook(today);
+    const existing = book.lotsFor(String(b.name));
+    if (existing.length && existing[0].unit !== base.unit) return res.status(400).json({ error: `${b.name} is counted in ${existing[0].unit}. Type this purchase in ${existing[0].unit} so it can be used oldest first with the rest.` });
+    const display = existing.length ? book.names().find((n) => normKey(n) === normKey(b.name)) || String(b.name).trim() : String(b.name).trim();
+    const [lot] = await il.addLots([{ date, name: display, qty: base.qty, unit: base.unit, price, source: 'Manual', note: String(b.brand || '').trim().slice(0, 60) }]);
+    res.json({ ok: true, id: lot.id });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+}
+
+async function editLot(req, res) {
+  try {
+    const { bangkokToday, parseDate, formatDMY, bangkokNow } = require('../lib/dates');
+    const il = require('../lib/ingredientLots'); const sheets = require('../lib/sheets');
+    const b = req.body || {};
+    const rows = await sheets.readTab(il.LOTS_TAB);
+    const i = rows.findIndex((r, n) => n > 0 && String(r[0]) === String(b.id));
+    if (i < 0) return res.status(404).json({ error: 'That purchase is no longer there.' });
+    const row = rows[i].slice(); while (row.length < 12) row.push('');
+    if (b.date) { const d = parseDate(String(b.date), bangkokToday()); if (!d) return res.status(400).json({ error: 'That date is not valid. Use DD/MM/YYYY.' }); row[2] = formatDMY(d); }
+    if (b.price !== undefined && b.price !== '') { const p = Number(b.price); if (!Number.isFinite(p) || p < 0) return res.status(400).json({ error: 'The price is not a number.' }); row[7] = Math.round(p * 100) / 100; row[8] = Math.round((p / (Number(row[4]) || 1)) * 100000) / 100000; }
+    if (b.left !== undefined && b.left !== '') { const l = Number(b.left); if (!Number.isFinite(l) || l < 0) return res.status(400).json({ error: 'What is left is not a number.' }); row[6] = l; row[9] = l > 1e-6 ? 'Active' : 'Used up'; }
+    if (b.brand !== undefined) row[11] = String(b.brand).trim().slice(0, 60);
+    row[10] = bangkokNow();
+    await sheets.updateRow(il.LOTS_TAB, i + 1, row);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+}
+
+async function deleteLot(req, res) {
+  try {
+    const il = require('../lib/ingredientLots'); const sheets = require('../lib/sheets');
+    const id = String((req.body && req.body.id) || '');
+    const rows = await sheets.readTab(il.LOTS_TAB);
+    if (!rows.some((r, n) => n > 0 && String(r[0]) === id)) return res.status(404).json({ error: 'That purchase is no longer there.' });
+    await sheets.deleteRowsWhere(il.LOTS_TAB, (r) => String(r[0]) === id);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+}
+
 const wrapInv = (fn) => async (req, res) => { const done = res.json.bind(res); res.json = (b) => { if (res.statusCode < 400) { try { require('../lib/shoppingService').invalidate(); } catch (e) { /* ignore */ } } return done(b); }; return fn(req, res); };
 
-module.exports = { listStock, updateStock: wrapInv(updateStock), editStockRoute: wrapInv(editStockRoute), seedPackagingRoute, listIngredientStock, countIngredientPacks: wrapInv(countIngredientPacks), listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand, setItemMeta: wrapInv(setItemMeta), saveBags: wrapInv(saveBags), suggestBags, addCategoryRoute, seedMeat: wrapInv(seedMeat) };
+module.exports = { ingredientLots, addPurchase: wrapInv(addPurchase), editLot: wrapInv(editLot), deleteLot: wrapInv(deleteLot), listStock, updateStock: wrapInv(updateStock), editStockRoute: wrapInv(editStockRoute), seedPackagingRoute, listIngredientStock, countIngredientPacks: wrapInv(countIngredientPacks), listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand, setItemMeta: wrapInv(setItemMeta), saveBags: wrapInv(saveBags), suggestBags, addCategoryRoute, seedMeat: wrapInv(seedMeat) };
