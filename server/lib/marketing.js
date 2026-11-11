@@ -135,6 +135,44 @@ function merlinRange(menu, grab = {}) {
   return { direct: { lo: Math.min(...prices), hi: Math.max(...prices) }, grab: { lo: Math.min(...onGrab), hi: Math.max(...onGrab) }, count: items.length, grabSeen: seen };
 }
 
+// The month's bet when it is about moving Grab customers to direct. Counts direct (LINE or Instagram) orders placed from the start of the
+// bet month to its deadline under a name that had already ordered on Grab. Names are matched ignoring case, spaces and punctuation.
+// Masked names (XXXX or stars) are skipped because they could be anyone.
+const nameKey = (v) => String(v || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+const masked = (v) => /^[x*\s.]+$/i.test(String(v || '')) || /\*/.test(String(v || ''));
+
+function betDeadline(title) {
+  const all = [...String(title || '').matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g)];
+  if (!all.length) return null;
+  const m = all[all.length - 1];
+  return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+}
+
+function grabToDirect(ledger, bet) {
+  if (!bet || !/direct/i.test(bet.title) || !/grab/i.test(bet.title)) return null;
+  const until = betDeadline(bet.title);
+  if (!until) return null;
+  const since = new Date(Date.UTC(until.getUTCFullYear(), until.getUTCMonth(), 1));
+  const t = String(bet.title).match(/target\s+(\d+)/i) || String(bet.title).match(/(\d+)\s+direct orders/i);
+  const target = t ? +t[1] : 5;
+  const firstGrab = new Map();
+  for (const r of ledger || []) {
+    if (r.channel !== 'Grab' || r.type !== 'Order' || masked(r.customer)) continue;
+    const k = nameKey(r.customer);
+    if (k && (!firstGrab.has(k) || r.date < firstGrab.get(k))) firstGrab.set(k, r.date);
+  }
+  const orders = new Set();
+  for (const r of ledger || []) {
+    if (r.channel !== 'LINE' || r.type !== 'Order' || r.date < since || r.date > until || masked(r.customer)) continue;
+    const k = nameKey(r.customer);
+    if (k && firstGrab.has(k) && firstGrab.get(k) <= r.date) orders.add(r.orderNo || `${r.dmy}|${k}`);
+  }
+  return { count: orders.size, target, since: formatDMY(since), until: formatDMY(until) };
+}
+
+// Of the Bet notes, the headline is the one that starts with the month ("November: ..."). Falls back to the newest.
+function headlineBet(list) { return (list || []).find((n) => /^[A-Za-z]+:\s/.test(n.title)) || (list || [])[0]; }
+
 function buildMarketing({ today, ledger = [], noteRows = [], menu = null }) {
   const find = (grain) => summarise(ledger, [], [], grain, { through: today }).find((p) => p.key === periodOf(today, grain).key) || null;
   const notes = notesFrom(noteRows);
@@ -148,6 +186,7 @@ function buildMarketing({ today, ledger = [], noteRows = [], menu = null }) {
     week: line(find('week'), igIn(ledger, periodOf(today, 'week'))),
     month: line(find('month'), igIn(ledger, periodOf(today, 'month'))),
     notes: byKind,
+    bet: grabToDirect(ledger, headlineBet(byKind.Bet)),
     merlin: merlinRange(menu, grabPrices(ledger, today)),
     kinds: KINDS,
     dates: comingUp(today, byKind.Date),
@@ -162,4 +201,4 @@ function parseNoteDate(text) {
   return m ? new Date(Date.UTC(+m[3], +m[2] - 1, +m[1])) : new Date(0);
 }
 
-module.exports = { buildMarketing, merlinRange, grabPrices, notesFrom, upcomingDates, comingUp, latestOnly, sortDateNotes, titleDate, TAB, HEADERS, KINDS };
+module.exports = { buildMarketing, grabToDirect, headlineBet, merlinRange, grabPrices, notesFrom, upcomingDates, comingUp, latestOnly, sortDateNotes, titleDate, TAB, HEADERS, KINDS };

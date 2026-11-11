@@ -13,6 +13,7 @@ const ledgerRoute = require('./routes/ledger');
 const logsRoute = require('./routes/logs');
 const shoppingRoute = require('./routes/shopping');
 const analysisRoute = require('./routes/analysis');
+const marketingReportsRoute = require('./routes/marketingReports');
 const { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer } = require('./lib/scheduler');
 const monthlyRoute = require('./routes/monthlyOverheads');
 const appState = require('./lib/appState');
@@ -99,6 +100,9 @@ app.get('/api/pit/layout', async (req, res) => { try { res.json(await pitLayout.
 app.post('/api/pit/layout', async (req, res) => { try { res.json(await pitLayout.save(req.body)); } catch (err) { res.status(500).json({ error: err.message }); } });
 app.get('/api/marketing', ledgerRoute.marketing);
 app.post('/api/marketing/note', ledgerRoute.addMarketingNote);
+app.get('/api/marketing/reports', marketingReportsRoute.list);
+app.get('/api/marketing/report/:slug', marketingReportsRoute.one);
+app.post('/api/marketing/report', marketingReportsRoute.save);
 app.post('/api/handoffs', ledgerRoute.addHandoff);
 app.get('/api/summary/spend', ledgerRoute.spendSummary);
 app.get('/api/summary/cooking', ledgerRoute.cookingSummary);

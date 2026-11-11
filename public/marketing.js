@@ -65,17 +65,18 @@ function whoMoved(list) {
     const p = parts(n.note);
     const grab = !/^\s*@/.test(n.title);
     const hint = (p.Key || p.summary || '').split(/(?<=\.)\s/)[0];
-    return `<details class="card" ${i === 0 && label === 'Opening' ? 'open' : ''}><summary><span class="row"><span class="name">${esc(grab ? shopName(n.title) : n.title)}<span class="chip tag">${grab ? 'Grab' : 'Instagram'}</span></span><span class="chip ${cls}">${label}</span></span><span class="hint">${esc(hint)}</span></summary><p class="more">${p.Key ? `<b>Key:</b> ${esc(p.Key)}` : esc(p.summary)}</p></details>`;
+    return `<details class="card" ${i === 0 && label === 'Opening' ? 'open' : ''}><summary><span class="row"><span class="name">${esc(grab ? shopName(n.title) : n.title)}<span class="chip tag">${grab ? 'Grab' : 'Instagram'}</span></span><span class="chip ${cls}">${label}</span></span><span class="hint">${esc(hint)}</span></summary><div class="more">${p.summary ? `<p style="margin:0 0 8px">${esc(p.summary)}</p>` : ''}${p.Key ? `<p style="margin:0"><b>Key:</b> ${esc(p.Key)}</p>` : ''}<p class="sub" style="margin:8px 0 0">${esc(n.date)}</p></div></details>`;
   }).join('');
 }
 
+// Inspo accounts as one list: the Borrow line on top, tap for what the account does and its Key.
 function borrowCards(list) {
   const sorted = [...list].sort((a, b) => (/hangrybeefnoodle/i.test(b.title) ? 1 : 0) - (/hangrybeefnoodle/i.test(a.title) ? 1 : 0));
   return sorted.map((n, i) => {
     const p = parts(n.note);
     const first = i === 0 && /hangrybeefnoodle/i.test(n.title);
     const kind = /content plan/i.test(n.title) ? 'Content plan inspo' : 'Visual inspo';
-    return `<article class="card plain ${first ? 'first' : ''}">${first ? '<span class="chip first">Borrow first</span>' : ''}<span class="name">${esc(shopName(n.title))}</span><span class="hint">${kind}</span><span style="font-size:16px;line-height:1.4">${esc(p.Borrow || p.summary)}</span></article>`;
+    return `<details class="card ${first ? 'first' : ''}"><summary>${first ? '<span class="chip first">Borrow first</span>' : ''}<span class="name">${esc(shopName(n.title))}</span><span class="hint">${kind}</span><span style="font-size:16px;line-height:1.4">${esc(p.Borrow || p.summary)}</span></summary><div class="more">${p.summary ? `<p style="margin:0 0 8px">${esc(p.summary)}</p>` : ''}${p.Key ? `<p style="margin:0"><b>Key:</b> ${esc(p.Key)}</p>` : ''}<p class="sub" style="margin:8px 0 0">${esc(n.date)}</p></div></details>`;
   }).join('');
 }
 
@@ -91,72 +92,108 @@ function priceLanes(grab, merlin) {
   const pct = (v) => Math.max(0, Math.min(100, (v / max) * 100));
   const lanes = rows.map((r) => `<div class="lane ${r.us ? 'us' : ''}"><div class="lh"><span class="ln">${esc(r.name)}${r.us ? ' on Grab' : ''}</span><span class="lr">${baht(r.lo)} to ${baht(r.hi)}</span></div><div class="track"><div class="bar" style="left:${pct(r.lo).toFixed(1)}%;width:${Math.max(pct(r.hi) - pct(r.lo), 2).toFixed(1)}%"></div></div>${r.extra ? `<div class="lr" style="margin-top:4px">${esc(r.extra)}</div>` : ''}</div>`).join('');
   const foot = merlin ? "Merlin's Grab prices are what Grab orders were charged in the last 60 days, mains only. A dish with no Grab order yet is the order bot price plus ฿25." : "Merlin's price range is not available right now, the order bot did not answer.";
-  return `<h2>Price lanes on Grab</h2><div class="lanes">${lanes}<div class="axis"><span style="left:0">${baht(0)}</span><span style="left:50%;transform:translateX(-50%)">${baht(max / 2)}</span><span style="right:0">${baht(max)}</span></div><p class="sub" style="margin:0">${esc(foot)} Competitor ranges are read from the latest Grab notes.</p></div>`;
+  return `<div class="lanes">${lanes}<div class="axis"><span style="left:0">${baht(0)}</span><span style="left:50%;transform:translateX(-50%)">${baht(max / 2)}</span><span style="right:0">${baht(max)}</span></div><p class="sub" style="margin:0">${esc(foot)} Competitor ranges are read from the latest Grab notes.</p></div>`;
 }
 const baht = (n) => `฿${Math.round(n).toLocaleString('en-AU')}`;
+
+
+// "11/11/2026" to "11/11/26", small, next to the Three moves heading.
+const shortDate = (t) => { const m = String(t || '').match(DMY); return m ? `${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}/${m[3].slice(2)}` : ''; };
+const repLink = (d, slug, label = 'Full report') => ((d.reports || []).some((r) => r.slug === slug) ? `<a class="rl" href="report.html?doc=${encodeURIComponent(slug)}">${esc(label)} <span aria-hidden="true">›</span></a>` : '');
+
+// Top line: when the Sunday check last ran, and the way into the full reports.
+function reportBar(d) {
+  const first = (d.reports || [])[0];
+  return `<div class="rbar"><span class="${d.auditDue ? 'due' : ''}">${esc(d.auditNote)}</span>${first ? `<a class="rbtn" href="report.html?doc=${encodeURIComponent(first.slug)}">Full report <span aria-hidden="true">›</span></a>` : ''}</div>`;
+}
 
 function insightTop(d) {
   const today = dayNum(d.today);
   const recent = (n) => { const x = dayNum(n.date); return x !== null && today - x <= 7; };
   const moves = (d.notes.Move || []).filter(recent).slice(0, 3);
-  const comp = d.notes.Competitor || [];
-  const movedNow = comp.filter((n) => recent(n) && statusOf(n)[0] !== 'Not read yet');
-  const next = (d.dates || [])[0];
+  const when = moves.length ? shortDate(moves[0].date) : '';
+  return `<h2>Three moves this week${when ? ` <small class="when">(${esc(when)})</small>` : ''}</h2>`
+    + (moves.length ? `<div class="stack">${moves.map(moveCard).join('')}</div>` : '<p class="empty">No moves yet. The Sunday check writes three each week.</p>');
+}
+
+// The month's bet, one line. Tap for the detail note. "November:" stays bold like the Strategy card on Home.
+function betStrip(d) {
+  const list = d.notes.Bet || [];
+  const head = list.find((n) => /^[A-Za-z]+:\s/.test(n.title)) || list[0];
+  if (!head) return '';
+  const m = head.title.match(/^([A-Za-z]+:)\s*(.*)$/);
+  const ends = [...head.title.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g)].pop();
+  const left = ends ? Math.round(Date.UTC(+ends[3], +ends[2] - 1, +ends[1]) / 864e5 - dayNum(d.today)) : null;
+  const tail = left === null ? '' : left < 0 ? 'ended' : left === 0 ? 'last day' : `${left} ${left === 1 ? 'day' : 'days'} left`;
+  const more = list.filter((n) => n !== head).map((n) => `<p style="margin:0 0 8px"><b>${esc(n.title)}</b><br>${esc(parts(n.note).summary)}</p>`).join('');
+  return `<details class="bet"><summary><span><b>${esc(m ? m[1] : 'Bet:')}</b> ${esc(m ? m[2] : head.title)}${tail ? ` <span class="left">${esc(tail)}</span>` : ''}</span><span class="chev" aria-hidden="true"></span></summary>${more ? `<div class="more">${more}</div>` : ''}</details>`;
+}
+
+function numbers(d) {
   const tile = (lab, val, ctx) => `<section class="tile"><span class="lab">${esc(lab)}</span><span class="val">${esc(val)}</span><span class="ctx">${esc(ctx)}</span></section>`;
-  return '<h2>Three moves this week</h2>'
-    + (moves.length ? `<div class="stack">${moves.map(moveCard).join('')}</div>` : '<p class="empty">No moves yet. The Sunday check writes three each week.</p>')
-    + '<h2>The numbers</h2>'
-    + `<div class="tiles">${tile('Orders this week', String(d.week.orders), `Grab ${d.week.grab || 0}, LINE ${d.week.line || 0}, Instagram ${d.week.ig || 0}`)}${tile('Orders this month', String(d.month.orders), `Grab ${d.month.grab || 0}, LINE ${d.month.line || 0}, Instagram ${d.month.ig || 0}`)}${tile('Next date', next ? `${next.away} days` : 'None', next ? `${next.label}, ${next.day} ${next.date}` : 'Nothing fixed in the next 60 days')}${tile('Competitor moves', String(movedNow.length), movedNow.slice(0, 3).map((n) => shopName(n.title)).join(', ') || 'None this week')}</div>`;
-}
-
-function insightMid(d) {
+  const today = dayNum(d.today);
   const comp = d.notes.Competitor || [];
-  const grab = comp.filter((n) => !/^\s*@/.test(n.title));
-  const inspo = d.notes.Inspo || [];
-  return (comp.length ? `<h2>Who moved</h2><p class="sub" style="margin:0">Tap a row for its Key. Opening means a gap we can use, Watch means keep an eye on it.</p><div class="stack">${whoMoved(comp)}</div>` : '')
-    + (inspo.length ? `<h2>Borrow cards</h2><div class="stack">${borrowCards(inspo)}</div>` : '')
-    + priceLanes(grab, d.merlin);
+  const open = comp.filter((n) => { const x = dayNum(n.date); return x !== null && today - x <= 7 && statusOf(n)[0] === 'Opening'; });
+  const g = d.bet;
+  return '<h2>The numbers</h2><div class="tiles">'
+    + tile('Orders this week', String(d.week.orders), `Grab ${d.week.grab || 0}, LINE ${d.week.line || 0}, Instagram ${d.week.ig || 0}`)
+    + tile('Orders this month', String(d.month.orders), `Grab ${d.month.grab || 0}, LINE ${d.month.line || 0}, Instagram ${d.month.ig || 0}`)
+    + tile('Grab to direct', g ? `${g.count} of ${g.target}` : 'Not set', g ? `By ${g.until.slice(0, 5)}, direct orders from Grab customers` : 'No bet with a count yet')
+    + tile('Openings for us', String(open.length), open.slice(0, 3).map((n) => shopName(n.title)).join(', ') || 'None this week')
+    + '</div>';
 }
 
-function datesAhead(d) {
-  return '<h2>Dates ahead</h2>' + ((d.dates || []).length ? `<div class="datelist">${d.dates.slice(0, 6).map((x) => `<div class="d"><div class="dd"><span class="wd">${esc(x.day)}</span><span class="dn">${esc(x.date.slice(0, 5))}</span></div><div><div class="dl">${esc(x.label)}</div><div class="da">${x.away} days</div></div></div>`).join('')}</div>` : '<p class="empty">Nothing fixed in the next 60 days.</p>');
+// Trends: headlines only, three showing, the rest one tap away. Tap a headline for its detail.
+function trendsBox(d) {
+  const list = d.notes.Trend || [];
+  if (!list.length) return '<h2>Trends</h2><p class="empty">Updated every Sunday night.</p>';
+  const row = (n) => `<details class="trow"><summary><span>${esc(n.title)}</span><span class="chev" aria-hidden="true"></span></summary><p class="more">${esc(parts(n.note).summary)} <span class="sub">${esc(n.date)}</span></p></details>`;
+  const rest = list.slice(3);
+  return `<h2>Trends</h2><div class="trends">${list.slice(0, 3).map(row).join('')}${rest.length ? `<details class="trow more-trends"><summary><span>More trends (${rest.length})</span><span class="chev" aria-hidden="true"></span></summary>${rest.map(row).join('')}</details>` : ''}</div>`;
+}
+
+const drawer = (title, count, inner, open = false) => `<details class="drawer" ${open ? 'open' : ''}><summary><span>${esc(title)}${count === null ? '' : ` (${count})`}</span><span class="chev" aria-hidden="true"></span></summary><div class="dbody">${inner}</div></details>`;
+
+function datesAhead(d, dateNotes) {
+  const next = (d.dates || []).length ? `<div class="datelist">${d.dates.slice(0, 6).map((x) => `<div class="d"><div class="dd"><span class="wd">${esc(x.day)}</span><span class="dn">${esc(x.date.slice(0, 5))}</span></div><div><div class="dl">${esc(x.label)}</div><div class="da">${x.away} days</div></div></div>`).join('')}</div>` : '<p class="empty">Nothing fixed in the next 60 days.</p>';
+  const all = dateNotes.length ? `<details class="trow"><summary><span>All dates and festivals (${dateNotes.length})</span><span class="chev" aria-hidden="true"></span></summary>${dateNotes.map(note).join('')}</details>` : '';
+  return next + all;
 }
 
 function draw(d) {
   HISTORY = d.history || [];
-  const EMPTY = { Competitor: 'Updated every Sunday night.', Inspo: 'Updated every Sunday night.', Trend: 'Updated every Sunday night.', 'Ad draft': 'Drafts only, nothing runs without your approval.', Date: 'Festivals and holidays, updated every Sunday night.' };
-  const section = (title, list, empty) => `<div class="box"><details ${list.length ? 'open' : ''}><summary>${esc(title)} (${list.length})</summary>${list.length ? list.map(note).join('') : `<p class="sub">${esc(empty)}</p>`}</details></div>`;
-  // Competitors: Grab shops first, then the Instagram accounts (their title starts with @). Nothing is cut off.
-  const cl = d.notes.Competitor || [];
-  const social = cl.filter((n) => /^\s*@/.test(n.title));
-  const grab = cl.filter((n) => !/^\s*@/.test(n.title));
-  const status = `<p class="big ${d.auditDue ? 'due' : ''}">${d.auditDue ? 'Check pending' : 'Up to date'}</p><p class="sub">${esc(d.auditNote)} Claude runs it every Sunday at 11pm, the summary lands here.</p>`;
-  const competitors = `<div class="box"><h3>Grab competitors</h3>${status}<details ${grab.length ? 'open' : ''}><summary>Grab shops (${grab.length})</summary>${grab.length ? grab.map(note).join('') : '<p class="sub">Add a screenshot folder per shop in Competitor Grab screenshots. Updated every Sunday night.</p>'}</details></div>`
-    + `<div class="box"><h3>Social competitors</h3><details ${social.length ? 'open' : ''}><summary>Instagram accounts (${social.length})</summary>${social.length ? social.map(note).join('') : '<p class="sub">Updated every Sunday night.</p>'}</details></div>`;
-  // Inspo: @hangrybeefnoodle (the content plan account) always sits at the top.
+  const comp = d.notes.Competitor || [];
+  const grab = comp.filter((n) => !/^\s*@/.test(n.title));
   if (d.notes.Inspo) d.notes.Inspo = [...d.notes.Inspo].sort((a, b) => (/hangrybeefnoodle/i.test(b.title) ? 1 : 0) - (/hangrybeefnoodle/i.test(a.title) ? 1 : 0));
-  const known = new Set(['Competitor', 'Trend', 'Move', 'Inspo', 'Ad draft', 'Date']);
-  const other = d.kinds.filter((k) => !known.has(k)).map((k) => section(TITLES[k] || k, d.notes[k] || [], EMPTY[k] || 'Nothing logged yet.')).join('');
-  // Order: moves, numbers, trends, Grab and social competitors, inspo accounts, who moved, borrow cards, price lanes,
-  // then dates ahead, ad drafts, dates and festivals at the bottom.
-  $('top').innerHTML = insightTop(d)
-    + section(TITLES.Trend, d.notes.Trend || [], EMPTY.Trend)
-    + competitors
-    + section(TITLES.Inspo, d.notes.Inspo || [], EMPTY.Inspo)
-    + insightMid(d)
-    + datesAhead(d)
-    + section(TITLES['Ad draft'], d.notes['Ad draft'] || [], EMPTY['Ad draft'])
-    + section(TITLES.Date, d.notes.Date || [], EMPTY.Date)
-    + other;
+  const inspo = d.notes.Inspo || [];
+  const known = new Set(['Competitor', 'Trend', 'Move', 'Bet', 'Inspo', 'Ad draft', 'Date']);
+  const other = d.kinds.filter((k) => !known.has(k) && (d.notes[k] || []).length).map((k) => drawer(TITLES[k] || k, d.notes[k].length, d.notes[k].map(note).join(''))).join('');
+  const drafts = d.notes['Ad draft'] || [];
+  const lanes = priceLanes(grab, d.merlin);
+  // Order: top line, moves, bet, numbers, trends, borrow, then everything else folded away.
+  $('top').innerHTML = reportBar(d)
+    + insightTop(d)
+    + betStrip(d)
+    + numbers(d)
+    + trendsBox(d)
+    + `<h2>Borrow${repLink(d, 'content', 'Content plan')}</h2>` + (inspo.length ? `<div class="stack">${borrowCards(inspo)}</div>` : '<p class="empty">Updated every Sunday night.</p>')
+    + '<div class="drawers">'
+    + (comp.length ? drawer('Who moved', comp.length, `<p class="sub" style="margin:0 0 10px">Tap a row for its Key. Opening means a gap we can use, Watch means keep an eye on it. ${repLink(d, 'audit')} ${repLink(d, 'grab', 'Grab listings')}</p><div class="stack">${whoMoved(comp)}</div>`) : '')
+    + (lanes ? drawer('Price lanes on Grab', null, lanes) : '')
+    + drawer('Dates ahead', (d.dates || []).length, datesAhead(d, d.notes.Date || []))
+    + drawer('Ad drafts (nothing runs without your approval)', null, drafts.length ? drafts.map(note).join('') : '<p class="sub">Drafts only, nothing runs without your approval.</p>')
+    + other
+    + '</div>';
   $('sections').innerHTML = '';
 }
 
 async function load() {
   const s = $('status');
   try {
-    const res = await fetch('/api/marketing');
+    const [res, rep] = await Promise.all([fetch('/api/marketing'), fetch('/api/marketing/reports').then((r) => r.json()).catch(() => ({}))]);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+    d.reports = rep.reports || [];
     draw(d);
     $('dlNotes').textContent = `Download all notes (CSV, ${HISTORY.length} rows)`;
     if (!$('kind').options.length) $('kind').innerHTML = d.kinds.map((k) => `<option>${esc(k)}</option>`).join('');
