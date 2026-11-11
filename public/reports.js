@@ -234,6 +234,31 @@ document.querySelectorAll('[data-csv]').forEach((b) => b.addEventListener('click
   say(`Downloaded ${rows.length} rows.`);
 }));
 
+
+// Headline cards above the tables: this month and this week so far, with the last full period beside each figure.
+function drawHeads(d) {
+  const box = $('heads'); if (!box) return;
+  const last = (a, n = 1) => (a && a.length >= n ? a[a.length - n] : null);
+  const card = (k, v, s, cls) => `<div class="card"><div class="k">${k}</div><div class="v ${cls || ''}">${v}</div><div class="s">${s || ''}</div></div>`;
+  const money = (n) => { const v = Math.round(Number(n) || 0); return `${v < 0 ? '-' : ''}฿${baht(Math.abs(v)).replace(/\.00$/, '')}`; };
+  const int = (n) => Number(n || 0).toLocaleString('en-AU');
+  const group = (title, cur, prev, prevLabel) => {
+    if (!cur) return '';
+    const cmp = (f, fmt = money) => (prev ? `${prevLabel} ${fmt(f(prev))}` : '');
+    const orders = (p) => p.grab.orders + p.line.orders;
+    const costs = (p) => p.revenue - p.margin;
+    return `<h2>${title} <span class="hint">${esc(cur.label)}</span></h2><div class="cards">
+      ${card('Net income', money(cur.revenue), cmp((p) => p.revenue))}
+      ${card('Costs', money(costs(cur)), cmp(costs))}
+      ${card('Margin', money(cur.margin), `${cur.marginPct === null ? '' : cur.marginPct + '% of income. '}${cmp((p) => p.margin)}`, cur.margin < 0 ? 'neg' : 'pos')}
+      ${card('Orders', int(orders(cur)), `Grab ${int(cur.grab.orders)}, direct ${int(cur.line.orders)}. ${cmp(orders, int)}`)}
+      ${card('Rider fees paid', money(cur.line.rider), `Customers paid ${money(cur.line.delivery)} for delivery. ${cmp((p) => p.line.rider)}`)}
+    </div>`;
+  };
+  const bank = BANK && BANK.amount ? `<h2>In the bank</h2><div class="cards">${card('Left in the bank', money(BANK.amount), BANK.asOf ? `As at ${esc(BANK.asOf)}` : '')}</div>` : '';
+  box.innerHTML = group('This month so far', last(d.monthly), last(d.monthly, 2), 'Last month') + group('This week so far', last(d.weekly), last(d.weekly, 2), 'Last week') + bank;
+}
+
 async function load() {
   try {
     const d = await call('/api/reports/summary');
@@ -241,8 +266,9 @@ async function load() {
     draw('daily', (d.daily || []).slice(-60), true);
     draw('weekly', d.weekly, true);
     draw('monthly', d.monthly, true);
-    drawProfit(d.profit || d.monthly || []);
     if (d.bank) BANK = d.bank;
+    drawHeads(d);
+    drawProfit(d.profit || d.monthly || []);
     DATA = { daily: d.daily || [], weekly: d.weekly || [], monthly: d.monthly || [], profit: d.profit || d.monthly || [] };
   } catch (err) { say(err.message, true); }
 }

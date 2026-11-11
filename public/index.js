@@ -244,10 +244,69 @@ function wireFees() {
   $('fSave').addEventListener('click', () => save('delivery', { freeMin: $('fMin').value, smallFee: $('fSmall').value, zone2to5: $('f1').value, zone5to75: $('f2').value, zone75to10: $('f3').value }, 'Delivery fees saved. New orders use them now.'));
 }
 
+// ---------- delivery cost (what the rider was actually paid) ----------
+// Free delivery orders bring in no delivery income, so the rider fee is a pure cost. Fees are saved to the same Rider rows
+// as the "rider 001 55" LINE command, so they land in Rider fees on the Numbers page and come off the margin.
+let RIDER = null; let riderAll = false;
+async function rcall(url, body) {
+  const res = await fetch(url, { method: body ? 'POST' : 'GET', headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out.error || `Request failed (${res.status})`);
+  return out;
+}
+function riderBox() {
+  return `<div class="ix" id="deliveryCost"><h3>Delivery cost per order <span id="riderPill"></span></h3>
+    <p class="sub">What you actually paid the rider. Free delivery orders bring in no delivery income, so this fee comes straight off your margin. Type the fee for each order and press Save. Type 0 if the customer collected. It shows under Rider fees on the Numbers page.</p>
+    <div id="riderBody"><p class="sub">Loading the last three weeks of orders…</p></div></div>`;
+}
+function riderRows(list) {
+  if (!list.length) return `<p class="sub">${riderAll ? 'No LINE orders in the last three weeks.' : 'All caught up. Every finished order has a rider fee.'}</p>`;
+  return list.map((o) => {
+    const key = `${o.dmy}|${o.orderNo}`;
+    const tag = o.free ? '<span class="pill off" style="background:#fff4e0;color:#8a5a00">Free delivery</span>' : `<span class="pill on">Customer paid ${baht(o.delivery)}</span>`;
+    return `<div class="item" style="cursor:default;flex-wrap:wrap" data-rider-row="${esc(key)}">
+      <span style="flex:1 1 220px"><b>${esc(o.orderNo)}</b> ${esc(o.customer || '')} <span class="sub">${esc(o.dmy.slice(0, 5))}${o.time ? ' ' + esc(o.time) : ''}, food ${baht(o.items)}</span><br>${tag}${o.rider === null ? '' : ` <span class="sub">rider paid ${baht(o.rider)}</span>`}</span>
+      <span style="display:flex;gap:6px;align-items:center"><input type="number" min="0" step="1" inputmode="decimal" placeholder="฿ rider" value="${o.rider === null ? '' : esc(o.rider)}" data-rider-fee="${esc(key)}" style="width:92px" aria-label="Rider fee for ${esc(o.orderNo)}" /><button class="small-button" data-rider-save="${esc(key)}" type="button">${o.rider === null ? 'Save' : 'Update'}</button></span></div>`;
+  }).join('');
+}
+function drawRider() {
+  const box = $('riderBody'); if (!box) return;
+  if (!RIDER) return;
+  const m = RIDER.month || {};
+  const list = riderAll ? RIDER.orders : RIDER.orders.filter((o) => o.rider === null);
+  $('riderPill').innerHTML = RIDER.missing ? `<span class="pill off">${RIDER.missing} to log</span>` : '<span class="pill on">All logged</span>';
+  const dates = [...new Set(RIDER.orders.map((o) => o.dmy))];
+  box.innerHTML = `<p class="sub" style="margin:0 0 8px"><b>${esc(m.label || '')} so far:</b> ${m.freeOrders || 0} free delivery ${m.freeOrders === 1 ? 'order' : 'orders'} of ${m.orders || 0}. Rider cost logged on free delivery orders ${baht(m.freeRiderCost || 0)} (${m.freeLogged || 0} logged). Customers paid ${baht(m.deliveryCharged || 0)} for delivery, you paid riders ${baht(m.riderPaid || 0)} in total.</p>
+    <div class="row"><label style="flex-direction:row;align-items:center;gap:6px;color:inherit;font-size:14px"><input type="checkbox" id="riderAll" ${riderAll ? 'checked' : ''} /> Show every order from the last three weeks</label><button class="small-button" id="riderSync" type="button">Fetch new LINE orders</button></div>
+    <div>${riderRows(list)}</div>
+    <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--accent)">One rider trip carried more than one order</summary>
+      <div class="row"><label>Day<select id="trD">${dates.map((d) => `<option>${esc(d)}</option>`).join('')}</select></label><label>Order numbers<input id="trO" placeholder="001, 002" style="width:140px" /></label><label>Total paid (฿)<input id="trF" type="number" min="0" step="1" style="width:100px" /></label><button class="small-button" id="trGo" type="button">Save, split evenly</button></div>
+      <p class="sub">One trip, two orders, ฿80 paid: each order is given ฿40.</p></details>`;
+  $('riderAll').addEventListener('change', (e) => { riderAll = e.target.checked; drawRider(); });
+  $('riderSync').addEventListener('click', () => loadRider(true));
+  box.querySelectorAll('[data-rider-save]').forEach((b) => b.addEventListener('click', async () => {
+    const [dmy, orderNo] = b.dataset.riderSave.split('|');
+    const fee = box.querySelector(`[data-rider-fee="${CSS.escape(b.dataset.riderSave)}"]`).value;
+    if (fee === '') return toast('Type the rider fee first. Type 0 if there was no rider.', true);
+    b.disabled = true;
+    try { await rcall('/api/rider-fees', { dmy, orderNos: [orderNo], fee }); toast(`Rider fee saved for ${orderNo}.`); await loadRider(false); } catch (err) { toast(err.message, true); b.disabled = false; }
+  }));
+  const go = $('trGo');
+  if (go) go.addEventListener('click', async () => {
+    try { const out = await rcall('/api/rider-fees', { dmy: $('trD').value, orderNos: $('trO').value.split(/[,\s+&]+/).filter(Boolean), fee: $('trF').value }); toast(out.message.split('\n')[0]); await loadRider(false); } catch (err) { toast(err.message, true); }
+  });
+}
+async function loadRider(sync) {
+  try { RIDER = await rcall(`/api/rider-fees${sync ? '?sync=1' : ''}`); drawRider(); if (sync) toast('Fetched the latest LINE orders.'); }
+  catch (err) { const b = $('riderBody'); if (b) b.innerHTML = `<p class="sub" style="color:#b3261e">Could not load the orders: ${esc(err.message)}</p>`; }
+}
+
 function draw() {
   const note = S.readOnly ? `<div class="warn">${esc(S.note || 'Read only.')} You can see exactly what customers see, but editing switches on once the order app update is live.</div>` : '';
-  $('idx').innerHTML = `<h2>Order app</h2>${note}${annBox()}${hoursBox()}${promoBox()}${menuBox()}${feeBox()}`;
-  wireAnn(); wireHours(); wirePromo(); wireMenu(); wireFees();
+  $('idx').innerHTML = `<h2 id="orderApp">Order app</h2>${note}${annBox()}${hoursBox()}${promoBox()}${feeBox()}${riderBox()}`;
+  const menu = $('idxMenu'); if (menu) menu.innerHTML = menuBox();
+  wireAnn(); wireHours(); wirePromo(); if (menu) wireMenu(); wireFees();
+  drawRider(); if (!RIDER) loadRider(false);
 }
 
 (async function init() {
@@ -256,5 +315,7 @@ function draw() {
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
     S = d; draw();
+    if (d.expired && d.expired.length) toast(`Switched off because the end date passed: ${d.expired.join('; ')}.`);
+    if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) setTimeout(() => t.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); }
   } catch (err) { $('idx').innerHTML = `<div class="ix"><p class="sub" style="color:#b3261e">Could not load the order app: ${esc(err.message)}</p></div>`; }
 })();

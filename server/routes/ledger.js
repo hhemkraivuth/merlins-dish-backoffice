@@ -92,6 +92,14 @@ async function runHuddle(req, res) {
   } catch (err) { fail(res, err); }
 }
 
+// Delivery cost per order: what the customer paid for delivery against what the rider was paid.
+async function riderFeesList(req, res) {
+  try { res.json(await svc.riderOrders({ sync: req.query && req.query.sync === '1' })); } catch (err) { fail(res, err); }
+}
+async function riderFeesSave(req, res) {
+  try { res.json(await svc.saveRiderFee(req.body || {})); } catch (err) { fail(res, err); }
+}
+
 async function pit(req, res) {
   try { res.json(await svc.pit()); } catch (err) { fail(res, err); }
 }
@@ -156,4 +164,4 @@ async function addMarketingNote(req, res) {
   try { await svc.addMarketingNote(req.body || {}); res.json({ ok: true }); } catch (err) { fail(res, err); }
 }
 
-module.exports = { marketing, addMarketingNote, addHandoff, driveImport, sendDriveImport, saveBorrowed, saveBank, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary };
+module.exports = { marketing, addMarketingNote, addHandoff, driveImport, sendDriveImport, saveBorrowed, saveBank, manualOrders, deleteRange, deleteRow, updateRow, importGrab, syncLine, refresh, summary, day, runHuddle, sendHuddle, pit, spendSummary, cookingSummary, riderFeesList, riderFeesSave };

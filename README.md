@@ -271,3 +271,10 @@ Stock now is estimated from receipts minus usual daily use, so keep logging rece
 ## Update 64 notes
 - Index tab: Add a menu item and the edit panel have "Customer chooses": nothing, a pasta (like Noir Ragu and Bolognese) or a size (Regular or Large like the stews). Needs the matching order app update (adminApi.js and server.js in merlins-dish-bot). Until the bot is updated the new menu item still saves, but the choice is ignored.
 - Home screen icon: apple-touch-icon.png (brand red with the logo) added to every page. On iPhone, remove the old home screen shortcut and add it again from Safari (Share, Add to Home Screen).
+
+## Update 64 settings
+
+- **Morning to do reminder (LINE).** On by default when `BOH_GROUP_ID` and `LINE_CHANNEL_ACCESS_TOKEN` are set. Sends at `TODO_REMIND_TIME` (Bangkok, default 09:00) once a day, only when something is overdue, due today, or LINE orders have no rider fee yet. `TODO_REMIND_AUTO=off` turns it off. `POST /api/todos/remind` with the `x-huddle-token` header sends it now.
+- **Index auto expiry.** Every hour (and when the Index page opens) announcements, promos, closed days and special hours with an end date in the past are switched off through the bot control API. `INDEX_EXPIRY_AUTO=off` stops the hourly run.
+- **Sheet read cache.** Reads of the same tab within `SHEETS_READ_CACHE_MS` (default 15000) share one request to Google, and any write through BOH clears that tab at once. `0` turns it off. Edits typed by hand into the sheet show up within that window.
+- **Delivery cost per order.** `GET /api/rider-fees` (add `?sync=1` to fetch new LINE orders first) and `POST /api/rider-fees { dmy, orderNos, fee }`. Saves through the same code as the `rider 001 55` LINE command.

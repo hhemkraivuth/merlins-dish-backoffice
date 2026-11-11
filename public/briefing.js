@@ -1,9 +1,11 @@
-// The staff briefing pop up and the team to do card (Home page).
+// The staff briefing pop up, the team to do card and the Today strip. Loaded on every page; the card and strip only exist on Home.
+// Away from Home a small Team report button sits bottom right, and the pop up opens by itself when there is something new
+// (or, once a day per tab, when a task is overdue or due today).
 // On open, the team "runs up" with anything new since Lily last closed the window. Closing it (Noted, the cross, Esc or a tap outside) marks it all as noted.
 // Below the reports sits the to do list, with due dates. The same list also lives on the Home page as the To do card.
 (function () {
   const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let data = { reports: [], todos: [], done: [], teams: ['Me'], today: '' };
+  let data = { reports: [], todos: [], done: [], teams: ['Me'], today: '', riderMissing: 0 };
   let modal = null;
 
   const css = document.createElement('style');
@@ -38,6 +40,16 @@
   .bf-btn.alt{background:none;color:var(--blue,#2b4c9b);border:1px solid var(--blue,#2b4c9b)}
   .bf-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   .bf-err{color:var(--red,#c0392b);font-size:13px;margin:6px 0 0;min-height:16px}
+  .bf-fab{position:fixed;right:14px;bottom:14px;z-index:40;display:flex;align-items:center;gap:6px;font:inherit;font-size:14px;font-weight:700;padding:8px 14px 8px 10px;border:2px solid var(--blue,#2b4c9b);border-radius:999px;background:#fff8d6;color:var(--blue,#2b4c9b);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+  .bf-fab svg{width:26px;height:26px}
+  .bf-fab .n{min-width:20px;height:20px;line-height:20px;text-align:center;border-radius:999px;background:var(--red,#c0392b);color:#fff;font-size:12px;padding:0 5px}
+  .bf-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 0 14px;padding:9px 12px;border:1px solid var(--line,#ddd);border-radius:12px;background:var(--card,#fff);font-size:14px}
+  .bf-strip b{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#666);margin-right:2px}
+  .bf-chip{font:inherit;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line,#ccc);background:none;color:inherit;cursor:pointer;text-decoration:none}
+  .bf-chip.bad{border-color:var(--red,#c0392b);color:var(--red,#c0392b)}
+  .bf-chip.warn{border-color:#b26a00;color:#b26a00}
+  .bf-chip.info{border-color:var(--blue,#2b4c9b);color:var(--blue,#2b4c9b)}
+  .bf-chip.ok{border-color:#1f6a34;color:#1f6a34;cursor:default}
   details.bf-done{margin-top:8px;font-size:13px}
   details.bf-done .bf-todo{color:var(--muted,#666);text-decoration:line-through}
   `;
@@ -84,6 +96,7 @@
     const keys = data.reports.map((r) => r.key);
     close();
     if (keys.length) { try { await call('/api/briefing/seen', { keys }); data.reports = []; } catch (e) { /* it will simply show again next time */ } }
+    drawStrip(); drawFab();
   }
   function close() { if (modal) { document.removeEventListener('keydown', onKey); modal.remove(); modal = null; } }
   function onKey(e) { if (e.key === 'Escape') noted(); }
@@ -100,7 +113,7 @@
       <div class="bf-foot"><button class="bf-btn" data-noted type="button">Noted</button></div>`;
     modal.querySelector('[data-x]').addEventListener('click', noted);
     modal.querySelector('[data-noted]').addEventListener('click', noted);
-    wire(modal.querySelector('.bf-card'), () => { draw(); drawCard(); });
+    wire(modal.querySelector('.bf-card'), () => { draw(); drawCard(); drawStrip(); drawFab(); });
   }
 
   function open() {
@@ -119,15 +132,56 @@
     const box = document.getElementById('todoBox');
     if (!box) return;
     box.querySelector('[data-card]').innerHTML = `<div data-list>${todoList()}</div>${addForm()}`;
-    wire(box.querySelector('[data-card]'), () => { drawCard(); draw(); });
+    wire(box.querySelector('[data-card]'), () => { drawCard(); draw(); drawStrip(); });
+  }
+
+  // The Today strip on Home: one line of what needs the owner today.
+  function drawStrip() {
+    const box = document.getElementById('todayStrip');
+    if (!box) return;
+    const late = data.todos.filter((t) => t.overdue).length;
+    const now = data.todos.filter((t) => t.today).length;
+    const n = data.reports.length;
+    const rider = data.riderMissing || 0;
+    const chips = [];
+    if (late) chips.push(`<button class="bf-chip bad" type="button" data-open>${late} overdue</button>`);
+    if (now) chips.push(`<button class="bf-chip warn" type="button" data-open>${now} due today</button>`);
+    if (n) chips.push(`<button class="bf-chip info" type="button" data-open>${n} new ${n === 1 ? 'report' : 'reports'}</button>`);
+    if (rider) chips.push(`<a class="bf-chip warn" href="commands.html#deliveryCost">${rider} rider ${rider === 1 ? 'fee' : 'fees'} to log</a>`);
+    box.innerHTML = `<div class="bf-strip"><b>Today</b>${chips.length ? chips.join('') : '<span class="bf-chip ok">Nothing needs you today</span>'}</div>`;
+    box.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', open));
+  }
+
+  // The floating Team report button on every page except Home.
+  const PIG = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="14" cy="14" r="7" fill="#f4a3b5"/><circle cx="50" cy="14" r="7" fill="#f4a3b5"/><circle cx="32" cy="34" r="25" fill="#f7b8c6" stroke="#2b4c9b" stroke-width="3"/><ellipse cx="32" cy="42" rx="11" ry="8" fill="#f08aa3" stroke="#2b4c9b" stroke-width="2"/><circle cx="28" cy="42" r="2" fill="#2b4c9b"/><circle cx="36" cy="42" r="2" fill="#2b4c9b"/><circle cx="22" cy="29" r="3" fill="#2b4c9b"/><circle cx="42" cy="29" r="3" fill="#2b4c9b"/></svg>';
+  let fab = null;
+  function drawFab() {
+    if (document.getElementById('todoBox') || document.getElementById('teamReport')) return; // Home has its own button
+    if (!fab) {
+      fab = document.createElement('button');
+      fab.type = 'button'; fab.className = 'bf-fab'; fab.setAttribute('aria-label', 'Team report');
+      fab.addEventListener('click', async () => { try { data = await call('/api/briefing'); } catch (e) { /* keep what we have */ } open(); drawFab(); });
+      document.body.appendChild(fab);
+    }
+    const count = data.reports.length + data.todos.filter((t) => t.overdue || t.today).length;
+    fab.innerHTML = `${PIG}<span>Team report</span>${count ? `<span class="n">${count}</span>` : ''}`;
   }
 
   async function init() {
+    const home = Boolean(document.getElementById('todoBox'));
     const btn = document.getElementById('teamReport');
-    if (btn) btn.addEventListener('click', async () => { try { data = await call('/api/briefing'); } catch (e) { /* keep what we have */ } drawCard(); open(); });
+    if (btn) btn.addEventListener('click', async () => { try { data = await call('/api/briefing'); } catch (e) { /* keep what we have */ } drawCard(); drawStrip(); open(); });
     try { data = await call('/api/briefing'); } catch (e) { return; }
-    drawCard();
-    if (data.reports.length || data.todos.some((t) => t.overdue || t.today)) open();
+    drawCard(); drawStrip(); drawFab();
+    const urgent = data.todos.some((t) => t.overdue || t.today);
+    if (home) { if (data.reports.length || urgent) open(); return; }
+    // Other pages: anything new always opens it (closing marks it noted). Overdue and due today open it once a day per tab.
+    let shownToday = false;
+    try { shownToday = sessionStorage.getItem('bfDay') === data.today; } catch (e) { /* storage blocked */ }
+    if (data.reports.length || (urgent && !shownToday)) {
+      try { sessionStorage.setItem('bfDay', data.today); } catch (e) { /* fine */ }
+      open();
+    }
   }
   init();
 })();

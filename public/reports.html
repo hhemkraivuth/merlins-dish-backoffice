@@ -10,6 +10,14 @@
   <meta name="apple-mobile-web-app-title" content="Merlin's BOH" />
   <style>
     .wide { max-width: 1100px; }
+    .heads { margin: 4px 0 18px; }
+    .heads h2 { margin: 14px 0 8px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+    .card .k { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+    .card .v { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
+    .card .v.neg { color: var(--flag); } .card .v.pos { color: #14532d; }
+    .card .s { font-size: 12px; color: var(--muted); line-height: 1.35; }
     .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
     .actions button, .actions label.btn {
       background: var(--ink); color: var(--paper); border: none; border-radius: 8px;
@@ -92,6 +100,7 @@
       <a class="tab-button tab-link" href="analysis.html">Analysis</a>
     </nav>
     <main class="main wide">
+      <div class="heads" id="heads"></div>
       <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span> <button class="alt" data-csv="profit" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <p class="hint swipe">Swipe the table sideways to see every column. The month stays in place.</p>
       <div class="tablewrap"><table id="profit"></table></div>
@@ -132,5 +141,6 @@
     </main>
   </div>
   <script src="reports.js"></script>
+  <script src="briefing.js"></script>
 </body>
 </html>

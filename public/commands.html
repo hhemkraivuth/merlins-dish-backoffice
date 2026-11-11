@@ -10,6 +10,15 @@
   <meta name="apple-mobile-web-app-title" content="Merlin's BOH" />
   <style>
     .wide { max-width: 900px; }
+    nav.jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; position: sticky; top: 0; z-index: 5; background: var(--paper, #fff); padding: 8px 0; }
+    nav.jump a { font-size: 13px; font-weight: 600; text-decoration: none; color: var(--accent); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; background: var(--card); }
+    details.howto .steps { padding: 12px 16px 6px; font-size: 14px; line-height: 1.5; }
+    details.howto .steps p { margin: 0 0 8px; color: var(--muted); }
+    details.howto .steps ol { margin: 0 0 8px; padding-left: 20px; }
+    details.howto .steps li { margin: 0 0 5px; }
+    details.howto .steps a { color: var(--accent); }
+    html { scroll-behavior: smooth; scroll-padding-top: 54px; }
+
     h2 { font-size: 18px; margin: 24px 0 4px; }
     details.sec { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin: 0 0 10px; }
     details.sec > summary { list-style: none; cursor: pointer; padding: 13px 16px; font-size: 16px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
@@ -70,11 +79,120 @@
       <a class="tab-button tab-link" href="analysis.html">Analysis</a>
     </nav>
     <main class="main wide">
+      <nav class="jump" aria-label="Jump to">
+        <a href="#howTo">How to</a><a href="#orderApp">Order app</a><a href="#deliveryCost">Delivery cost</a><a href="#commands">Commands</a><a href="#menuPrices">Menu and prices</a><a href="#bible">Menu bible</a>
+      </nav>
+
+      <h2 id="howTo">How to</h2>
+      <p class="where">Short steps for the jobs you do most. Tap one to open it.</p>
+
+      <details class="sec howto" open>
+        <summary>Log what you paid the rider (free delivery customers)</summary>
+        <div class="steps">
+          <p>Free delivery orders bring in no delivery income, so the rider fee is a pure cost. Log the real fee so your margin is true.</p>
+          <ol>
+            <li>Open <a href="#deliveryCost">Delivery cost per order</a> on this page. Orders with no rider fee yet are listed first, free delivery ones are tagged.</li>
+            <li>Type what you paid the rider in the box beside the order, then press Save. Type 0 if the customer collected.</li>
+            <li>One rider carried two orders? Open "One rider trip carried more than one order", pick the day, type the order numbers (001, 002) and the total. It is split evenly.</li>
+            <li>Missing today's order? Press "Fetch new LINE orders".</li>
+          </ol>
+          <p>You can also do it from the BOH LINE group: <b>rider 001 55</b>. Both ways save to the same place. It shows under Rider fees on the Numbers page and comes off the margin. A reminder lands in the group at 9am while any are missing.</p>
+        </div>
+      </details>
+
+      <details class="sec howto">
+        <summary>Set the delivery fees customers are charged</summary>
+        <div class="steps">
+          <ol>
+            <li>Go to <a href="#orderApp">Order app</a>, then the Delivery fees card.</li>
+            <li>Set the order amount where delivery is free within 2km, the small order fee under it, and the fee for 2 to 5km, 5 to 7.5km and 7.5 to 10km.</li>
+            <li>Press Save delivery fees. New orders use them straight away.</li>
+          </ol>
+          <p>Beyond 10km the bot asks you for the fee. Reply in the BOH group with the amount (<b>55</b>), or <b>001 55</b> to name the order.</p>
+        </div>
+      </details>
+
+      <details class="sec howto">
+        <summary>Close the shop, or change hours for a day</summary>
+        <div class="steps">
+          <ol>
+            <li>In Open and close, pick the first and last closed day, then press Close those days. Or pick a date and the opening and closing times, then Set those hours.</li>
+            <li>Leave "Also post it on the announcement" ticked so customers see it.</li>
+            <li>Closed days switch themselves off after the last day. Scheduled orders carry on.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="sec howto">
+        <summary>Run a promo or post an announcement</summary>
+        <div class="steps">
+          <ol>
+            <li>In Promotions, press Set a whole bill promo (or Add an item promo). Give it a name, the percent off and the last day.</li>
+            <li>For news, use Announcement. Write a headline and message, and set the last day.</li>
+          </ol>
+          <p>Announcements, promos and closed days switch themselves off the day after their last day. Delivery fees are never discounted.</p>
+        </div>
+      </details>
+
+      <details class="sec howto">
+        <summary>Change a price, add a dish or take one off</summary>
+        <div class="steps">
+          <ol>
+            <li>Scroll to <a href="#menuPrices">Menu and prices</a> and tap the dish.</li>
+            <li>Change the price, name or description, then Save. Take off the menu hides it, and you can Put back later.</li>
+            <li>To add a dish, press + Add a menu item, pick a category, and choose a photo.</li>
+          </ol>
+          <p>Grab prices are set in Grab.</p>
+        </div>
+      </details>
+
+      <details class="sec howto">
+        <summary>Use the team report, to dos and the Today strip</summary>
+        <div class="steps">
+          <ol>
+            <li>The Boss, got a minute? pop up opens on any page when there is something new. Press Noted to close it.</li>
+            <li>The Team report button (bottom right on every page except Home) reopens it any time.</li>
+            <li>On Home, the Today strip shows what needs you: overdue, due today, new reports and rider fees to log.</li>
+            <li>Add a to do on Home or in the pop up: what, who, due date. Tick it when done.</li>
+            <li>Open team handoffs and the weekly Moves turn into to dos by themselves, with a due date. Handoff ones tick off when the situation clears.</li>
+            <li>At 9am the BOH LINE group gets a message if anything is overdue or due today.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="sec howto">
+        <summary>Add direct orders when the bot was down</summary>
+        <div class="steps">
+          <ol>
+            <li>Go to Numbers, Tools, "Add direct orders typed by hand".</li>
+            <li>One block per order: date and customer name, one line per dish with the price of one portion, "delivery 50" if charged.</li>
+            <li>Press Add these orders. Typing the same order twice adds nothing.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="sec howto">
+        <summary>Read the Numbers page</summary>
+        <div class="steps">
+          <ol>
+            <li>The cards at the top show this month and this week so far, with last month beside them.</li>
+            <li>Profit by month is below the cards. Tap a month, week or day further down to see its orders, batches and purchases.</li>
+            <li>Tools (import Grab CSV, sync LINE, delete rows by date) sit under the profit table.</li>
+          </ol>
+          <p>The Grab sales screenshots are logged each night at 3am. If a day is missing, there is nothing to import for days the shop was closed.</p>
+        </div>
+      </details>
+
+      <details class="sec howto">
+        <summary>Cook notes, receipts and stock from the LINE group</summary>
+        <div class="steps">
+          <p>Everything you can type in the BOH group is listed under <a href="#commands">Commands</a>: cook notes, typed receipts, overheads, stock counts, rider fees and the huddle.</p>
+        </div>
+      </details>
+
       <div id="idx"><div class="loading">Loading the order app…</div></div>
 
-      <div id="bible"></div>
-
-      <h2>Commands</h2>
+      <h2 id="commands">Commands</h2>
       <section class="group" data-group="bot">
       <details class="sec" id="cmdBot"><summary>1. Customer bot (LINE OA)</summary><div style="padding:12px 16px 4px">
       <p class="where">Admin commands: type them in your own one to one chat with the OA, from the admin account. Group commands: type them in the BOH private group.</p>
@@ -205,9 +323,14 @@
       </div></details></section>
 
       <p class="note">Dates are day/month (4/11). The numbers pages are at Numbers. Nothing here changes the customer bot unless you send it from the admin chat or the private group.</p>
+      <div id="menuPrices"><div id="idxMenu"></div></div>
+
+      <div id="bible"></div>
+
     </main>
   </div>
   <script src="index.js"></script>
   <script src="bible.js"></script>
+  <script src="briefing.js"></script>
 </body>
 </html>

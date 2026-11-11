@@ -86,6 +86,25 @@ async function findLineOrders(dmy) {
   return [...seen.values()];
 }
 
+// The delivery cost list for the Index page: every LINE order of the last three weeks with what the customer paid for
+// delivery (free delivery shows 0) and what the rider was paid. Read only.
+async function riderOrders({ sync = false } = {}) {
+  if (sync) { try { await syncLineOrders(); } catch (err) { /* show what the Ledger already holds */ } }
+  const { riderView } = require('./riderFees');
+  return riderView(ledgerObjects(await readOrEmpty(LEDGER_TAB)), bangkokToday(), 21);
+}
+
+// Saves a rider fee typed on the web, through the same code as the "rider 001 55" LINE command.
+async function saveRiderFee({ dmy, orderNos, fee }) {
+  const { commandText } = require('./riderFees');
+  const { processRider } = require('./riderCommand');
+  const text = commandText({ dmy, orderNos, fee });
+  const out = await processRider(text, bangkokToday(), { findOrders: findLineOrders, saveRider });
+  const message = (out && out[0]) || '';
+  if (/^Rider fee logged/.test(message)) return { ok: true, message };
+  throw Object.assign(new Error(message || 'The rider fee was not saved.'), { status: 400 });
+}
+
 // Sending a fee again for the same order replaces the earlier one.
 async function saveRider(rows, keys) {
   await ensureTab(LEDGER_TAB, LEDGER_HEADERS);
@@ -284,4 +303,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };

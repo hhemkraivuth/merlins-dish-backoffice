@@ -141,4 +141,53 @@ function startMonthlyOverheadsTimer(run, { now = () => Date.now(), every = 60000
   return setInterval(tick, every);
 }
 
-module.exports = { startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer };
+
+// Morning to do reminder by LINE. On by default when BOH_GROUP_ID and LINE_CHANNEL_ACCESS_TOKEN are set, TODO_REMIND_AUTO=off
+// turns it off. TODO_REMIND_TIME is Bangkok time, HH:MM (default 09:00). Sends once a day, only within 8 hours of that time, so a
+// restart late in the evening does not send a stale morning message. "Already sent" lives in `store` (App State).
+// run() sends the message and returns { sent }. A day with nothing due sends nothing.
+const REMIND_KEY = 'todo_reminder_last';
+const REMIND_GRACE_HOURS = 8;
+function startTodoReminderTimer(run, { now = () => Date.now(), every = 60000, log = console, store = memoryStore() } = {}) {
+  if (String(process.env.TODO_REMIND_AUTO || '').toLowerCase() === 'off') return null;
+  if (!String(process.env.BOH_GROUP_ID || '').trim() || !String(process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim()) return null;
+  const at = /^\d{1,2}:\d{2}$/.test(process.env.TODO_REMIND_TIME || '') ? process.env.TODO_REMIND_TIME : '09:00';
+  const [h, m] = at.split(':').map(Number);
+  let doneDay = null; let busy = false; let lastTry = 0;
+  const tick = async () => {
+    if (busy) return;
+    const b = new Date(now() + 7 * 3600 * 1000);
+    const minutes = b.getUTCHours() * 60 + b.getUTCMinutes();
+    const start = h * 60 + m;
+    if (minutes < start || minutes >= start + REMIND_GRACE_HOURS * 60) return;
+    const day = b.toISOString().slice(0, 10);
+    if (doneDay === day || now() - lastTry < RETRY_GAP_MS) return;
+    busy = true;
+    try {
+      let last; try { last = await store.get(REMIND_KEY); } catch (err) { log.error('To do reminder: could not check the last send.', err.message); return; }
+      if (last === day) { doneDay = day; return; }
+      lastTry = now();
+      try { const out = await run(); await store.set(REMIND_KEY, day); doneDay = day; if (out && out.sent) log.log(`To do reminder sent for ${day}`); }
+      catch (err) { log.error('To do reminder failed:', err.message); }
+    } finally { busy = false; }
+  };
+  return setInterval(tick, every);
+}
+
+// Index housekeeping: switches off announcements, promos and closures whose end date has passed. Runs hourly and once at start.
+// Off unless the bot control API is set up (BOT_URL and BOT_ADMIN_TOKEN). INDEX_EXPIRY_AUTO=off turns it off.
+function startIndexExpiryTimer(run, { every = 3600000, log = console } = {}) {
+  if (String(process.env.INDEX_EXPIRY_AUTO || '').toLowerCase() === 'off') return null;
+  if (!String(process.env.BOT_URL || '').trim() || !String(process.env.BOT_ADMIN_TOKEN || '').trim()) return null;
+  let busy = false;
+  const tick = async () => {
+    if (busy) return; busy = true;
+    try { const out = await run(); if (out && out.cleared && out.cleared.length) log.log(`Index expiry: ${out.cleared.join('; ')}`); }
+    catch (err) { log.error('Index expiry failed:', err.message); }
+    finally { busy = false; }
+  };
+  setTimeout(tick, 20000);
+  return setInterval(tick, every);
+}
+
+module.exports = { startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer };

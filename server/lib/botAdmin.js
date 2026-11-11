@@ -42,7 +42,50 @@ async function getJson(url, headers = {}) {
   return { ok: res.ok, status: res.status, body };
 }
 
+// ---- auto expiry ----------------------------------------------------------------------------------------------------
+// Anything with an end date in the past is switched off: the announcement, the whole bill promo, item promos, closed days
+// and special hours. Pure: state -> [{ action, body, label }]. todayIso is the Bangkok date, "YYYY-MM-DD".
+function staleActions(state, todayIso) {
+  const out = [];
+  if (!state || state.readOnly) return out;
+  const past = (d) => Boolean(d) && String(d) < todayIso;
+  const a = state.announcement || {};
+  if (a.headline && past(a.endDate)) out.push({ action: 'announcement/clear', body: {}, label: `announcement "${a.headline}" (ended ${a.endDate})` });
+  const w = state.storewidePromo || {};
+  if (w.active && past(w.endDate)) out.push({ action: 'promo/storewide/off', body: {}, label: `whole bill promo "${w.label}" (ended ${w.endDate})` });
+  for (const [id, p] of Object.entries(state.itemPromos || {})) {
+    if (p && past(p.endDate)) out.push({ action: 'promo/item/clear', body: { id }, label: `item promo "${p.label || id}" (ended ${p.endDate})` });
+  }
+  const o = state.open || {};
+  const closures = (o.closures || []).filter((c) => !past(c.end || c.start));
+  const special = (o.special || []).filter((x) => !past(x.date));
+  if (closures.length !== (o.closures || []).length || special.length !== (o.special || []).length) {
+    out.push({ action: 'hours', body: { override: o.override === true ? 'open' : o.override === false ? 'closed' : null, closures, special }, label: 'closed days or special hours that have passed' });
+  }
+  return out;
+}
+
+const bangkokIso = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+
 async function loadState() {
+  const st = await loadStateRaw();
+  const todo = staleActions(st, bangkokIso());
+  if (!todo.length) return st;
+  const cleared = [];
+  for (const t of todo) { try { await act(t.action, t.body); cleared.push(t.label); } catch (err) { console.error('Index expiry:', t.action, err.message); } }
+  if (!cleared.length) return st;
+  return { ...(await loadStateRaw()), expired: cleared };
+}
+
+// For the hourly timer: same clean up with no page open.
+async function expireStale() {
+  const st = await loadStateRaw();
+  const cleared = [];
+  for (const t of staleActions(st, bangkokIso())) { try { await act(t.action, t.body); cleared.push(t.label); } catch (err) { console.error('Index expiry:', t.action, err.message); } }
+  return { cleared };
+}
+
+async function loadStateRaw() {
   const base = botUrl();
   if (!base) throw new Error('BOT_URL is not set, so BOH does not know where the order app lives.');
   if (token()) {
@@ -73,4 +116,4 @@ async function act(action, body) {
   return out;
 }
 
-module.exports = { ACTIONS, stateFromPublic, loadState, act, DEFAULT_DELIVERY };
+module.exports = { ACTIONS, stateFromPublic, loadState, expireStale, staleActions, act, DEFAULT_DELIVERY };
