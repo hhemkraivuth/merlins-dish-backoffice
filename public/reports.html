@@ -92,6 +92,11 @@
       <a class="tab-button tab-link" href="analysis.html">Analysis</a>
     </nav>
     <main class="main wide">
+      <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span> <button class="alt" data-csv="profit" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
+      <p class="hint swipe">Swipe the table sideways to see every column. The month stays in place.</p>
+      <div class="tablewrap"><table id="profit"></table></div>
+      <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only. Type the amount you borrowed from Merlin's Dish in the Borrowed column, then tap Save (or press Enter). The box turns red until it is saved.</p>
+      <h2 style="font-size:16px;margin:18px 0 6px">Tools</h2>
       <div class="actions">
         <label class="btn">Import Grab CSV (one or more files)<input id="csv" type="file" accept=".csv,text/csv" multiple hidden /></label>
         <button id="driveImport" class="alt">Import from Drive now</button>
@@ -116,10 +121,6 @@
         <textarea id="manText" rows="9" style="width:100%;font:13px ui-monospace,monospace;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)" placeholder="23/10 Cee&#10;Red Wine Beef Stew (Regular) 285&#10;Noir Ragu + Pasta (Radiatori) 230&#10;delivery 50&#10;total 565"></textarea>
         <div class="toolrow"><button id="manGo" class="alt">Add these orders</button></div>
       </details>
-      <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span> <button class="alt" data-csv="profit" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
-      <p class="hint swipe">Swipe the table sideways to see every column. The month stays in place.</p>
-      <div class="tablewrap"><table id="profit"></table></div>
-      <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only. Type the amount you borrowed from Merlin's Dish in the Borrowed column, then tap Save (or press Enter). The box turns red until it is saved.</p>
       <div id="detail"></div>
       <h2>Monthly <span class="hint">(tap a month, week or day to see its orders, batches and purchases, then edit or delete)</span> <button class="alt" data-csv="monthly" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <div class="tablewrap"><table id="monthly" class="clickable"></table></div>

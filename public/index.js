@@ -142,7 +142,10 @@ function wireHours() {
 // ---------- promotions ----------
 function promoLine(p) { return `${esc(p.label)}, ${esc(p.percentOff)}% off${p.startDate || p.endDate ? ` (${p.startDate ? esc(dmy(p.startDate)) : 'now'} to ${p.endDate ? esc(dmy(p.endDate)) : 'open ended'})` : ''}`; }
 function promoBox() {
-  const w = S.storewidePromo || {};
+  // A promo that is off and already past its end date reads as "none set" instead of lingering on the page.
+  const w0 = S.storewidePromo || {};
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
+  const w = !w0.active && w0.endDate && w0.endDate < todayStr ? {} : w0;
   const itemEntries = Object.entries(S.itemPromos || {});
   const nameOf = (id) => (S.menu.find((m) => m.id === id) || {}).name || id;
   return `<div class="ix"><h3>Promotions</h3>
