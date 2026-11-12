@@ -75,9 +75,10 @@ function hoursBox() {
   const items = [];
   (o.closures || []).forEach((c, i) => items.push(`<div class="item" style="cursor:default"><span>Closed ${esc(short(c.start))}${c.end !== c.start ? ' to ' + esc(short(c.end)) : ''}</span><button class="link" data-rm-closure="${i}" ${lock()}>Remove</button></div>`));
   (o.special || []).forEach((x, i) => items.push(`<div class="item" style="cursor:default"><span>${esc(short(x.date))}: open ${esc(x.open)} to ${esc(x.close)}</span><button class="link" data-rm-special="${i}" ${lock()}>Remove</button></div>`));
+  (o.blocks || []).forEach((k, i) => items.push(`<div class="item" style="cursor:default"><span>Scheduled slots blocked ${esc(short(k.date))}, ${esc(k.start)} to ${esc(k.end)}</span><button class="link" data-rm-block="${i}" ${lock()}>Remove</button></div>`));
   const ov = o.override === true ? 'Forced OPEN until you switch back' : o.override === false ? 'Forced CLOSED until you switch back' : 'Following the normal hours';
   return `<div class="ix"><h3>Open and close <span class="pill ${o.isOpen ? 'on' : 'off'}">${o.isOpen === null ? 'Unknown' : o.isOpen ? 'Open now' : 'Closed now'}</span></h3>
-    <p class="sub">Normal hours: ${esc(o.normalHours || '')}. ${esc(ov)}. These control right away orders. Customers can still schedule ahead on closed days.</p>
+    <p class="sub">Normal hours: ${esc(o.normalHours || '')}. ${esc(ov)}. Opening hours control right away orders. Customers can schedule between 11:00 and 21:00 while closed, except on closed days and blocked slots.</p>
     ${items.length ? `<div>${items.join('')}</div>` : '<p class="sub">No special days or hours set.</p>'}
     <h4 style="margin:12px 0 4px;font-size:14px">Close for one or more days</h4>
     <div class="row"><label>From<input type="date" id="cF" value="${todayISO()}" /></label><label>To (last closed day)<input type="date" id="cT" value="${todayISO()}" /></label></div>
@@ -86,13 +87,17 @@ function hoursBox() {
     <label class="row" style="flex-direction:row;color:inherit;font-size:14px"><input type="checkbox" id="hAnn" checked /> Also post it on the announcement (added above the current one, if there is one)</label>
     <div id="hPrev" class="sub" style="margin:4px 0"></div>
     <div class="row"><button class="primary-button" id="hClose" ${lock()}>Close those days</button><button class="primary-button" id="hSpecial" ${lock()}>Set those hours</button></div>
-    <div class="row"><button class="small-button" id="hForceOpen" ${lock()}>Force open now</button><button class="small-button" id="hForceClosed" ${lock()}>Force closed now</button><button class="small-button" id="hNormal" ${lock()}>Back to normal hours</button></div></div>`;
+    <div class="row"><button class="small-button" id="hForceOpen" ${lock()}>Force open now</button><button class="small-button" id="hForceClosed" ${lock()}>Force closed now</button><button class="small-button" id="hNormal" ${lock()}>Back to normal hours</button></div>
+    <h4 style="margin:16px 0 4px;font-size:14px;border-top:1px solid var(--line);padding-top:12px">Block scheduled slots (a meeting, an errand)</h4>
+    <p class="sub">Customers can't book these slots. Right away orders and the other slots that day are not affected.</p>
+    <div class="row"><label>Date<input type="date" id="bD" value="${todayISO()}" /></label><label>From<input type="time" id="bF" value="11:00" /></label><label>To (included)<input type="time" id="bT" value="14:00" /></label></div>
+    <div class="row"><button class="primary-button" id="hBlock" ${lock()}>Block those slots</button></div></div>`;
 }
 function hoursBody(extra) {
   const o = S.open || {};
-  return { override: o.override === true ? 'open' : o.override === false ? 'closed' : null, closures: [...(o.closures || [])], special: [...(o.special || [])], ...extra };
+  return { override: o.override === true ? 'open' : o.override === false ? 'closed' : null, closures: [...(o.closures || [])], special: [...(o.special || [])], blocks: [...(o.blocks || [])], ...extra };
 }
-function closeText(f, t) { return { headline: `Closed ${short(f)}${t !== f ? ' to ' + short(t) : ''}`, body: `We're closed ${short(f)}${t !== f ? ' to ' + short(t) : ''}, but you can still schedule your order as usual.` }; }
+function closeText(f, t) { return { headline: `Closed ${short(f)}${t !== f ? ' to ' + short(t) : ''}`, body: `We're closed ${short(f)}${t !== f ? ' to ' + short(t) : ''}. Orders can't be scheduled for ${t !== f ? 'those days' : 'that day'}, please pick another day.` }; }
 function specialText(d, o, c) { return { headline: `Special hours ${short(d)}`, body: `On ${short(d)} we're open ${o} to ${c} for right away orders. You can still schedule your order as usual.` }; }
 // A new notice goes ABOVE an announcement that is already showing, never replacing it.
 async function postAnn(t, start, end) {
@@ -114,6 +119,17 @@ function wireHours() {
   ['cF', 'cT', 'hAnn'].forEach((id) => $(id).addEventListener('change', prev)); prev();
   document.querySelectorAll('[data-rm-closure]').forEach((b) => b.addEventListener('click', () => { const h = hoursBody(); h.closures.splice(Number(b.dataset.rmClosure), 1); save('hours', h, 'Closure removed.'); }));
   document.querySelectorAll('[data-rm-special]').forEach((b) => b.addEventListener('click', () => { const h = hoursBody(); h.special.splice(Number(b.dataset.rmSpecial), 1); save('hours', h, 'Special hours removed.'); }));
+  document.querySelectorAll('[data-rm-block]').forEach((b) => b.addEventListener('click', () => { const h = hoursBody(); h.blocks.splice(Number(b.dataset.rmBlock), 1); save('hours', h, 'Block removed.'); }));
+  $('hBlock').addEventListener('click', async () => {
+    const d = $('bD').value; const f = $('bF').value; const t = $('bT').value;
+    if (!d || !f || !t) return toast('Pick the date and both times.', true);
+    if (t < f) return toast('The end time is before the start time.', true);
+    try {
+      const h = hoursBody(); h.blocks = h.blocks.filter((x) => !(x.date === d && x.start === f && x.end === t)); h.blocks.push({ date: d, start: f, end: t });
+      await api('hours', h);
+      toast(`Blocked ${short(d)}, ${f} to ${t}. Customers can't book those slots, right away orders are not affected.`); draw();
+    } catch (err) { toast(err.message, true); }
+  });
   $('hClose').addEventListener('click', async () => {
     const f = $('cF').value; const t = $('cT').value || f;
     if (!f) return toast('Pick the first closed day.', true);
@@ -121,7 +137,7 @@ function wireHours() {
       const h = hoursBody(); h.closures.push({ start: f, end: t });
       await api('hours', h);
       if ($('hAnn').checked) await postAnn(closeText(f, t), todayISO() < f ? todayISO() : f, t);
-      toast('Closed. Right away orders stop on those days, scheduled orders carry on.'); draw();
+      toast('Closed. Right away and scheduled orders both stop on those days.'); draw();
     } catch (err) { toast(err.message, true); }
   });
   $('hSpecial').addEventListener('click', async () => {
