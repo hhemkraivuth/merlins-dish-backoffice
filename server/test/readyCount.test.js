@@ -30,3 +30,11 @@ test('an ordinary cook note is not mistaken for a count', async () => {
   const { deps } = mk();
   assert.strictEqual(await processReadyCount('11/11\nDBS\nMeat 1608\n13 portions', TODAY, deps), null);
 });
+
+test('the date on its own line above "stock after close" works (the way it arrived in LINE)', async () => {
+  const { rows, deps } = mk();
+  const out = await processReadyCount('11/11\nstock after close\nrsw 2r 2l\ndbs 4l 9r\ntpb 4\nragu 0\nbolog 9\nsr 6\nbroc s 4\nchic s 0', TODAY, deps);
+  assert.match(out[0], /11\/11\/2026/);
+  assert.strictEqual(rows.length, 8);
+  assert.deepStrictEqual(rows.find((r) => r[0] === 'Dark beer Stew').slice(1, 3), [13, '11/11/2026']);
+});

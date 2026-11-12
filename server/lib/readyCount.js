@@ -24,19 +24,22 @@ const DATE = /\b(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?)\b/;
 
 async function processReadyCount(text, today, deps) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length < 2 || !HEAD.test(lines[0])) return null;
+  // The date may sit on a line of its own above the "stock after close" line, the way a cook note is dated.
+  const dateOnly = /^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/;
+  const h = lines.length >= 3 && dateOnly.test(lines[0]) ? 1 : 0;
+  if (lines.length < h + 2 || !HEAD.test(lines[h])) return null;
 
   let day = today;
-  const dm = lines[0].match(DATE);
+  const dm = (h ? lines[0] : lines[0].match(DATE) && lines[0].match(DATE)[1]) || null;
   if (dm) {
-    day = parseDate(dm[1], today);
-    if (!day) return [`The date "${dm[1]}" does not look valid. Nothing was saved.`];
+    day = parseDate(dm, today);
+    if (!day) return [`The date "${dm}" does not look valid. Nothing was saved.`];
   }
 
   const sh = await deps.loadShorthand();
   const counts = new Map();
   const problems = [];
-  for (const raw of lines.slice(1)) {
+  for (const raw of lines.slice(h + 1)) {
     const l = raw.replace(/^[-•*–\s]+/, '');
     const m = l.match(/^([A-Za-z&][A-Za-z&\s.]*?)[\s:=]*((?:\d+\s*[a-zA-Z]{0,2}[\s,+]*)+)$/);
     if (!m) { problems.push(`Could not read "${raw}". Write it like: dbs 4l 9r`); continue; }

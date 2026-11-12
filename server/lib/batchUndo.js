@@ -16,7 +16,7 @@ const LOTS = 'Ingredient Lots';
 
 function realIo() {
   const s = require('./sheets');
-  return { readTab: s.readTab, updateRow: s.updateRow, deleteRowsWhere: s.deleteRowsWhere };
+  return { readTab: s.readTab, updateRow: s.updateRow, deleteRowsWhere: s.deleteRowsWhere, restoreStock: (name, qty) => require('./stockCounts').deductStock(name, -qty) };
 }
 
 // Returns { status: 'undone' | 'none' | 'many', text }
@@ -66,13 +66,24 @@ async function removeBatch(hit, dmy, io) {
   }
 
   const lines = await io.readTab(COOK_LINES).catch(() => []);
-  const hadPackaging = lines.some((r, i) => i > 0 && r[0] === key && /packag/i.test(String(r[3] || '')));
+  const pack = lines.filter((r, i) => i > 0 && r[0] === key && /packag/i.test(String(r[3] || '')));
+  const hadPackaging = pack.length > 0;
+  // The cups and boxes the batch took off the Stock page go back on it.
+  const packBack = [];
+  if (io.restoreStock) {
+    for (const r of pack) {
+      const qty = Number(r[5]);
+      if (!(qty > 0)) continue;
+      try { const got = await io.restoreStock(String(r[4]), qty); if (got && got.deducted) packBack.push(`${r[4]} ${got.newCount - qty} to ${got.newCount}`); } catch (err) { /* reported below */ }
+    }
+  }
 
   for (const tab of [COOK_LOG, COOK_LINES, COOK_SIZES, USAGE]) {
     try { await io.deleteRowsWhere(tab, (r) => r[0] === key); } catch (err) { /* a tab that never existed has nothing to remove */ }
   }
   const parts = [`Undone: ${dish}, ${dmy}, ${hits[0][3]} serves. It is out of the Cook Log${restored ? ` and ${restored} stock lot${restored === 1 ? ' has' : 's have'} got its quantity back` : ''}.`, 'Send the cook note again to log it.'];
-  if (hadPackaging) parts.push('Packaging stock counts were not put back. Send "stock" to check them.');
+  if (packBack.length) parts.push(`Packaging put back: ${packBack.join(', ')}.`);
+  else if (hadPackaging) parts.push('Packaging stock counts were not put back. Send "stock" to check them.');
   return { status: 'undone', text: parts.join('\n') };
 }
 
