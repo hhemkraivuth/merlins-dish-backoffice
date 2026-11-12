@@ -9,7 +9,7 @@ const { botUrl } = require('./botStock');
 
 const ACTIONS = new Set([
   'announcement', 'announcement/clear', 'hours', 'promo/storewide', 'promo/storewide/off', 'promo/item', 'promo/item/clear',
-  'menu/price', 'menu/image', 'menu/item', 'menu/add', 'menu/remove', 'menu/restore', 'delivery',
+  'menu/price', 'menu/image', 'menu/item', 'menu/add', 'menu/remove', 'menu/restore', 'delivery', 'stock',
 ]);
 
 const token = () => String(process.env.BOT_ADMIN_TOKEN || '').trim();

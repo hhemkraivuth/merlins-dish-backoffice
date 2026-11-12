@@ -142,6 +142,26 @@ async function loadStock(refresh) {
     box.innerHTML = `${rows}<p class="muted">As at ${esc(when)} Bangkok time.${d.note ? ' ' + esc(d.note) : ''}</p>`;
   } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; }
 }
+// Same as typing "left ..." in the LINE group: updates the order app and BOH together.
+$('leftForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = $('leftText').value.trim();
+  if (!text) return;
+  const btn = $('leftGo'); const msg = $('leftMsg');
+  btn.disabled = true; msg.textContent = 'Updating...';
+  try {
+    const res = await fetch('/api/stock-left/set', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+    const ok = (t, failed) => (failed ? 'not saved' : /^Nothing was changed|saved nothing/i.test(t) ? 'nothing changed' : 'saved');
+    msg.textContent = `Order app: ${ok(d.bot, d.botFailed)}. BOH: ${ok(d.boh, d.bohFailed)}.`;
+    $('leftDetail').textContent = `Order app\n${d.bot}\n\nBOH\n${d.boh}`;
+    $('leftMore').hidden = false;
+    if (!d.botFailed || !d.bohFailed) $('leftText').value = '';
+    loadStock(false);
+  } catch (err) { msg.textContent = err.message; }
+  btn.disabled = false;
+});
 $('reload').addEventListener('click', () => { load(); loadShop(true); loadStock(true); });
 load();
 loadStock(false);

@@ -146,6 +146,7 @@ app.post('/api/menu-bible/delete', async (req, res) => { try { res.json(await me
 app.get('/api/recipes', async (req, res) => { try { res.json(await recipeStore.load(require('./data/recipes.json'))); } catch (err) { res.json({ ...recipeStore.merge(require('./data/recipes.json'), []), warning: `Edits could not be loaded (${err.message}). Showing the starting recipes.` }); } });
 app.post('/api/recipes/save', async (req, res) => { try { res.json(await recipeStore.save(require('./data/recipes.json'), req.body || {})); } catch (err) { res.status(/empty|needs a name/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); } });
 app.get('/api/stock-left', require('./routes/stockLeft').stockLeftJson);
+app.post('/api/stock-left/set', require('./routes/stockLeft').stockLeftSet);
 app.post('/api/huddle/run', ledgerRoute.runHuddle);
 
 // Back of house LINE group (own LINE channel, separate from the customer bot)
