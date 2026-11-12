@@ -150,7 +150,7 @@ function cookLinesCsvRows({ lineRows = [], month, today }) {
 // Without a count: portions cooked minus portions sold (oldest batch used first), the same sums as the Home page.
 // With a count (Ready Counts tab: Dish | Count | Counted on | Logged at): the count, plus portions cooked after that date,
 // minus portions sold after that date. Anything dated on the count day is taken to be inside the count already.
-const READY_HEADERS = ['Dish', 'Count', 'Counted on', 'Logged at'];
+const READY_HEADERS = ['Dish', 'Count', 'Counted on', 'Logged at', 'As typed'];
 const STALE_DAYS = 5;
 
 function latestCounts(countRows = []) {

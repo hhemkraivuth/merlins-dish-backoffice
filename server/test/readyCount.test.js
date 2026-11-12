@@ -74,3 +74,31 @@ test('plain "left" with no dish and other words are not claimed', async () => {
   assert.strictEqual(await processReadyCount('left', TODAY, deps), null);
   assert.strictEqual(await processReadyCount('leftover noodles 3', TODAY, deps), null);
 });
+
+test('"left" numbers typed straight after the dish word, and a size letter before its number', async () => {
+  const { rows, deps } = mk();
+  const out = await processReadyCount('left sr6, tpb3, ragu17, bolog8, brocs1, chics0, dbs5r3l, rws r1 l2', TODAY, deps);
+  assert.deepStrictEqual(rows.map((r) => [r[0], r[1]]), [
+    ['Spicy Rosso', 6], ['Tuscan Pork Braise', 3], ['Noir Ragu', 17], ['Polished Pork Bolognese', 8],
+    ['Pecorino & Broccoli Cream Soup', 1], ['Creamy Chicken Soup', 0], ['Dark beer Stew', 8], ['Red Wine Beef Stew', 3],
+  ]);
+  assert.ok(!/left to the order app/.test(out[0]));
+});
+
+test('sizes are shown as typed, never merged: dbs 5r 3l', async () => {
+  const { rows, deps } = mk();
+  const out = await processReadyCount('left dbs5r3l, rws r1 l2, tpb3', TODAY, deps);
+  assert.match(out[0], /Dark beer Stew 5r 3l \(8 in total\)/);
+  assert.match(out[0], /Red Wine Beef Stew 1r 2l \(3 in total\)/);
+  assert.match(out[0], /Tuscan Pork Braise 3\n?/);
+  assert.ok(!/Tuscan Pork Braise 3 \(/.test(out[0]));
+  // the total stays the number the stock maths uses, the typed sizes sit beside it
+  assert.deepStrictEqual(rows.map((r) => [r[0], r[1], r[4]]), [['Dark beer Stew', 8, '5r 3l'], ['Red Wine Beef Stew', 3, '1r 2l'], ['Tuscan Pork Braise', 3, '']]);
+});
+
+test('closing count also shows sizes as typed', async () => {
+  const { rows, deps } = mk();
+  const out = await processReadyCount('stock after close 11/11\ndbs 4l 9r\ntpb 4', TODAY, deps);
+  assert.match(out[0], /Dark beer Stew 4l 9r \(13 in total\)/);
+  assert.strictEqual(rows.find((r) => r[0] === 'Dark beer Stew')[1], 13);
+});
