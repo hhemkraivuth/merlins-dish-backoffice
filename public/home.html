@@ -100,7 +100,13 @@
       <div class="status" id="status">Loading…</div>
       <p class="week">This week, Sunday to Saturday. Tap a card for the detail.</p>
       <section class="shop-box" id="todoBox"><h2>To do</h2><div data-card></div></section>
-      <section class="shop-box" id="stockBox"><h2>Stock left</h2><div id="stockLeft"></div></section>
+      <section class="shop-box" id="stockBox"><h2>Stock left</h2><div id="stockLeft"></div>
+        <form id="leftForm" class="left-form" autocomplete="off">
+          <input id="leftText" type="text" placeholder="tpb 3, bolo 8, ragu 0" aria-label="Stock left">
+          <button type="submit" id="leftGo">Update</button>
+        </form>
+        <p id="leftMsg" class="muted"></p>
+        <details id="leftMore" hidden><summary>Details</summary><pre id="leftDetail" class="muted"></pre></details></section>
       <section class="shop-box" id="shopBox"><h2>Shopping plan</h2><div id="shopPlan"></div></section>
       <div class="grid" id="teams"></div>
     </main>

@@ -222,3 +222,9 @@ body {
 .recipe-table .recipe-row .recipe-price { grid-area: price; width: auto; text-align: left; font-size: 12px; }
 .recipe-table .recipe-row .row-actions { grid-area: actions; display: flex; gap: 6px; justify-content: flex-end; }
 .recipe-row.removed .recipe-name, .recipe-row.removed .line-cost { text-decoration: line-through; opacity: .5; }
+
+.left-form { display: flex; gap: 8px; margin-top: 10px; }
+.left-form input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.left-form button { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--yellow); font: inherit; font-weight: 700; cursor: pointer; }
+.left-form button:disabled { opacity: .5; }
+#leftDetail { white-space: pre-wrap; font-size: 13px; }
