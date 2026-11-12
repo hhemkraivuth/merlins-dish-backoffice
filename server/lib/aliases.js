@@ -9,7 +9,7 @@
 
 const DEFAULT_DISH_ALIASES = {
   'Polished Pork Bolognese': ['bolo', 'bolognese', 'bolog'],
-  'Noir Ragu': ['ragu'],
+  'Noir Ragu': ['ragu', 'noir'],
   'Tuscan Pork Braise': ['tuscan', 'tpb', 'tucan'],
   'Red Wine Beef Stew': ['rws', 'rsw', 'redwinestew'],
   'Dark beer Stew': ['dbs', 'darkbeerstew'],
