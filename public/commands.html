@@ -36,6 +36,13 @@
     p.where { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
 
     
+
+    .mlink { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .mlink:last-child { border-bottom: 0; }
+    .mlink .what { flex: 1 1 100%; font-size: 15px; font-weight: 600; }
+    .mlink .what small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 1px; }
+    .mlink code { flex: 1 1 220px; font-size: 13px; background: #f4f1ec; border-radius: 8px; padding: 7px 9px; word-break: break-all; user-select: all; }
+    .mlink .tag { font-size: 12px; font-weight: 600; color: var(--muted); }
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
     .note { font-size: 13px; color: var(--muted); }
     .ix { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 0 0 12px; }
@@ -80,7 +87,7 @@
     </nav>
     <main class="main wide">
       <nav class="jump" aria-label="Jump to">
-        <a href="#howTo">How to</a><a href="#orderApp">Order app</a><a href="#deliveryCost">Delivery cost</a><a href="#commands">Commands</a><a href="#menuPrices">Menu and prices</a><a href="#bible">Menu bible</a>
+        <a href="#howTo">How to</a><a href="#orderApp">Order app</a><a href="#deliveryCost">Delivery cost</a><a href="#marketingLinks">Marketing links</a><a href="#commands">Commands</a><a href="#menuPrices">Menu and prices</a><a href="#bible">Menu bible</a>
       </nav>
 
       <h2 id="howTo">How to</h2>
@@ -191,6 +198,18 @@
       </details>
 
       <div id="idx"><div class="loading">Loading the order app…</div></div>
+
+      <h2 id="marketingLinks">Marketing links</h2>
+      <p class="where">Every link opens the order web. The tag after <b>?src=</b> is counted in Menu Taps as "order app open". Tap Copy, then paste it where it belongs.</p>
+      <div class="ix" id="mlinks">
+        <div class="mlink"><div class="what">New customer card QR<small>Thank you card in the Grab bag, new customers. A first direct order from this link starts at 2 of 5.</small></div><code>https://tinyurl.com/MerlinsNew</code><span class="tag">src=gnew</span><button class="small-button" type="button" data-copy="https://tinyurl.com/MerlinsNew">Copy</button></div>
+        <div class="mlink"><div class="what">Returning customer card QR<small>Thank you card in the Grab bag, returning customers. Same head start.</small></div><code>https://tinyurl.com/MerlinsBack</code><span class="tag">src=gback</span><button class="small-button" type="button" data-copy="https://tinyurl.com/MerlinsBack">Copy</button></div>
+        <div class="mlink"><div class="what">Instagram<small>Bio, instant reply and story link stickers.</small></div><code>https://tinyurl.com/MerlinsDishIG</code><span class="tag">src=ig</span><button class="small-button" type="button" data-copy="https://tinyurl.com/MerlinsDishIG">Copy</button></div>
+        <div class="mlink"><div class="what">Meta ads<small>Use the full link as the ad destination, not a short link. For more than one campaign use ad1, ad2 and so on.</small></div><code>https://merlins-dish-bot-production.up.railway.app/?src=ad</code><span class="tag">src=ad</span><button class="small-button" type="button" data-copy="https://merlins-dish-bot-production.up.railway.app/?src=ad">Copy</button></div>
+        <div class="mlink"><div class="what">LINE rich menu, Order here button<small>Set in LINE OA Manager as a Link action.</small></div><code>https://liff.line.me/2011487934-vA458ABe?src=rich</code><span class="tag">src=rich</span><button class="small-button" type="button" data-copy="https://liff.line.me/2011487934-vA458ABe?src=rich">Copy</button></div>
+        <div class="mlink"><div class="what">Add us on LINE<small>The OA add friend link behind "Contact us" on the order web (LINE_OA_URL on Railway).</small></div><code>https://lin.ee/YVdEqyn</code><span class="tag">no tag</span><button class="small-button" type="button" data-copy="https://lin.ee/YVdEqyn">Copy</button></div>
+        <p class="sub" style="margin:10px 0 0">Before printing a card, open its short link on a phone and check the address bar shows the tag (for example ?src=gnew). TinyURL free links cannot be edited after they are made.</p>
+      </div>
 
       <h2 id="commands">Commands</h2>
       <section class="group" data-group="bot">
@@ -329,6 +348,16 @@
 
     </main>
   </div>
+  <script>
+    document.querySelectorAll('#mlinks [data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var t = b.getAttribute('data-copy');
+        var done = function () { var o = b.textContent; b.textContent = 'Copied'; setTimeout(function () { b.textContent = o; }, 1400); };
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(done, function () { window.prompt('Copy this link', t); }); }
+        else { window.prompt('Copy this link', t); }
+      });
+    });
+  </script>
   <script src="index.js"></script>
   <script src="bible.js"></script>
   <script src="briefing.js"></script>
