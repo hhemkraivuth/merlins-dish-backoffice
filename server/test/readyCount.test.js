@@ -38,3 +38,39 @@ test('the date on its own line above "stock after close" works (the way it arriv
   assert.strictEqual(rows.length, 8);
   assert.deepStrictEqual(rows.find((r) => r[0] === 'Dark beer Stew').slice(1, 3), [13, '11/11/2026']);
 });
+
+test('"left" quick message: several dishes on one line, sizes added up', async () => {
+  const { rows, deps } = mk();
+  const out = await processReadyCount('left tpb 3, noir 0, bolo 8, brocs 1, rws 2l, 2r, dbs 1', TODAY, deps);
+  assert.match(out[0], /BOH counts saved for 12\/11\/2026/);
+  assert.deepStrictEqual(rows.map((r) => [r[0], r[1], r[2]]), [
+    ['Tuscan Pork Braise', 3, '12/11/2026'], ['Noir Ragu', 0, '12/11/2026'], ['Polished Pork Bolognese', 8, '12/11/2026'],
+    ['Pecorino & Broccoli Cream Soup', 1, '12/11/2026'], ['Red Wine Beef Stew', 4, '12/11/2026'], ['Dark beer Stew', 1, '12/11/2026'],
+  ]);
+});
+
+test('"left" with one dish per line', async () => {
+  const { rows, deps } = mk();
+  await processReadyCount('left\ntpb 3\nbolo 8', TODAY, deps);
+  assert.deepStrictEqual(rows.map((r) => [r[0], r[1]]), [['Tuscan Pork Braise', 3], ['Polished Pork Bolognese', 8]]);
+});
+
+test('"left" skips order-app-only words and still saves the batch dishes', async () => {
+  const { rows, deps } = mk();
+  const out = await processReadyCount('left tpb 3, bacon 13, coke 5, bolo 8', TODAY, deps);
+  assert.strictEqual(rows.length, 2);
+  assert.match(out[0], /left to the order app: bacon, coke/);
+});
+
+test('"left" with only order-app words saves nothing and says so', async () => {
+  const { rows, deps } = mk();
+  const out = await processReadyCount('left bacon 13, coke 5', TODAY, deps);
+  assert.strictEqual(rows.length, 0);
+  assert.match(out[0], /saved nothing/);
+});
+
+test('plain "left" with no dish and other words are not claimed', async () => {
+  const { deps } = mk();
+  assert.strictEqual(await processReadyCount('left', TODAY, deps), null);
+  assert.strictEqual(await processReadyCount('leftover noodles 3', TODAY, deps), null);
+});
