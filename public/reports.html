@@ -37,7 +37,9 @@
     td .borrowbox { display: inline-flex; gap: 4px; align-items: center; }
     td input.borrow.unsaved { border-color: var(--flag); }
     td button.borrowsave { font: inherit; font-size: 12px; padding: 3px 8px; border: 0; border-radius: 5px; background: var(--ink); color: var(--card); cursor: pointer; }
-    td button.borrowsave:disabled { background: var(--line); color: var(--muted); cursor: default; }
+    /* The Save button only appears once the figure has changed, so the column is as narrow as the others. */
+    td button.borrowsave:disabled { display: none; }
+    td input.borrow { width: 84px; }
     h2 { font-size: 16px; margin: 20px 0 8px; }
     .hint { font-size: 12px; font-weight: 400; color: var(--muted); }
     table.clickable tr.row { cursor: pointer; }
@@ -71,7 +73,10 @@
       table { font-size: 12px; }
       th, td { padding: 7px 8px; }
       .tablewrap { -webkit-overflow-scrolling: touch; margin-left: -4px; margin-right: -4px; }
-      td input.borrow { width: 96px; font-size: 16px; }
+      /* Borrowed: keep the column as narrow as the others. The Save button only appears once the figure has changed. */
+      td input.borrow { width: 84px; font-size: 16px; padding: 3px 4px; }
+      td .borrowbox { gap: 3px; }
+      td button.borrowsave { padding: 3px 6px; }
       #detail { overflow-x: auto; }
     }
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
