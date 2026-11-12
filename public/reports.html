@@ -31,6 +31,14 @@
     th, td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
     th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); }
     th { font-weight: 600; color: var(--muted); }
+    .profitfoot { margin: -12px 0 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+    .footrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 14px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--line); }
+    .footrow:last-child { border-bottom: 0; }
+    .footlabel { flex: 1 1 220px; }
+    .footedit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 400; color: var(--muted); }
+    .footedit input { font: inherit; font-size: 14px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink); }
+    #bankAmt { width: 110px; text-align: right; }
+    #bankDate { width: 100px; }
     .neg { color: var(--flag); }
     .pos { color: #14532d; font-weight: 600; }
     td input.borrow { font: inherit; font-size: 13px; width: 86px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink); text-align: right; }
@@ -77,6 +85,7 @@
       td input.borrow { width: 84px; font-size: 16px; padding: 3px 4px; }
       td .borrowbox { gap: 3px; }
       td button.borrowsave { padding: 3px 6px; }
+      .footedit input { font-size: 16px; }
       #detail { overflow-x: auto; }
     }
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
@@ -109,6 +118,7 @@
       <h2>Profit by month <span class="hint">(what came in, what it cost, what was left)</span> <button class="alt" data-csv="profit" style="margin-left:8px;font-size:12px;padding:4px 10px">Download CSV</button></h2>
       <p class="hint swipe">Swipe the table sideways to see every column. The month stays in place.</p>
       <div class="tablewrap"><table id="profit"></table></div>
+      <div id="profitFoot" class="profitfoot"></div>
       <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only. Type the amount you borrowed from Merlin's Dish in the Borrowed column, then tap Save (or press Enter). The box turns red until it is saved.</p>
       <h2 style="font-size:16px;margin:18px 0 6px">Tools</h2>
       <div class="actions">
