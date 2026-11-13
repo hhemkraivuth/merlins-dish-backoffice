@@ -45,7 +45,7 @@ function reportsFromPit(pit) {
     if (!lines.length || lines.every((l) => /^no /i.test(l))) continue;
     out.push({ key: `team|${t.name}|${hash(lines.join('|'))}`, team: t.name, lines });
   }
-  const open = (pit && pit.teams || []).flatMap((t) => (t.open || []).map((h) => ({ h, team: t.name })));
+  const open = (pit && pit.teams || []).flatMap((t) => (t.openShort || t.open || []).map((h) => ({ h, team: t.name })));
   const seen = new Set();
   for (const { h } of open) {
     const k = `ho|${hash(`${h.from}|${h.to}|${h.message}`)}`;

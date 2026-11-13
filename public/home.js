@@ -26,7 +26,7 @@ function topHtml(text) {
 }
 
 function card(t) {
-  const open = t.open || [];
+  const open = t.openShort || t.open || [];
   return `<section class="team" id="team-${slug(t.name)}">
     <a class="tlink" href="${PAGE[t.name] || '#'}">
       <span class="tname">${esc(t.name)}</span>

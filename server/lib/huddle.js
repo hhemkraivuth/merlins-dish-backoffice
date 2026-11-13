@@ -4,6 +4,7 @@
 
 const { formatDMY, daysBetween } = require('./dates');
 const { summarise, periodOf, addDays } = require('./reports');
+const { compactHandoffs } = require('./handoffs');
 
 const baht = (n) => `฿${Math.round(n).toLocaleString('en-AU')}`;
 
@@ -13,13 +14,19 @@ function lastDate(ledger, channel) {
   return best;
 }
 
+// Grab's own report for a day only emails at about 15:30 the next day, so at 05:00 yesterday's Grab sales are normally
+// not in yet. Say that instead of "no sales".
 function dayLine(ledger, date) {
   const day = ledger.filter((r) => r.date.getTime() === date.getTime());
+  const grabLast = lastDate(ledger, 'Grab');
+  const grabPending = !day.some((r) => r.channel === 'Grab') && (!grabLast || grabLast < date);
+  const pending = "Grab not in yet (Grab's report for that day arrives about 15:30 today)";
   const p = summarise(day, [], [], 'week')[0];
-  if (!p) return 'no sales recorded';
+  if (!p) return grabPending ? pending : 'no sales recorded';
   const bits = [];
   if (p.grab.orders) bits.push(`Grab ${p.grab.orders} orders, ${baht(p.grab.gross)} gross, ${baht(p.grab.net)} after fees`);
   if (p.line.orders) bits.push(`LINE ${p.line.orders} orders, ${baht(p.line.net)}`);
+  if (grabPending) bits.push(pending);
   return bits.length ? bits.join('. ') : 'no sales recorded';
 }
 
@@ -31,7 +38,8 @@ function weekLine(periods, today) {
 }
 
 // { today, ledger, cookBatches, purchases, stock, open }
-function buildHuddle({ today, ledger, cookBatches, purchases, stock, open, lowPacks = [] }) {
+function buildHuddle({ today, ledger, cookBatches, purchases, stock, open: openRaw, lowPacks = [] }) {
+  const open = compactHandoffs(openRaw);
   const yesterday = addDays(today, -1);
   const out = [`Daily huddle, ${formatDMY(today)}`, ''];
   out.push(`Yesterday (${formatDMY(yesterday)}): ${dayLine(ledger, yesterday)}.`);

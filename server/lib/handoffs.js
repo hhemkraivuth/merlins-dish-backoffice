@@ -49,6 +49,47 @@ function currentHandoffs({ stock, moves, today, gaps = [] }) {
   return out;
 }
 
+// Short team names for display: the two sales teams read as one "Sales".
+const shortTeam = (t) => String(t || '').replace('App sales, Direct sales', 'Sales');
+
+// Shortens what the team sees: "App sales, Direct sales" becomes "Sales", and the one line per dish notes of the same
+// kind (aged stock, low stock, sold out) become one line listing every dish. The Handoffs tab itself is unchanged,
+// so each note still closes on its own. list: [{ from, to, message, ... }]
+function compactHandoffs(list) {
+  const AGE = /^(.+?): (\d+) portions? from the .+ batch (?:are|is) (\d+) days? old\. Time for a flash sale\.$/;
+  const LOW = /^(.+?): only (\d+) portions? left\. Cook another batch\?$/;
+  const OUT = /^(.+?) is sold out\. Mark it sold out on Grab and in the LINE group\.$/;
+  const out = [];
+  const groups = new Map();
+  for (const h of list || []) {
+    const from = shortTeam(h.from);
+    const to = shortTeam(h.to);
+    let kind = null; let m = null;
+    if ((m = AGE.exec(h.message))) kind = 'age';
+    else if ((m = LOW.exec(h.message))) kind = 'low';
+    else if ((m = OUT.exec(h.message))) kind = 'out';
+    if (!kind) { out.push({ ...h, from, to }); continue; }
+    const gk = `${kind}|${from}|${to}`;
+    let g = groups.get(gk);
+    if (!g) { g = { ...h, from, to, kind, dishes: new Map() }; groups.set(gk, g); out.push(g); }
+    const d = g.dishes.get(m[1]) || { portions: 0, days: 0 };
+    if (kind === 'age') { d.portions += Number(m[2]); d.days = Math.max(d.days, Number(m[3])); }
+    if (kind === 'low') d.portions += Number(m[2]);
+    g.dishes.set(m[1], d);
+  }
+  return out.map((g) => {
+    if (!g.dishes) return g;
+    const items = [...g.dishes.entries()];
+    const message = g.kind === 'age'
+      ? `Flash sale, over ${AGE_LIMIT_DAYS} days old: ${items.map(([n, d]) => `${n} ${d.portions} (${d.days} days)`).join(', ')}.`
+      : g.kind === 'low'
+        ? `${items.map(([n, d]) => `${n} ${d.portions} left`).join(', ')}. Cook another batch?`
+        : `Sold out, mark it on Grab and in the LINE group: ${items.map(([n]) => n).join(', ')}.`;
+    const { dishes, kind, ...rest } = g;
+    return { ...rest, message };
+  });
+}
+
 // existing: rows from the Handoffs tab (header first). Returns { add: [rows], update: [{ rowIndex, row }] }
 function reconcile(existing, current, today) {
   const rows = (existing || []).slice(1);
@@ -75,4 +116,4 @@ function openHandoffs(rows) {
   return (rows || []).slice(1).filter((r) => String(r[4] || '').trim().toLowerCase() === 'open').map((r) => ({ from: r[1], to: r[2], message: r[3] }));
 }
 
-module.exports = { HANDOFF_TAB, HANDOFF_HEADERS, currentHandoffs, reconcile, openHandoffs, AGE_LIMIT_DAYS };
+module.exports = { HANDOFF_TAB, HANDOFF_HEADERS, currentHandoffs, reconcile, openHandoffs, AGE_LIMIT_DAYS, compactHandoffs, shortTeam };

@@ -352,7 +352,7 @@
       b.type = 'button'; b.className = 'plate';
       b.style.left = `${((x + 14) / W) * 100}%`;
       b.style.top = `${((y - 1) / H) * 100}%`;
-      const n = (t.open || []).length;
+      const n = (t.openShort || t.open || []).length;
       b.innerHTML = `${String(t.name).replace(/[&<>"]/g, '')}${n ? `<span class="n">${n}</span>` : ''}`;
       b.addEventListener('click', () => onPick(i));
       box.appendChild(b);
