@@ -30,3 +30,10 @@ test('savePlan validates proposals', async () => {
   await assert.rejects(() => lib.savePlan({ plan: { proposals: [{ id: 'a', title: 't' }, { id: 'a', title: 't' }] } }), /used twice/);
   await assert.rejects(() => lib.savePlan({ plan: { proposals: [{ id: 'BAD ID', title: 't' }] } }), /short id/);
 });
+
+test('every proposal explains itself and the plan tells its story', () => {
+  for (const p of seed.proposals) assert.ok(p.why && p.why.length > 40, `${p.id} why`);
+  assert.ok(seed.story && seed.story.points.length >= 5);
+  assert.ok(!/ [-–—] /.test(JSON.stringify(seed.story)));
+  assert.ok(!/secret recipe/i.test(JSON.stringify(seed)));
+});

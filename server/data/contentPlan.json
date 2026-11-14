@@ -94,7 +94,8 @@
    "caption": "Eight hours of onion, carrot and celery, slowly turning to amber. It becomes the base of every sauce we make. Worth the wait. Order direct, link in the last line.",
    "borrow": "Your own best reel formula (6,981 views)",
    "avoid": "No cuts faster than every 3 seconds",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Thai 60 / Expat 40",
+   "why": "Your best reel was one unbroken macro with one label. Repeating the proven format is the lowest risk first post, and the dishes behind it (Noir Ragu, Bolognese) are the best sellers."
   },
   {
    "id": "cp-12",
@@ -107,7 +108,8 @@
    "caption": "Red Wine Beef Stew. AU beef, red wine, carrot, a gravy that coats the spoon. Cooler nights call for something slow. Order 2 days ahead, link in the last line.",
    "borrow": "@bshnuez dish name plus components caption",
    "avoid": "No hard sell, no price in the caption",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Thai 60 / Expat 40",
+   "why": "A quiet mood post for the cooler weather. It sells the stew without selling, which earns trust before the next ask."
   },
   {
    "id": "cp-13",
@@ -120,7 +122,8 @@
    "caption": "Hour 1 of 4. A new slow braise is starting in our kitchen. One pot, 6 shanks, and when they are gone they are gone. More soon. Follow along.",
    "borrow": "@solsnack numbered series, @notorious_foodie numbered steps",
    "avoid": "No order link until the lamb can be ordered",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Thai 60 / Expat 40",
+   "why": "Starts the lamb story early and honestly. The 6 shank limit is real, so the scarcity is true. No order link yet, so nobody is sent to a dish they cannot buy."
   },
   {
    "id": "cp-14",
@@ -133,7 +136,8 @@
    "caption": "The dark crust on the pan is flavour. We lift every bit of it into the braise. That is the difference between a stew and a good stew. Order direct, link in the last line.",
    "borrow": "@ratto.bangkok technique authority",
    "avoid": "Share the idea, not the full recipe",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Thai 60 / Expat 40",
+   "why": "Shows craft, which justifies the price, and works for any dish. It also gives the lamb tease a few days to breathe before the reveal."
   },
   {
    "id": "cp-15",
@@ -146,7 +150,8 @@
    "caption": "Slow Braised Lamb Shank. 1 shank, sweet carrots, 300g of gravy. Falling off the bone, ready to heat. Order 2 days ahead, link in the last line.",
    "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components",
    "avoid": "Do not post before the lamb is orderable",
-   "audience": "Expat 40 / Thai 60"
+   "audience": "Expat 40 / Thai 60",
+   "why": "The payoff of the tease. A title card and one spoon lift keep it simple. Only post once lamb is orderable, then the 2 day lead time turns interest into orders."
   },
   {
    "id": "cp-16",
@@ -159,7 +164,8 @@
    "caption": "Skip the kitchen on Father's Day. Pick a slow pot for the table: Red Wine Beef Stew, Tuscan Pork Braise or the new lamb shank. Order 2 days ahead, link in the last line.",
    "borrow": "@hangrybeefnoodle sharing post (228 likes)",
    "avoid": "No percentage language",
-   "audience": "Thai 60"
+   "audience": "Thai 60",
+   "why": "Father's Day on 05/12 is a Thai holiday and a long weekend, so it speaks to the 60% Thai audience. Posting on 02/12 respects the 2 day lead time."
   },
   {
    "id": "cp-17",
@@ -172,7 +178,8 @@
    "caption": "Spicy Rosso or Noir Ragu? Vote in Stories and the winner goes in the pot next week. Order direct, link in the last line.",
    "borrow": "@hangrybeefnoodle game post, once a month",
    "avoid": "No more than one game post a month",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Thai 60 / Expat 40",
+   "why": "Gets people to do something instead of just looking. A monthly game post worked for a competitor (228 likes, their best of the latest 6). Keep it to one a month."
   },
   {
    "id": "cp-18",
@@ -185,7 +192,37 @@
    "caption": "A slow pot for the Christmas table. Braised lamb shank or Red Wine Beef Stew, ready to heat and serve. Last orders 22/12, 2 day lead time. Order direct, link in the last line.",
    "borrow": "@notorious_foodie festive series",
    "avoid": "Do not set a last order date you cannot meet",
-   "audience": "Expat 40 / Thai 60"
+   "audience": "Expat 40 / Thai 60",
+   "why": "Christmas is the real European moment for Merlin's. Giving a last orders date makes the deadline honest and gives people a reason to decide."
   }
- ]
+ ],
+ "story": {
+  "headline": "Eight posts in four weeks, six pillars, two lamb posts.",
+  "points": [
+   {
+    "title": "Where we started",
+    "body": "The first draft had lamb in 5 of 8 posts and Thanksgiving as an occasion. That was wrong for Merlin's. The food is European, so the plan now follows European and Thai moments. A new dish needs one tease and one reveal. The rest of the month sells the dishes that already earn money, like Bolognese, Noir Ragu and the Red Wine Beef Stew."
+   },
+   {
+    "title": "Why this mix",
+    "body": "Each post has one job and one pillar, so no two back to back posts repeat. Worth the wait is your proven format (6,981 views against a median of 222). Cosy and technique posts build trust without a hard sell. Occasions give people a reason to order now. The poll gives people something to do. Direct order link goes in the last line of every caption."
+   },
+   {
+    "title": "Who it is for",
+    "body": "60% international Thais, 40% expats. Occasions follow the Thai calendar (Loy Krathong, Father's Day on 05/12) and the European one (Christmas). Captions stay in English with the Merlin's footer."
+   },
+   {
+    "title": "What the experts behind it say",
+    "body": "Familiarity: repeating one series (Hour by hour, Worth the wait) makes the brand feel known. Honest scarcity: a batch really is 6 shanks, so saying so is true, not a trick. Strong endings: end on the finished dish, because people remember the peak and the end. One idea per post: the first second must carry the hook."
+   },
+   {
+    "title": "Two things to check before shooting",
+    "body": "The lamb reveal (29/11) should only go out when lamb can be ordered in the order app, which has no lamb entry yet. The Christmas post names 22/12 as last orders, so confirm you can meet that date."
+   },
+   {
+    "title": "How to use this page",
+    "body": "Approve what you will shoot, dismiss the rest. Approved posts move to the shoot list at the top. Mark each one published once it is live."
+   }
+  ]
+ }
 }
