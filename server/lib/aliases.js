@@ -16,6 +16,7 @@ const DEFAULT_DISH_ALIASES = {
   'Creamy Chicken Soup': ['chix', 'cs', 'chicsoup', 'chics'],
   'Pecorino & Broccoli Cream Soup': ['brocs', 'bs'],
   'Spicy Rosso': ['rosso', 'sr', 'spicyrosso'],
+  'Slow-Braised Lamb shank': ['lamb', 'lambshank', 'lambshanks', 'shank', 'shanks', 'lsh', 'ls'],
 };
 
 // "meat" is special: it always means the first ingredient line of that dish's tab.

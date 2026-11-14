@@ -199,3 +199,13 @@ test('Spicy Rosso is a batch dish with its own shorthand', () => {
   assert.strictEqual(sh.dishes.get('rosso'), 'Spicy Rosso');
   assert.strictEqual(batchDishOf('Spicy Rosso - Cured Bacon Tomato Sauce Pasta'), 'Spicy Rosso');
 });
+
+test('Slow-Braised Lamb shank is a batch dish with its own shorthand', () => {
+  const sh = defaultShorthand();
+  assert.strictEqual(sh.dishes.get('lamb'), 'Slow-Braised Lamb shank');
+  assert.strictEqual(sh.dishes.get('shank'), 'Slow-Braised Lamb shank');
+  assert.strictEqual(sh.dishes.get('ls'), 'Slow-Braised Lamb shank');
+  assert.strictEqual(require('../lib/dishes').batchDishOf('Slow-Braised Lamb Shank'), 'Slow-Braised Lamb shank');
+  const seed = require('../data/recipes.json');
+  assert.ok(seed.dishes.some((d) => d.dish === 'Slow-Braised Lamb Shank' && d.lines.some((l) => /42 minutes/.test(l))));
+});
