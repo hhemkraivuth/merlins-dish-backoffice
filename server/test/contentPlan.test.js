@@ -16,7 +16,7 @@ test('seed plan has unique ids, required fields and house rules', () => {
 });
 
 test('merge defaults to proposed and applies saved decisions', () => {
-  const m = lib.merge(seed, { 'cp-01': { status: 'approved', at: 'x' }, 'cp-02': { status: 'bogus' } });
+  const m = lib.merge(seed, { 'cp-11': { status: 'approved', at: 'x' }, 'cp-12': { status: 'bogus' } });
   assert.strictEqual(m.proposals[0].status, 'approved');
   assert.strictEqual(m.proposals[1].status, 'proposed');
 });
