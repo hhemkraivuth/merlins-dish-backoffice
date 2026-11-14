@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merlin's Dish — Content Plan</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="icon" href="/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="Merlin's BOH" />
+  <style>
+    .wide { max-width: 1000px; }
+    .status { font-size: 14px; color: var(--muted); min-height: 20px; margin-bottom: 8px; }
+    .status.err { color: var(--flag); }
+    .stack { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+    h2.sec { margin: 18px 0 8px; font-size: 20px; line-height: 1.25; font-weight: 700; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .card.approved { border: 2px solid var(--blue); }
+    .card.dismissed { opacity: .55; }
+    .when { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .name { font-size: 17px; font-weight: 700; line-height: 1.3; }
+    .hook { font-size: 15px; line-height: 1.35; }
+    .chip { display: inline-block; align-self: flex-start; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #ECECF2; color: #3F4663; margin-right: 6px; }
+    .chip.ok { background: #DDF4F1; color: #0B5C57; }
+    .chip.no { background: #FFF0C2; color: #6B4A00; }
+    .btns { display: flex; gap: 10px; }
+    .btns button { flex: 1; min-height: 48px; font: inherit; font-size: 16px; font-weight: 600; border: 0; border-radius: 10px; cursor: pointer; }
+    .btns .yes { background: var(--blue); color: #fff; }
+    .btns .no { background: #ECECF2; color: #3F4663; }
+    .btns .done { background: #DDF4F1; color: #0B5C57; }
+    .btns button:disabled { opacity: .6; }
+    details > summary { cursor: pointer; font-size: 15px; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+    .more { font-size: 15px; line-height: 1.45; padding-bottom: 6px; }
+    .more p { margin: 6px 0; }
+    .more b { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 8px; }
+    .box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0 16px; margin-bottom: 12px; }
+    .item { border-top: 1px solid var(--line); padding: 10px 0; font-size: 15px; line-height: 1.4; }
+    .item:first-child { border-top: 0; }
+    .item small { display: block; color: var(--muted); font-size: 13px; }
+    .empty { font-size: 15px; color: var(--muted); margin: 0 0 12px; }
+    .top { background: var(--blue); color: #fff; border-radius: 14px; padding: 14px 16px; font-size: 16px; line-height: 1.4; margin-bottom: 14px; }
+    @media (max-width: 600px) { .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <a class="logo-mark" href="home.html" aria-label="Merlin's Dish, go to The Pit"><img src="logo.png?v=33" alt="Merlin's Dish" /></a>
+        <div>
+          <div class="title">Content Plan</div>
+          <div class="subtitle">Proposed posts. Approve to shoot, dismiss to drop.</div>
+        </div>
+      </div>
+    </header>
+    <nav class="tab-bar" id="tabBar">
+      <a class="tab-button tab-link" href="commands.html">Index</a>
+      <a class="tab-button tab-link" href="home.html">Home</a>
+      <a class="tab-button tab-link active" href="marketing.html">Marketing</a>
+      <a class="tab-button tab-link" href="/#receipts">Purchasing Receipts</a>
+      <a class="tab-button tab-link" href="/#stock">Stock Counts</a>
+      <a class="tab-button tab-link" href="/#batchcook">Kitchen Production</a>
+      <a class="tab-button tab-link" href="reports.html">Numbers</a>
+      <a class="tab-button tab-link" href="analysis.html">Analysis</a>
+    </nav>
+    <main class="main wide">
+      <p><a href="marketing.html" style="font-size:14px;font-weight:600;color:var(--blue);text-decoration:none">&larr; Back to Marketing</a></p>
+      <div class="status" id="status">Loading…</div>
+      <div id="top"></div>
+      <h2 class="sec">Shoot list (approved)</h2>
+      <div class="stack" id="shoot"></div>
+      <h2 class="sec">To review</h2>
+      <div class="stack" id="review"></div>
+      <h2 class="sec">Why these posts</h2>
+      <div id="why"></div>
+      <h2 class="sec">Dismissed</h2>
+      <div id="gone"></div>
+    </main>
+  </div>
+  <script src="contentPlan.js"></script>
+</body>
+</html>
