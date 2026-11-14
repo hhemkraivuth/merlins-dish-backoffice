@@ -16,18 +16,20 @@ function lastDate(ledger, channel) {
 
 // Grab's own report for a day only emails at about 15:30 the next day, so at 05:00 yesterday's Grab sales are normally
 // not in yet. Say that instead of "no sales".
-function dayLine(ledger, date) {
+function dayLine(ledger, date, closed = null) {
   const day = ledger.filter((r) => r.date.getTime() === date.getTime());
   const grabLast = lastDate(ledger, 'Grab');
   const grabPending = !day.some((r) => r.channel === 'Grab') && (!grabLast || grabLast < date);
   const pending = "Grab not in yet (Grab's report for that day arrives about 15:30 today)";
   const p = summarise(day, [], [], 'week')[0];
-  if (!p) return grabPending ? pending : 'no sales recorded';
+  const key = date.toISOString().slice(0, 10);
+  const shut = closed && closed.has(key) ? `closed${closed.get(key) ? `, ${closed.get(key)}` : ''}` : null;
+  if (!p) return shut || (grabPending ? pending : 'no sales recorded');
   const bits = [];
   if (p.grab.orders) bits.push(`Grab ${p.grab.orders} orders, ${baht(p.grab.gross)} gross, ${baht(p.grab.net)} after fees`);
   if (p.line.orders) bits.push(`LINE ${p.line.orders} orders, ${baht(p.line.net)}`);
-  if (grabPending) bits.push(pending);
-  return bits.length ? bits.join('. ') : 'no sales recorded';
+  if (grabPending && !shut) bits.push(pending);
+  return bits.length ? bits.join('. ') : (shut || 'no sales recorded');
 }
 
 function weekLine(periods, today) {
@@ -38,11 +40,11 @@ function weekLine(periods, today) {
 }
 
 // { today, ledger, cookBatches, purchases, stock, open }
-function buildHuddle({ today, ledger, cookBatches, purchases, stock, open: openRaw, lowPacks = [] }) {
+function buildHuddle({ today, closed = null, ledger, cookBatches, purchases, stock, open: openRaw, lowPacks = [] }) {
   const open = compactHandoffs(openRaw);
   const yesterday = addDays(today, -1);
   const out = [`Daily huddle, ${formatDMY(today)}`, ''];
-  out.push(`Yesterday (${formatDMY(yesterday)}): ${dayLine(ledger, yesterday)}.`);
+  out.push(`Yesterday (${formatDMY(yesterday)}): ${dayLine(ledger, yesterday, closed)}.`);
 
   const wk = weekLine(summarise(ledger, cookBatches, purchases, 'week'), today);
   if (wk) out.push(wk);

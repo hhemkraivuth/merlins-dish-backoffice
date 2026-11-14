@@ -12,7 +12,7 @@ async function call(url, opts) {
 }
 
 const COLUMNS = [
-  ['Period', (p) => p.label, true],
+  ['Period', (p) => p.label + (p.closed ? (RAW ? ` (Closed${p.closed.reason ? ': ' + p.closed.reason : ''})` : ` <span class="closedtag">Closed${p.closed.reason ? ', ' + esc(p.closed.reason) : ''}</span>`) : ''), true],
   ['Grab orders', (p) => p.grab.orders],
   ['Grab gross', (p) => baht(p.grab.gross)],
   ['Grab fees + discounts', (p) => baht(p.grab.discount + p.grab.commission + p.grab.marketing + p.grab.otherFees)],
