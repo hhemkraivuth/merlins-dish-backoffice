@@ -12,6 +12,8 @@ const { seedRows } = require('./aliases');
 const COOK_LOG = 'Cook Log';
 const COOK_LINES = 'Cook Log Lines';
 const COOK_SIZES = 'Cook Log Sizes';
+const RD_LOG = 'R&D Log';
+const RD_HEADERS = ['Batch Key', 'Date Cooked', 'Dish', 'Portions', 'Ingredient Cost', 'Packaging Cost', 'Utility Cost', 'Total Batch Cost', 'Cost per Portion', 'Flags', 'Logged At', 'Source'];
 const SHORTHAND = 'Shorthand';
 
 const COOK_LOG_HEADERS = ['Batch Key', 'Date Cooked', 'Dish', 'Yield', 'Ingredient Cost', 'Packaging Cost', 'Utility Cost', 'Total Batch Cost', 'Cost per Portion', 'Flags', 'Logged At', 'Source'];
@@ -44,13 +46,24 @@ function batchKey(dishTab, date, yieldN, noteLines) {
 async function isLogged(key) {
   await ensureTab(COOK_LOG, COOK_LOG_HEADERS);
   const rows = await readTab(COOK_LOG);
-  return rows.some((r) => r[0] === key);
+  if (rows.some((r) => r[0] === key)) return true;
+  await ensureTab(RD_LOG, RD_HEADERS);
+  return (await readTab(RD_LOG)).some((r) => r[0] === key);
 }
 
 async function writeBatch(result, key, source = 'LINE') {
+  const d = formatDMY(result.date);
+  // R&D batches have their own tab, so the Cook Log, sellable stock and food cost never see them.
+  if (result.rd) {
+    await ensureTab(RD_LOG, RD_HEADERS);
+    await appendRows(RD_LOG, [[
+      key, d, result.dish, result.yield, result.ingredientCost, result.packagingCost, result.utilityCost,
+      result.total, result.perPortion, result.flags.join(' | '), bangkokNow(), source,
+    ]]);
+    return;
+  }
   await ensureTab(COOK_LOG, COOK_LOG_HEADERS);
   await ensureTab(COOK_LINES, COOK_LINES_HEADERS);
-  const d = formatDMY(result.date);
   await appendRows(COOK_LOG, [[
     key, d, result.dish, result.yield, result.ingredientCost, result.packagingCost, result.utilityCost,
     result.total, result.perPortion, result.flags.join(' | '), bangkokNow(), source,
@@ -82,4 +95,4 @@ async function tidyCookLogs(sort = sortTab) {
   } catch (err) { console.error('Could not sort the cook tabs by date:', err.message); }
 }
 
-module.exports = { tidyCookLogs, writeBatch, isLogged, batchKey, readShorthandRows, ensureTab, COOK_LOG, COOK_LINES, COOK_SIZES, SHORTHAND };
+module.exports = { tidyCookLogs, writeBatch, isLogged, batchKey, readShorthandRows, ensureTab, COOK_LOG, COOK_LINES, COOK_SIZES, SHORTHAND, RD_LOG, RD_HEADERS };

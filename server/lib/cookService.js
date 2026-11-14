@@ -38,6 +38,7 @@ const HELP = [
   'Bottle and can sizes: "size worcestershire sauce 290ml" so "2 bottles" is stored as 580ml. "undo noir ragu 6/10" takes a logged batch back out so you can send it again.',
   'Brand change: "swap bolo polpa > pelati" uses a different brand for that recipe line without editing the recipe tab (add "from 29/10" for batches from that date, "swaps" lists them, "unswap bolo polpa" takes one back).',
   'Waste: "waste bolo 2 burnt" (add a date first for an earlier day, "waste 8/11 ragu 1 dropped") logs thrown away portions at cost and takes them off remaining stock.',
+  'R&D batch: put rd before the dish ("rd bolo" or "rd 14/11 bolo") and give the portions in the same note. It is costed like any batch and the ingredients come off stock, but it goes to the R&D Log, counts as R&D cost, and the portions never enter sellable stock.',
   'Dish words: bolo, ragu, tpb, rws, dbs, chix, brocs. Add more in the Shorthand tab.',
   '',
   'Stock: send "stock" to list counts, or "stock coke zero zero 5" to set one (full item name).',
@@ -151,12 +152,13 @@ async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LI
 
   const result = costBatch({ batch, recipe, shorthand, priceBook, lotBook });
   result.flags.unshift(...extraFlags);
+  result.rd = !!batch.rd;
 
   if (!result.yield) {
-    return { status: 'nolog', result, text: formatBatchReply(result, 'NOT logged. Add the number of servings yielded and send it again.') };
+    return { status: 'nolog', result, text: formatBatchReply(result, batch.rd ? 'NOT logged. An R&D batch needs its portions in the same note, for example "rd bolo" then "yield 6". Send it again.' : 'NOT logged. Add the number of servings yielded and send it again.') };
   }
 
-  const key = deps.batchKey(batch.dishTab, batch.date, result.yield, [...batch.lines, ...sizeKeyLines(batch)]);
+  const key = deps.batchKey(batch.dishTab, batch.date, result.yield, [...batch.lines, ...sizeKeyLines(batch), ...(batch.rd ? [{ token: 'rd', qty: 1 }] : [])]);
   if (await deps.isLogged(key)) {
     return { status: 'duplicate', result, key, text: `${result.dish}, ${formatDMY(result.date)}: this exact batch is already in the Cook Log. Nothing added.\nBatch ${baht(result.total)}, ${baht(result.perPortion)} per portion.` };
   }
@@ -164,6 +166,10 @@ async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LI
   await deps.writeBatch(result, key, source);
   const stockLines = await deductPackaging(result, deps);
   stockLines.push(...await deductLots(result, key, lotBook, deps));
+  if (batch.rd) {
+    stockLines.unshift(`${result.yield} portions are not added to sellable stock. The ${baht(result.total)} counts as R&D cost.`);
+    return { status: 'logged', result, key, text: formatBatchReply(result, 'R&D batch logged to the R&D Log.', stockLines).replace(/^/, 'R&D batch: ') };
+  }
   return { status: 'logged', result, key, text: formatBatchReply(result, 'Logged to the Cook Log.', stockLines) };
 }
 
@@ -177,7 +183,7 @@ async function handleBatch(batch, deps, shorthand, priceBook, { today, source = 
   const hasSizes = !!((batch.sizes && batch.sizes.length) || (batch.sizeCounts && batch.sizeCounts.length));
   const hasYield = !!batch.yield || hasSizes;
   const dateGiven = !!batch.date;
-  if (!ob) return runBatch(batch, deps, shorthand, priceBook, { today, source });
+  if (!ob || batch.rd) return runBatch(batch, deps, shorthand, priceBook, { today, source });
 
   let open = null; let matches = []; let others = [];
   if (hasYield && !(batch.lines && batch.lines.length)) {

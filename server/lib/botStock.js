@@ -11,7 +11,9 @@ function snapshotFromMenu(menu, takenAt) {
     name: String(i.name || i.id || '').trim(),
     left: typeof i.remaining === 'number' ? i.remaining : null,
     soldOut: i.available === false,
-  })).filter((i) => i.name && (i.left !== null || i.soldOut));
+    // Regular and Large kept apart when the order app has a count for each size, so they are never shown as one total.
+    sizes: Array.isArray(i.variantRemaining) ? i.variantRemaining.filter((v) => v && v.name && typeof v.left === 'number').map((v) => ({ name: String(v.name), left: v.left })) : [],
+  })).filter((i) => i.name && (i.left !== null || i.soldOut || i.sizes.length));
   items.sort((a, b) => (a.soldOut === b.soldOut ? a.name.localeCompare(b.name) : a.soldOut ? 1 : -1));
   return { takenAt, items };
 }

@@ -298,7 +298,7 @@ function dishPerformance({ ledger, cookBatches, expense, today, per = null, wast
     const c = counted.get(String(d.dish).toLowerCase());
     const remaining = c ? c.left : d.remaining;
     const age = c ? (c.ageDays || 0) : d.oldestAgeDays;
-    return { dish: d.dish, cooked: d.cooked, sold: d.sold, wasted: d.wasted, wasteCost: Math.round(d.wasteCost), remaining, counted: !!c, sellPct: d.cooked ? Math.round((d.sold / d.cooked) * 100) : null, oldestAgeDays: age, old: age > 5 && remaining > 0 };
+    return { dish: d.dish, cooked: d.cooked, sold: d.sold, wasted: d.wasted, wasteCost: Math.round(d.wasteCost), remaining, counted: !!c, sizes: c && c.sizes ? c.sizes : null, sellPct: d.cooked ? Math.round((d.sold / d.cooked) * 100) : null, oldestAgeDays: age, old: age > 5 && remaining > 0 };
   });
 
   const batches = new Map();

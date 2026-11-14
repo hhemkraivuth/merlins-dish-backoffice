@@ -12,7 +12,7 @@ async function call(url, opts) {
 }
 
 const COLUMNS = [
-  ['Period', (p) => p.label + (p.closed ? (RAW ? ` (Closed${p.closed.reason ? ': ' + p.closed.reason : ''})` : ` <span class="closedtag">Closed${p.closed.reason ? ', ' + esc(p.closed.reason) : ''}</span>`) : ''), true],
+  ['Period', (p) => p.label + (p.closed ? (RAW ? ` (Closed${p.closed.reason ? ': ' + p.closed.reason : ''})` : ` <span class="closedtag">Closed${p.closed.reason ? ', ' + esc(p.closed.reason) : ''}</span>`) : (p.closedDays > 0 && !p.closed ? (RAW ? ` (${p.closedDays} closed ${p.closedDays === 1 ? 'day' : 'days'})` : ` <span class="closedtag">${p.closedDays} closed ${p.closedDays === 1 ? 'day' : 'days'}</span>`) : '')), true],
   ['Grab orders', (p) => p.grab.orders],
   ['Grab gross', (p) => baht(p.grab.gross)],
   ['Grab fees + discounts', (p) => baht(p.grab.discount + p.grab.commission + p.grab.marketing + p.grab.otherFees)],
@@ -27,7 +27,8 @@ const COLUMNS = [
   ['Margin before overheads', (p) => baht(p.marginBeforeOverheads)],
   ['Overheads bought', (p) => baht(p.overheads)],
   ['Meta ads', (p) => baht(p.ads)],
-  ['Margin after overheads and ads', (p) => baht(p.margin), false, (p) => p.margin < 0],
+  ['R&D batches (cost)', (p) => (p.rdCost ? `${baht(p.rdCost)} (${p.rdPortions} portions)` : baht(0))],
+  ['Margin after overheads, ads and R&D', (p) => baht(p.margin), false, (p) => p.margin < 0],
   ['Margin %', (p) => (p.marginPct === null ? '' : p.marginPct + '%')],
   ['Purchases (memo)', (p) => baht(p.purchases)],
 ];

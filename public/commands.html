@@ -232,6 +232,7 @@
         <tr><td>close &nbsp; /&nbsp; close today</td><td>Marks the shop closed until you text open.</td></tr>
         <tr><td>close 11/9<br>close 11/9-13/9</td><td>Closes one day or a range on the order app. Clears itself afterwards.</td></tr>
         <tr><td>close 12/11 rain, no riders<br>close 12/11-14/11 holiday</td><td>Add the reason after the date. Past days work too. BOH notes it in the Closed Days tab, so the Daily report and the huddle say Closed with the reason instead of no sales. Up to 31 days at a time.</td></tr>
+        <tr><td>unclose 12/11<br>unclose 12/11-14/11</td><td>Takes a closed day back out. BOH deletes it from the Closed Days tab and the order app drops it from its scheduled closures. The weekly and monthly reports show how many closed days each period had.</td></tr>
         <tr><td>block 13/11 11:00-14:00</td><td>Customers can't schedule those slots that day (both times included). Right away orders are not affected.</td></tr>
         <tr><td>unblock 13/11</td><td>Clears every block on that day. Add the times to clear just one.</td></tr>
         <tr><td>open &nbsp; /&nbsp; open now</td><td>Forces the shop open, even outside normal hours.</td></tr>
@@ -295,6 +296,7 @@
         <table>
         <tr><td>7/10<br>Bolo<br>Meat 1000<br>O 446<br>yield 21</td><td>Cook note: date, dish, any ingredient changes, yield. Costs the batch on the cook date. Left out ingredients stay at recipe quantity.</td></tr>
         <tr><td>undo noir ragu 6/10</td><td>Takes a logged batch back out (and gives the grams back to the lots) so you can send it again.</td></tr>
+        <tr><td>rd bolo<br>Meat 1000<br>yield 6</td><td>An R&amp;D batch (a test cook). Put rd before the dish, with the date as usual (rd 14/11 bolo works too), and give the portions in the same note. It is costed like any batch and the ingredients come off stock, but it goes to the R&amp;D Log tab, shows on its own R&amp;D line in the weekly and monthly numbers (cost and portions), comes off the margin, and its portions never enter sellable stock. The Kitchen Production form has an R&amp;D batch tick box.</td></tr>
         <tr><td>waste bolo 2 burnt<br>waste 8/11 ragu 1 dropped</td><td>Logs portions thrown away, burnt or dropped (dish word, number of portions, reason; the date is optional). Costed at the latest batch cost per portion, written to the Waste Log tab and taken off remaining stock. Shows as Wasted on the Analysis page.</td></tr>
         <tr><td>undo receipt</td><td>Takes the latest typed receipt back out: its Expense Log lines, overhead items and stock lots. Add the ID to pick an older one: undo receipt R261104-153211. A lot a batch already used from is kept.</td></tr>
         <tr><td>alias en ziero = EN Ziero - Golden Apple and Yuzu</td><td>A short name for receipts (and cook notes). Needs 3 letters or more. Send <b>aliases</b> to list them.</td></tr>

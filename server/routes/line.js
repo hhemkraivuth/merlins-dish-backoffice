@@ -75,6 +75,7 @@ function defaultDeps() {
       },
       ensureTab: cookLog.ensureTab,
       appendRows,
+      deleteRowsWhere: (tab, pred) => require('../lib/sheets').deleteRowsWhere(tab, pred),
     },
     swap: {
       loadShorthand: async () => {

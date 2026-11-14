@@ -137,7 +137,7 @@ async function loadStock(refresh) {
     if (!snap) { box.innerHTML = `<p class="muted">${esc(d.note || 'No stock snapshot yet.')} Set BOT_URL on Railway to the customer bot address so BOH can read it.</p>`; return; }
     const when = new Date(snap.takenAt).toLocaleString('en-AU', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
     const rows = snap.items.length
-      ? snap.items.map((i) => `<div class="stock-line"><span>${esc(i.name)}</span><b>${i.soldOut ? 'Sold out' : i.left}</b></div>`).join('')
+      ? snap.items.map((i) => `<div class="stock-line"><span>${esc(i.name)}</span><b>${i.soldOut ? 'Sold out' : (i.sizes && i.sizes.length ? i.sizes.map((z) => `${z.left} ${esc(z.name)}`).join(', ') : i.left)}</b></div>`).join('')
       : '<p class="muted">The bot has no counts set. Use "setstock" or "left" in the bot group.</p>';
     box.innerHTML = `${rows}<p class="muted">As at ${esc(when)} Bangkok time.${d.note ? ' ' + esc(d.note) : ''}</p>`;
   } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; }

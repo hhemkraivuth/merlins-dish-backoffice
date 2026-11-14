@@ -467,6 +467,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     <div class="recipe-table" id="otherRows"></div>
     <label class="label">Servings yielded</label>
     <input class="input" type="number" id="yieldInput" placeholder="${recipe.sized ? 'fills from the packed counts below' : 'e.g. 21'}" />
+    <label class="label"><input type="checkbox" id="rdBatch" /> R&amp;D batch (test cook, not for sale)</label>
     ${recipe.sized ? `
       <div class="subheading">Pack-out (Regular in 16oz cups, Large in 26oz cups)</div>
       <div class="size-row"><span class="size-name">Regular: weight (g)</span><input class="size-input" type="number" id="regWeight" value="${(recipe.portionWeights && recipe.portionWeights.Regular) || ''}" /></div>
@@ -635,6 +636,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       cookedWeight: recipe.sized ? Number($('cookedWeight').value) || undefined : undefined,
       utility: rows.filter((r) => r.type === 'Utility' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) })),
       replaceKey: container.dataset.editKey || undefined,
+      rd: $('rdBatch') && $('rdBatch').checked ? true : undefined,
     };
     if (!yieldN()) { res.innerHTML = '<div class="result-card"><div class="error-item">Add the servings yielded first. Nothing was logged.</div></div>'; return; }
     res.innerHTML = '<div class="loading">Logging…</div>';

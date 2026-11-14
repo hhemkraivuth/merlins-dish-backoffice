@@ -45,7 +45,7 @@ test('monthly result: sales less every cost row', () => {
 
 test('stock left from the bot menu: counts and sold out only', () => {
   const s = snapshotFromMenu({ items: [{ name: 'Bolo', remaining: 4, available: true }, { name: 'Soup', remaining: null, available: false }, { name: 'Pie', remaining: null, available: true }] }, 'T');
-  assert.deepStrictEqual(s.items, [{ name: 'Bolo', left: 4, soldOut: false }, { name: 'Soup', left: null, soldOut: true }]);
+  assert.deepStrictEqual(s.items, [{ name: 'Bolo', left: 4, soldOut: false, sizes: [] }, { name: 'Soup', left: null, soldOut: true, sizes: [] }]);
 });
 
 test('monthly result uses the Master Log only to September', () => {
