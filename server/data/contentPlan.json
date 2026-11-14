@@ -1,111 +1,191 @@
 {
-  "prepared": "15/11/2026",
-  "sources": "Competitor audit 11/11/2026, content plan study 11/11/2026, inspo visual 11/11/2026, content style reference 02/11/2026, Merlin's Instagram read 15/11/2026",
-  "analysis": {
-    "borrow": [
-      { "from": "@notorious_foodie", "idea": "Numbered steps in the caption for one pot, one dish (Meatballs Al Forno, 67K likes). Order link in the last line.", "use": "Lamb shank, Hour by hour." },
-      { "from": "@bshnuez", "idea": "Dish name plus components as the whole caption, one cosy mood line, no hard sell (1,338 likes on a pork chop reel).", "use": "Cooler weather mood posts for stews." },
-      { "from": "@jose.kallioinen", "idea": "A title card in the dish colour, then silence. Recipe highlights in the caption.", "use": "Name the dish posts for new items." },
-      { "from": "@solsnack", "idea": "A repeatable named series, so people know what the next one is (Trashy to Classy).", "use": "Hour by hour and Worth the wait as named series." },
-      { "from": "@hangrybeefnoodle", "idea": "Sharing post (228 likes, best of its latest 6) and a game post once a month. Footer repeats price and add on.", "use": "Share a pot with someone, and a pick a sauce poll." },
-      { "from": "@pasta.tomatoo", "idea": "Warm playful voice, schedule post pinned, pre order rhythm that sets expectations.", "use": "Pinned post with the 2 day lead time for premium items." },
-      { "from": "@ratto.bangkok", "idea": "Exact grams and technique as authority (Bolognese Precanonica).", "use": "One technique post: why the sofritto takes 8 hours." }
-    ],
-    "avoid": [
-      { "from": "@notorious_foodie", "idea": "95 second face led reels. Needs a face on camera and hours of editing.", "why": "One person, no editing time." },
-      { "from": "@solsnack", "idea": "Costumes and heavy motion text.", "why": "Production heavy, off brand for Merlin's calm tone." },
-      { "from": "@jose.kallioinen", "idea": "Full cinematic grade.", "why": "Approximate with one warm side lamp instead." },
-      { "from": "@ratto.bangkok", "idea": "Posts with no price and no order path, and a capped 20 orders a day story.", "why": "Merlin's wins on a clear direct order line and casual prices." },
-      { "from": "@augusta.pasta", "idea": "High energy volume and event posts.", "why": "Competes on Affordable Comfort at volume. Merlin's stays Premium Ingredients, comfortable price." },
-      { "from": "@hangrybeefnoodle", "idea": "Grab only calls to action and copy that compares to other platforms.", "why": "Merlin's sells direct plus Grab. Never attack or compare with Grab." },
-      { "from": "All", "idea": "Emoji only or tag only captions.", "why": "Merlin's best reel had a clear label and a clear promise." }
-    ]
-  },
-  "style": {
-    "visual": "Warm, dark and glossy. Top down pot macros in steel pots, amber sauce, one side lamp. Best reel (6,981 views, median 222) was one unbroken 16 second macro with one yellow tape label. Gaps: most reels have no hook text, none end on a finished dish reveal.",
-    "context": "Slow cooking as craft. The sofritto series (Hour 1, only 7 hours to go; aromatics merging; the trinity is complete) is a real series. Bio promise: Homemade flavours, done properly. Casual prices.",
-    "copy": "Sensory hook, sharp invitation, standard footer. Warm and unhurried, some Thai lines mixed into English captions. Older captions end with DM or GrabFood link in bio, which is superseded by the order app link. Rules: slash prices only, no percentages, free delivery within 2km*."
-  },
-  "proposals": [
-    {
-      "id": "cp-01", "date": "17/11/2026", "pillar": "Hour by hour", "format": "Reel, 15s",
-      "title": "Lamb shank, Hour 1 of 4",
-      "hook": "Hour 1 of 4. The shanks meet the pot.",
-      "visual": "Top down on the pot, one side lamp. Yellow tape label 'Hour 1 of 4'. Clip 1: shanks searing, deep brown. Clip 2: onion and garlic dropping in. Crop 4:5 for the grid cover, keep the label in the centre.",
-      "caption": "Hour 1 of 4. Slow braised lamb shank starts with a hard sear, because flavour is built before the lid goes on. Sweet carrots, rosemary, a gravy that coats the spoon. 6 shanks, one pot, no shortcuts. Order direct, link in the last line.",
-      "borrow": "@solsnack numbered series, @notorious_foodie numbered steps",
-      "avoid": "No face to camera, no fast cutting",
-      "audience": "Thai 60 / Expat 40"
-    },
-    {
-      "id": "cp-02", "date": "19/11/2026", "pillar": "Name the dish", "format": "Reel, 8s",
-      "title": "Slow Braised Lamb Shank: new on the menu",
-      "hook": "Slow Braised Lamb Shank.",
-      "visual": "One hero shot at 45 degrees, steam rising, the shank on a dark plate with carrots and gravy. Title card in warm amber, then no other text. Hold 6 seconds, one spoon lift to finish.",
-      "caption": "Slow Braised Lamb Shank. 1 shank, sweet carrots, 300g of gravy. Falling off the bone and ready to heat. Order 2 days ahead, direct on the order app (link in the last line).",
-      "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components caption",
-      "avoid": "No price war language, no mention of other platforms",
-      "audience": "Expat 40 / Thai 60"
-    },
-    {
-      "id": "cp-03", "date": "22/11/2026", "pillar": "Worth the wait", "format": "Reel, 12s",
-      "title": "The 8 hour sofritto, finished",
-      "hook": "Worth the wait.",
-      "visual": "One continuous macro of the finished sauce in the pot with a wooden spoon lift. Yellow tape label 'Worth the wait', top left. Finish on the plated pasta with steam.",
-      "caption": "Eight hours of onion, carrot and celery, slowly turning to amber. Then it becomes the base of every sauce we make. Worth the wait. Order the ragu direct, link in the last line.",
-      "borrow": "Your own best reel formula (6,981 views)",
-      "avoid": "No cuts faster than every 3 seconds",
-      "audience": "Thai 60 / Expat 40"
-    },
-    {
-      "id": "cp-04", "date": "24/11/2026", "pillar": "Occasion", "format": "Static post, 4:5",
-      "title": "Loy Krathong night: a warm pot at home",
-      "hook": "A quiet night in, a full pot.",
-      "visual": "Soft candle glow beside a stew bowl, shot top down at dusk. No lanterns or festival graphics. Check the date before posting: sources disagree on 24/11 or 25/11.",
-      "caption": "However you spend Loy Krathong, finish it with something warm. Red Wine Beef Stew, slow cooked and ready to heat. Order 2 days ahead on the order app, link in the last line.",
-      "borrow": "@hangrybeefnoodle occasion hooks",
-      "avoid": "Do not post until the date is confirmed",
-      "audience": "Thai 60"
-    },
-    {
-      "id": "cp-05", "date": "26/11/2026", "pillar": "Occasion", "format": "Reel, 10s",
-      "title": "Thanksgiving: the shank that does the work",
-      "hook": "Thanksgiving, sorted.",
-      "visual": "Lamb shank plated with carrots at 45 degrees, candle and one wine glass out of focus. Label 'Thanksgiving, sorted'. Orders close Tue 24/11, so post this earlier if you want it to sell: shoot on 20/11 and publish 21/11.",
-      "caption": "Hosting this week? Let the pot do the work. Slow braised lamb shank, ready to heat and serve. Orders close Tue 24/11, 2 day lead time. Order direct, link in the last line.",
-      "borrow": "@hangrybeefnoodle seasonal tie in, @notorious_foodie Thanksgiving series",
-      "avoid": "No percentage discount language",
-      "audience": "Expat 40"
-    },
-    {
-      "id": "cp-06", "date": "29/11/2026", "pillar": "Share a pot", "format": "Static carousel, 3 slides",
-      "title": "Share a pot with someone who deserves it",
-      "hook": "Tastes better together.",
-      "visual": "Slide 1: two bowls, one pot. Slide 2: the pot being lifted. Slide 3: label with the dish name and 'serves 2'. Warm lamp, dark table.",
-      "caption": "Some pots are made for sharing. Pecorino and Broccoli Cream Soup, Red Wine Beef Stew, or the new lamb shank. Choose one for someone who needs a warm night. Order direct, link in the last line.",
-      "borrow": "@hangrybeefnoodle sharing post (228 likes)",
-      "avoid": "No fixed footer prices that go stale",
-      "audience": "Thai 60 / Expat 40"
-    },
-    {
-      "id": "cp-07", "date": "02/12/2026", "pillar": "Technique", "format": "Reel, 12s",
-      "title": "Why we sear before the pot",
-      "hook": "Brown first. Always.",
-      "visual": "Close on lamb shank hitting the oil, then the fond lifting with water. Tape label 'Brown first'. Two clips of 4s, one reveal of 4s.",
-      "caption": "The dark crust on the pan is flavour. We lift every bit of it into the braise. That is the whole difference between a stew and a good stew. Order direct, link in the last line.",
-      "borrow": "@ratto.bangkok technique authority",
-      "avoid": "Do not copy exact gram posts. Share the idea, not the full recipe.",
-      "audience": "Thai 60 / Expat 40"
-    },
-    {
-      "id": "cp-08", "date": "05/12/2026", "pillar": "Poll", "format": "Story poll plus static post",
-      "title": "Pick the sauce for Friday",
-      "hook": "Pick one. We cook it.",
-      "visual": "Two pots side by side from above. Story poll sticker added in app. Reveal answer in Stories reply.",
-      "caption": "Spicy Rosso or Noir Ragu? Vote in Stories and the winner goes in the pot next week. Order direct, link in the last line.",
-      "borrow": "@hangrybeefnoodle game post, once a month",
-      "avoid": "Do not run more than one game post a month",
-      "audience": "Thai 60 / Expat 40"
-    }
+ "prepared": "15/11/2026",
+ "sources": "Competitor audit 11/11/2026, content plan study 11/11/2026, inspo visual 11/11/2026, content style reference 02/11/2026, Merlin's Instagram read 15/11/2026",
+ "analysis": {
+  "borrow": [
+   {
+    "from": "@notorious_foodie",
+    "idea": "Numbered steps in the caption for one pot, one dish (Meatballs Al Forno, 67K likes). Order link in the last line.",
+    "use": "Lamb shank tease and process posts."
+   },
+   {
+    "from": "@bshnuez",
+    "idea": "Dish name plus components as the whole caption, one cosy mood line, no hard sell (1,338 likes on a pork chop reel).",
+    "use": "Cooler weather mood posts for stews."
+   },
+   {
+    "from": "@jose.kallioinen",
+    "idea": "A title card in the dish colour, then silence. Recipe highlights in the caption.",
+    "use": "Name the dish posts for new items."
+   },
+   {
+    "from": "@solsnack",
+    "idea": "A repeatable named series, so people know what the next one is (Trashy to Classy).",
+    "use": "Hour by hour and Worth the wait as named series."
+   },
+   {
+    "from": "@hangrybeefnoodle",
+    "idea": "Sharing post (228 likes, best of its latest 6) and a game post once a month. Footer repeats price and add on.",
+    "use": "Share a pot with someone, and a pick a sauce poll."
+   },
+   {
+    "from": "@pasta.tomatoo",
+    "idea": "Warm playful voice, schedule post pinned, pre order rhythm that sets expectations.",
+    "use": "Pinned post with the 2 day lead time for premium items."
+   },
+   {
+    "from": "@ratto.bangkok",
+    "idea": "Exact grams and technique as authority (Bolognese Precanonica).",
+    "use": "One technique post: why the sofritto takes 8 hours."
+   }
+  ],
+  "avoid": [
+   {
+    "from": "@notorious_foodie",
+    "idea": "95 second face led reels. Needs a face on camera and hours of editing.",
+    "why": "One person, no editing time."
+   },
+   {
+    "from": "@solsnack",
+    "idea": "Costumes and heavy motion text.",
+    "why": "Production heavy, off brand for Merlin's calm tone."
+   },
+   {
+    "from": "@jose.kallioinen",
+    "idea": "Full cinematic grade.",
+    "why": "Approximate with one warm side lamp instead."
+   },
+   {
+    "from": "@ratto.bangkok",
+    "idea": "Posts with no price and no order path, and a capped 20 orders a day story.",
+    "why": "Merlin's wins on a clear direct order line and casual prices."
+   },
+   {
+    "from": "@augusta.pasta",
+    "idea": "High energy volume and event posts.",
+    "why": "Competes on Affordable Comfort at volume. Merlin's stays Premium Ingredients, comfortable price."
+   },
+   {
+    "from": "@hangrybeefnoodle",
+    "idea": "Grab only calls to action and copy that compares to other platforms.",
+    "why": "Merlin's sells direct plus Grab. Never attack or compare with Grab."
+   },
+   {
+    "from": "All",
+    "idea": "Emoji only or tag only captions.",
+    "why": "Merlin's best reel had a clear label and a clear promise."
+   }
   ]
+ },
+ "style": {
+  "visual": "Warm, dark and glossy. Top down pot macros in steel pots, amber sauce, one side lamp. Best reel (6,981 views, median 222) was one unbroken 16 second macro with one yellow tape label. Gaps: most reels have no hook text, none end on a finished dish reveal.",
+  "context": "Slow cooking as craft. The sofritto series (Hour 1, only 7 hours to go; aromatics merging; the trinity is complete) is a real series. Bio promise: Homemade flavours, done properly. Casual prices.",
+  "copy": "Sensory hook, sharp invitation, standard footer. Warm and unhurried, some Thai lines mixed into English captions. Older captions end with DM or GrabFood link in bio, which is superseded by the order app link. Rules: slash prices only, no percentages, free delivery within 2km*."
+ },
+ "proposals": [
+  {
+   "id": "cp-11",
+   "date": "17/11/2026",
+   "pillar": "Worth the wait",
+   "format": "Reel, 12s",
+   "title": "The 8 hour sofritto, finished",
+   "hook": "Worth the wait.",
+   "visual": "One continuous macro of the finished sauce in the pot, wooden spoon lift. Yellow tape label \"Worth the wait\", top left. Finish on the plated pasta with steam. Crop 4:5 for the grid cover.",
+   "caption": "Eight hours of onion, carrot and celery, slowly turning to amber. It becomes the base of every sauce we make. Worth the wait. Order direct, link in the last line.",
+   "borrow": "Your own best reel formula (6,981 views)",
+   "avoid": "No cuts faster than every 3 seconds",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
+   "id": "cp-12",
+   "date": "20/11/2026",
+   "pillar": "Cosy mood",
+   "format": "Static post, 4:5",
+   "title": "Red Wine Beef Stew, cooler evenings",
+   "hook": "Cooler nights. Warm pot.",
+   "visual": "Top down on the stew bowl, one side lamp, dark table. Dish name and components only on the cover.",
+   "caption": "Red Wine Beef Stew. AU beef, red wine, carrot, a gravy that coats the spoon. Cooler nights call for something slow. Order 2 days ahead, link in the last line.",
+   "borrow": "@bshnuez dish name plus components caption",
+   "avoid": "No hard sell, no price in the caption",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
+   "id": "cp-13",
+   "date": "23/11/2026",
+   "pillar": "Hour by hour",
+   "format": "Reel, 15s",
+   "title": "Lamb shank, Hour 1 of 4 (tease)",
+   "hook": "Hour 1 of 4. The shanks meet the pot.",
+   "visual": "Top down on the pot. Yellow tape label \"Hour 1 of 4\". Clip 1: shanks searing, deep brown. Clip 2: onion and garlic dropping in. Only 6 shanks in this batch, say so on screen at the end.",
+   "caption": "Hour 1 of 4. A new slow braise is starting in our kitchen. One pot, 6 shanks, and when they are gone they are gone. More soon. Follow along.",
+   "borrow": "@solsnack numbered series, @notorious_foodie numbered steps",
+   "avoid": "No order link until the lamb can be ordered",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
+   "id": "cp-14",
+   "date": "26/11/2026",
+   "pillar": "Technique",
+   "format": "Reel, 12s",
+   "title": "Why we brown first",
+   "hook": "Brown first. Always.",
+   "visual": "Close on meat hitting the oil, then the dark crust lifting with water. Tape label \"Brown first\". Two clips of 4s, one reveal of 4s.",
+   "caption": "The dark crust on the pan is flavour. We lift every bit of it into the braise. That is the difference between a stew and a good stew. Order direct, link in the last line.",
+   "borrow": "@ratto.bangkok technique authority",
+   "avoid": "Share the idea, not the full recipe",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
+   "id": "cp-15",
+   "date": "29/11/2026",
+   "pillar": "Name the dish",
+   "format": "Reel, 8s",
+   "title": "Slow Braised Lamb Shank (reveal)",
+   "hook": "Slow Braised Lamb Shank.",
+   "visual": "One hero shot at 45 degrees, steam rising, shank on a dark plate with carrots and gravy. Title card in warm amber, then no other text. One spoon lift to finish. Post only once lamb is orderable in the order app, and shift the date to match.",
+   "caption": "Slow Braised Lamb Shank. 1 shank, sweet carrots, 300g of gravy. Falling off the bone, ready to heat. Order 2 days ahead, link in the last line.",
+   "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components",
+   "avoid": "Do not post before the lamb is orderable",
+   "audience": "Expat 40 / Thai 60"
+  },
+  {
+   "id": "cp-16",
+   "date": "02/12/2026",
+   "pillar": "Occasion",
+   "format": "Static carousel, 3 slides",
+   "title": "A pot for dad (Father's Day, 05/12)",
+   "hook": "Dinner for dad, done.",
+   "visual": "Slide 1: a pot and two bowls. Slide 2: the pot being lifted. Slide 3: dish name with \"serves 2\". Warm lamp, dark table. Post 02/12 so the 2 day lead time works for the long weekend 05/12 to 07/12.",
+   "caption": "Skip the kitchen on Father's Day. Pick a slow pot for the table: Red Wine Beef Stew, Tuscan Pork Braise or the new lamb shank. Order 2 days ahead, link in the last line.",
+   "borrow": "@hangrybeefnoodle sharing post (228 likes)",
+   "avoid": "No percentage language",
+   "audience": "Thai 60"
+  },
+  {
+   "id": "cp-17",
+   "date": "05/12/2026",
+   "pillar": "Poll",
+   "format": "Story poll plus static post",
+   "title": "Pick the sauce",
+   "hook": "Pick one. We cook it.",
+   "visual": "Two pots side by side from above. Story poll sticker added in the app. Reveal the winner in a Stories reply.",
+   "caption": "Spicy Rosso or Noir Ragu? Vote in Stories and the winner goes in the pot next week. Order direct, link in the last line.",
+   "borrow": "@hangrybeefnoodle game post, once a month",
+   "avoid": "No more than one game post a month",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
+   "id": "cp-18",
+   "date": "12/12/2026",
+   "pillar": "Occasion",
+   "format": "Reel, 10s",
+   "title": "Christmas table, last orders 22/12",
+   "hook": "Christmas, slow cooked.",
+   "visual": "Lamb shank or beef stew plated with rosemary and a candle, shot at 45 degrees. Label \"Last orders 22/12\". Confirm the last order date against your own capacity first.",
+   "caption": "A slow pot for the Christmas table. Braised lamb shank or Red Wine Beef Stew, ready to heat and serve. Last orders 22/12, 2 day lead time. Order direct, link in the last line.",
+   "borrow": "@notorious_foodie festive series",
+   "avoid": "Do not set a last order date you cannot meet",
+   "audience": "Expat 40 / Thai 60"
+  }
+ ]
 }

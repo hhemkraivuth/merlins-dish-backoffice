@@ -107,6 +107,14 @@ function reportBar(d) {
   return `<div class="rbar"><span class="${d.auditDue ? 'due' : ''}">${esc(d.auditNote)}</span>${first ? `<a class="rbtn" href="report.html?doc=${encodeURIComponent(first.slug)}">Full report <span aria-hidden="true">›</span></a>` : ''}</div>`;
 }
 
+// The way into the Content plan page, right under the top line. The count tells her whether anything waits for a decision.
+function planCard(d) {
+  const ps = (d.plan && d.plan.proposals) || [];
+  const n = (st) => ps.filter((p) => p.status === st).length;
+  const line = ps.length ? `${n('proposed')} to review, ${n('approved')} approved to shoot` : 'Proposed posts, approve to shoot';
+  return `<a class="plancard" href="content-plan.html"><span><b>Content plan</b><small>${esc(line)}</small></span><span class="chev go" aria-hidden="true"></span></a>`;
+}
+
 function insightTop(d) {
   const today = dayNum(d.today);
   const recent = (n) => { const x = dayNum(n.date); return x !== null && today - x <= 7; };
@@ -182,11 +190,12 @@ function draw(d) {
   const lanes = priceLanes(grab, d.merlin);
   // Order: top line, moves, bet, numbers, trends, borrow, then everything else folded away.
   $('top').innerHTML = reportBar(d)
+    + planCard(d)
     + insightTop(d)
     + betStrip(d)
     + numbers(d)
     + trendsBox(d)
-    + `<h2>Borrow${repLink(d, 'content', 'Content plan')}</h2>` + (inspo.length ? `<div class="stack">${borrowCards(inspo)}</div>` : '<p class="empty">Updated every Sunday night.</p>')
+    + `<h2>Borrow${repLink(d, 'content', 'Content study')}</h2>` + (inspo.length ? `<div class="stack">${borrowCards(inspo)}</div>` : '<p class="empty">Updated every Sunday night.</p>')
     + '<div class="drawers">'
     + (comp.length ? drawer('Who moved', comp.length, `<p class="sub" style="margin:0 0 10px">Tap a row for its Key. Opening means a gap we can use, Watch means keep an eye on it. ${repLink(d, 'audit')} ${repLink(d, 'grab', 'Grab listings')}</p><div class="stack">${whoMoved(comp)}</div>`) : '')
     + (lanes ? drawer('Price lanes on Grab', null, lanes) : '')
@@ -200,10 +209,11 @@ function draw(d) {
 async function load() {
   const s = $('status');
   try {
-    const [res, rep] = await Promise.all([fetch('/api/marketing'), fetch('/api/marketing/reports').then((r) => r.json()).catch(() => ({}))]);
+    const [res, rep, plan] = await Promise.all([fetch('/api/marketing'), fetch('/api/marketing/reports').then((r) => r.json()).catch(() => ({})), fetch('/api/content-plan').then((r) => r.json()).catch(() => null)]);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
     d.reports = rep.reports || [];
+    d.plan = plan;
     draw(d);
     $('dlNotes').textContent = `Download all notes (CSV, ${HISTORY.length} rows)`;
     if (!$('kind').options.length) $('kind').innerHTML = d.kinds.map((k) => `<option>${esc(k)}</option>`).join('');
