@@ -16,12 +16,14 @@ const { bangkokToday } = require('./dates');
 const { processOpenCommand } = require('./openBatches');
 const { processWaste } = require('./wasteLog');
 const { processReadyCount } = require('./readyCount');
+const { processClose } = require('./closedDays');
 
 async function runCommands(text, deps, nowMs = Date.now()) {
   const t = String(text || '').trim();
   if (/^(help|\?)$/i.test(t)) return [HELP];
   const day = bangkokToday(nowMs);
-  return (deps.waste && await processReadyCount(t, day, deps.waste))
+  return (deps.waste && await processClose(t, day, deps.waste))
+    || (deps.waste && await processReadyCount(t, day, deps.waste))
     || (deps.receipt && deps.receipt.undo && await processReceiptUndo(t, deps.receipt.undo))
     || (deps.receipt && deps.receipt.alias && await processAlias(t, deps.receipt.alias))
     || (deps.swap && await processSwap(t, day, deps.swap))

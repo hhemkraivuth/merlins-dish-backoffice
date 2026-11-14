@@ -175,8 +175,8 @@ function purchasesFrom(rows) {
 }
 
 async function loadAll() {
-  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows, wasteRows] = await Promise.all([
-    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'),
+  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows, wasteRows, closedRows] = await Promise.all([
+    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'), readOrEmpty('Closed Days'),
   ]);
   const purchases = purchasesFrom(expense);
   const lotBook = new LotBook(lotRows, [], bangkokToday());
@@ -185,6 +185,7 @@ async function loadAll() {
     ledger: ledgerObjects(ledgerRows),
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
     waste: require('./wasteLog').wasteFrom(wasteRows),
+    closed: require('./closedDays').closedFrom(closedRows),
     purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows), ...walletPaidFrom(walletRows)],
     expense: purchases.map((p) => ({ date: p.date, name: p.name, unitCost: p.unitCost })),
     handoffRows: handoffs,
@@ -197,7 +198,7 @@ async function loadAll() {
 async function computeReports(data) {
   const d = data || await loadAll();
   return {
-    daily: summarise(d.ledger, d.cookBatches, d.purchases, 'day', { through: bangkokToday() }),
+    daily: summarise(d.ledger, d.cookBatches, d.purchases, 'day', { through: bangkokToday(), closed: d.closed }),
     weekly: summarise(d.ledger, d.cookBatches, d.purchases, 'week', { through: bangkokToday() }),
     monthly: summarise(d.ledger, d.cookBatches, d.purchases, 'month', { through: bangkokToday() }),
   };
@@ -205,7 +206,7 @@ async function computeReports(data) {
 
 async function dayDetailFor(date, toDate = null) {
   const d = await loadAll();
-  return dayDetail(d.ledger, d.cookBatches, d.purchases, date, toDate);
+  return dayDetail(d.ledger, d.cookBatches, d.purchases, date, toDate, d.closed);
 }
 
 async function refreshReports() {
@@ -242,7 +243,7 @@ async function huddle({ sync = true } = {}) {
   await refreshReports().catch((err) => notes.push(`Report tabs not updated (${err.message})`));
   const h = await refreshHandoffs(data, today);
   const after = await readOrEmpty(HANDOFF_TAB);
-  const text = buildHuddle({ today, ledger: data.ledger, cookBatches: data.cookBatches, purchases: data.purchases, lowPacks: [...data.lowPacks, ...data.lowIngredients], stock: h.stock, open: openHandoffs(after) });
+  const text = buildHuddle({ today, closed: data.closed, ledger: data.ledger, cookBatches: data.cookBatches, purchases: data.purchases, lowPacks: [...data.lowPacks, ...data.lowIngredients], stock: h.stock, open: openHandoffs(after) });
   return { text: notes.length ? `${text}\n\n${notes.join('. ')}.` : text, notes };
 }
 

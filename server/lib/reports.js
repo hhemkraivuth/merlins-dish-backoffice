@@ -75,7 +75,7 @@ function lineItemCost(row, table) {
 
 // ---- weekly / monthly ----------------------------------------------------------------------
 // ledger: objects from ledgerObjects().  cookBatches: [{ key, date, dish, portions, cost }].  purchases: [{ date, amount }]
-function summarise(ledger, cookBatches, purchases, type = 'week', { through = null } = {}) {
+function summarise(ledger, cookBatches, purchases, type = 'week', { through = null, closed = null } = {}) {
   const table = buildCostTable(ledger);
   const periods = new Map();
   const get = (date) => {
@@ -145,6 +145,7 @@ function summarise(ledger, cookBatches, purchases, type = 'week', { through = nu
     const gross = p.grab.gross + p.line.gross;
     return {
       key: p.key, label: p.label, from: p.from, to: p.to,
+      closed: type === 'day' && closed && closed.has(p.key) ? { reason: closed.get(p.key) || '' } : null,
       grab: { orders: p.grab.orders.size, gross: r2(p.grab.gross), discount: r2(p.grab.discount), commission: r2(p.grab.commission), marketing: r2(p.grab.marketing), otherFees: r2(p.grab.otherFees), net: r2(grabNet) },
       line: { orders: p.line.orders.size, gross: r2(p.line.gross), discount: r2(p.line.discount), net: r2(lineNet), delivery: r2(p.line.delivery), rider: r2(p.line.rider) },
       revenue: r2(revenue),
@@ -171,7 +172,7 @@ function hourOf(time) {
   return h >= 0 && h < 24 ? String(h).padStart(2, '0') : null;
 }
 
-function dayDetail(ledger, cookBatches, purchases, date, toDate = null) {
+function dayDetail(ledger, cookBatches, purchases, date, toDate = null, closed = null) {
   const t = date.getTime();
   const range = toDate && toDate.getTime() !== t;
   const inRange = (d) => (range ? d.getTime() >= t && d.getTime() <= toDate.getTime() : d.getTime() === t);
@@ -182,7 +183,7 @@ function dayDetail(ledger, cookBatches, purchases, date, toDate = null) {
   }));
   const cooked = cookBatches.filter((b) => inRange(b.date)).map((b) => ({ date: formatDMY(b.date), dish: b.dish, portions: b.portions, cost: r2(b.cost || 0), perPortion: b.portions ? r2((b.cost || 0) / b.portions) : null }));
   const bought = purchases.filter((x) => inRange(x.date)).map((x) => ({ date: formatDMY(x.date), name: x.name || '', amount: r2(x.amount || 0), kind: x.kind === 'overhead' ? 'Overhead' : x.kind === 'ads' ? 'Ads' : x.kind === 'grabads' ? 'Grab ads' : x.kind === 'walletpaid' ? 'Paid from account' : 'Ingredient' }));
-  const summary = range ? null : (summarise(ledger, cookBatches, purchases, 'day').find((d) => d.key === date.toISOString().slice(0, 10)) || null);
+  const summary = range ? null : (summarise(ledger, cookBatches, purchases, 'day', { closed }).find((d) => d.key === date.toISOString().slice(0, 10)) || null);
   // Who ordered and when: one entry per order, so the peak hours and the repeat customers show up.
   const seen = new Set(); const orders = []; const byHour = {};
   for (const r of rows) {

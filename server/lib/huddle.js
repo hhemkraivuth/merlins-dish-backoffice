@@ -13,14 +13,15 @@ function lastDate(ledger, channel) {
   return best;
 }
 
-function dayLine(ledger, date) {
+function dayLine(ledger, date, closed = null) {
   const day = ledger.filter((r) => r.date.getTime() === date.getTime());
   const p = summarise(day, [], [], 'week')[0];
-  if (!p) return 'no sales recorded';
+  const shut = closed && closed.has(date.toISOString().slice(0, 10)) ? `closed${closed.get(date.toISOString().slice(0, 10)) ? `, ${closed.get(date.toISOString().slice(0, 10))}` : ''}` : null;
+  if (!p) return shut || 'no sales recorded';
   const bits = [];
   if (p.grab.orders) bits.push(`Grab ${p.grab.orders} orders, ${baht(p.grab.gross)} gross, ${baht(p.grab.net)} after fees`);
   if (p.line.orders) bits.push(`LINE ${p.line.orders} orders, ${baht(p.line.net)}`);
-  return bits.length ? bits.join('. ') : 'no sales recorded';
+  return bits.length ? bits.join('. ') : (shut || 'no sales recorded');
 }
 
 function weekLine(periods, today) {
@@ -31,10 +32,10 @@ function weekLine(periods, today) {
 }
 
 // { today, ledger, cookBatches, purchases, stock, open }
-function buildHuddle({ today, ledger, cookBatches, purchases, stock, open, lowPacks = [] }) {
+function buildHuddle({ today, closed = null, ledger, cookBatches, purchases, stock, open, lowPacks = [] }) {
   const yesterday = addDays(today, -1);
   const out = [`Daily huddle, ${formatDMY(today)}`, ''];
-  out.push(`Yesterday (${formatDMY(yesterday)}): ${dayLine(ledger, yesterday)}.`);
+  out.push(`Yesterday (${formatDMY(yesterday)}): ${dayLine(ledger, yesterday, closed)}.`);
 
   const wk = weekLine(summarise(ledger, cookBatches, purchases, 'week'), today);
   if (wk) out.push(wk);
