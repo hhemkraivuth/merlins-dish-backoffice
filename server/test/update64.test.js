@@ -220,7 +220,14 @@ test('staleActions switches off everything whose end date has passed', () => {
   const acts = botAdmin.staleActions(st, '2026-11-11');
   assert.deepStrictEqual(acts.map((a) => a.action), ['announcement/clear', 'promo/storewide/off', 'promo/item/clear', 'hours']);
   assert.deepStrictEqual(acts[2].body, { id: 'ragu' });
-  assert.deepStrictEqual(acts[3].body, { override: 'closed', closures: [{ start: '2026-11-20', end: '2026-11-21' }], special: [] });
+  assert.deepStrictEqual(acts[3].body, { override: 'closed', closures: [{ start: '2026-11-20', end: '2026-11-21' }], special: [], blocks: [] });
+});
+
+test('staleActions clears blocked slots on past dates and keeps the rest', () => {
+  const st = { announcement: {}, storewidePromo: {}, itemPromos: {}, open: { override: null, closures: [], special: [], blocks: [{ date: '2026-11-10', start: '11:00', end: '14:00' }, { date: '2026-11-13', start: '11:00', end: '14:00' }] } };
+  const acts = botAdmin.staleActions(st, '2026-11-11');
+  assert.deepStrictEqual(acts.map((a) => a.action), ['hours']);
+  assert.deepStrictEqual(acts[0].body.blocks, [{ date: '2026-11-13', start: '11:00', end: '14:00' }]);
 });
 
 test('staleActions leaves live things, open ended ones and read only state alone', () => {

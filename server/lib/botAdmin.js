@@ -25,7 +25,7 @@ function stateFromPublic(menu, shop) {
   const ann = menu && menu.announcement;
   return {
     readOnly: true,
-    open: { isOpen: shop ? !!shop.isOpen : null, message: shop && !shop.isOpen ? shop.closedMessage : null, override: null, closures: [], special: [], normalHours: 'Mon-Fri 11:00-13:30 and 15:00-21:00' },
+    open: { isOpen: shop ? !!shop.isOpen : null, message: shop && !shop.isOpen ? shop.closedMessage : null, override: null, closures: [], special: [], blocks: [], normalHours: 'Mon-Fri 11:00-13:30 and 15:00-21:00' },
     announcement: ann ? { active: true, live: true, headline: ann.headline || '', body: ann.body || '', startDate: ann.startDate || null, endDate: ann.endDate || null } : { active: false, live: false, headline: '', body: '', startDate: null, endDate: null },
     storewidePromo: sw ? { active: true, label: sw.promoLabel, percentOff: sw.promoPercentOff, startDate: null, endDate: null } : { active: false, label: '', percentOff: 0, startDate: null, endDate: null },
     itemPromos: Object.fromEntries(promoIds.filter((i) => i.promoIsItemSpecific).map((i) => [i.id, { active: true, label: i.promoLabel, percentOff: i.promoPercentOff }])),
@@ -59,8 +59,9 @@ function staleActions(state, todayIso) {
   const o = state.open || {};
   const closures = (o.closures || []).filter((c) => !past(c.end || c.start));
   const special = (o.special || []).filter((x) => !past(x.date));
-  if (closures.length !== (o.closures || []).length || special.length !== (o.special || []).length) {
-    out.push({ action: 'hours', body: { override: o.override === true ? 'open' : o.override === false ? 'closed' : null, closures, special }, label: 'closed days or special hours that have passed' });
+  const blocks = (o.blocks || []).filter((x) => !past(x.date));
+  if (closures.length !== (o.closures || []).length || special.length !== (o.special || []).length || blocks.length !== (o.blocks || []).length) {
+    out.push({ action: 'hours', body: { override: o.override === true ? 'open' : o.override === false ? 'closed' : null, closures, special, blocks }, label: 'closed days, special hours or blocked slots that have passed' });
   }
   return out;
 }

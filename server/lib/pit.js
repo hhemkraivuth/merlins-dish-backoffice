@@ -5,6 +5,7 @@
 const { formatDMY, daysBetween, parseDate } = require('./dates');
 const { summarise, periodOf, riderGaps, priceMoves } = require('./reports');
 const { notesFrom, comingUp } = require('./marketing');
+const { compactHandoffs } = require('./handoffs');
 
 const baht = (n) => `฿${Math.round(n || 0).toLocaleString('en-AU')}`;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
@@ -163,6 +164,7 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
 
   const teams = [app, direct, ops, buy, mk, strategy, creative, paid];
   for (const t of teams) t.open = open.filter(involves(t.key || t.name));
+  for (const t of teams) t.openShort = compactHandoffs(t.open);
   const briefs = creative.open.filter((h) => h.to.includes('Creative')).length;
   creative.top = plural(briefs, 'brief'); creative.line = 'waiting to be worked'; creative.headline = creative.top;
   creative.updates.push(briefs ? `${plural(briefs, 'brief')} waiting from Strategy.` : 'No briefs waiting.');
