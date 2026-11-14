@@ -19,16 +19,22 @@ function card(p) {
       ? `<div class="btns"><button class="no" data-id="${esc(p.id)}" data-s="proposed">Bring back</button></div>`
       : `<div class="btns"><button class="yes" data-id="${esc(p.id)}" data-s="approved">Approve</button><button class="no" data-id="${esc(p.id)}" data-s="dismissed">Dismiss</button></div>`;
   return `<div class="card ${esc(p.status)}"><div class="when">Post ${esc(p.date)}, 5:00 PM</div><div class="name">${esc(p.title)}</div>
-    <div>${chips}</div><div class="hook"><b>Hook:</b> ${esc(p.hook)}</div>${detail(p)}${btns}</div>`;
+    <div>${chips}</div><div class="hook"><b>Hook:</b> ${esc(p.hook)}</div><div class="why"><b>Why this post:</b> ${esc(p.why)}</div>${detail(p)}${btns}</div>`;
 }
 function items(list, key) {
   return list.map((i) => `<div class="item"><b>${esc(i.from)}</b>: ${esc(i.idea)}<small>${esc(key === 'use' ? 'For Merlin\'s: ' + i.use : 'Why not: ' + i.why)}</small></div>`).join('');
+}
+function storyHtml() {
+  const s = PLAN.story;
+  if (!s) return '';
+  return `<div class="story"><div class="sh">${esc(s.headline)}</div>${s.points.map((x) => `<div class="sp"><b>${esc(x.title)}</b><p>${esc(x.body)}</p></div>`).join('')}</div>`;
 }
 function draw() {
   const ps = PLAN.proposals;
   const by = (s) => ps.filter((p) => p.status === s);
   const n = { review: by('proposed').length, ok: by('approved').length, no: by('dismissed').length, pub: by('published').length };
   $('top').innerHTML = `<div class="top">${n.review} to review, ${n.ok} approved to shoot, ${n.pub} published, ${n.no} dismissed. Plan prepared ${esc(PLAN.prepared)}.</div>`;
+  $('story').innerHTML = storyHtml();
   $('shoot').innerHTML = by('approved').map(card).join('') || '<p class="empty">Nothing approved yet.</p>';
   $('review').innerHTML = by('proposed').map(card).join('') || '<p class="empty">Everything has been decided.</p>';
   const pub = by('published');
