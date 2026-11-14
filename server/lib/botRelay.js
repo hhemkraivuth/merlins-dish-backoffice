@@ -2,12 +2,12 @@
 // only worked in the order app's group. Here BOH passes them on through the order app's control API and posts the order
 // app's reply back, marked "Order app:", so one group is enough.
 //
-//   'both'  BOH keeps its own record too: left (the cooked dishes' counts) and close with a date (the Closed Days tab).
+//   'both'  BOH keeps its own record too: left (the cooked dishes' counts), close with a date and unclose (the Closed Days tab).
 //   'bot'   only the order app understands it, so BOH does nothing else with the message.
 // Words BOH already uses itself (stock, open, count, free, low, undo, swap, rider, waste) are never passed on, except
 // "open now" and "open today", which BOH has never used.
 
-const BOTH = [/^(left|setstock)\b/i, /^close\s+(today|\d{1,2}[/.]\d{1,2})/i];
+const BOTH = [/^(left|setstock)\b/i, /^close\s+(today|\d{1,2}[/.]\d{1,2})/i, /^(unclose|reopen)\s+(today|\d{1,2}[/.]\d{1,2})/i];
 const BOT = [
   /^close$/i,
   /^open\s+(now|today)$/i,

@@ -66,6 +66,13 @@ function completionLine(line, shorthand, currentDate, today) {
   return null;
 }
 
+// "rd bolo", "r&d bolo", "7/10 rd bolo", "rd 7/10 bolo": a test batch for research and development.
+const RD_WORD = /^(?:r\s*&\s*d|r\s*and\s*d|rnd|rd)\b[\s:,-]*/i;
+function stripRd(s) {
+  const m = RD_WORD.exec(s);
+  return m ? { rd: true, rest: s.slice(m[0].length).trim() } : { rd: false, rest: s };
+}
+
 function dishKey(s) {
   return String(s || '').toLowerCase().replace(/\s+/g, '');
 }
@@ -96,13 +103,16 @@ function parseNote(text, shorthand, today = bangkokToday()) {
     if (comp) { if (comp.date) currentDate = comp.date; current = comp; batches.push(current); continue; }
 
     // "7/10 bolo" on one line
-    const firstSpace = line.search(/\s/);
+    const lead = stripRd(line);
+    const firstSpace = lead.rest.search(/\s/);
     if (firstSpace > 0) {
-      const head = line.slice(0, firstSpace);
-      const rest = line.slice(firstSpace).trim();
+      const head = lead.rest.slice(0, firstSpace);
+      const restAll = lead.rest.slice(firstSpace).trim();
+      const { rd: rd2, rest } = stripRd(restAll);
+      const rd = lead.rd || rd2;
       if (DATE_LINE.test(head) && shorthand.dishes.has(dishKey(rest))) {
         currentDate = parseDate(head, today);
-        current = { dishTab: shorthand.dishes.get(dishKey(rest)), dishWord: rest, date: currentDate, yield: null, lines: [], sizes: [], sizeCounts: [], cookedWeight: null };
+        current = { dishTab: shorthand.dishes.get(dishKey(rest)), dishWord: rest, date: currentDate, yield: null, lines: [], sizes: [], sizeCounts: [], cookedWeight: null, rd };
         batches.push(current);
         continue;
       }
@@ -116,10 +126,13 @@ function parseNote(text, shorthand, today = bangkokToday()) {
       continue;
     }
 
-    if (shorthand.dishes.has(dishKey(line))) {
-      current = { dishTab: shorthand.dishes.get(dishKey(line)), dishWord: line, date: currentDate, yield: null, lines: [], sizes: [], sizeCounts: [], cookedWeight: null };
-      batches.push(current);
-      continue;
+    {
+      const { rd, rest } = stripRd(line);
+      if (shorthand.dishes.has(dishKey(rest))) {
+        current = { dishTab: shorthand.dishes.get(dishKey(rest)), dishWord: rest, date: currentDate, yield: null, lines: [], sizes: [], sizeCounts: [], cookedWeight: null, rd };
+        batches.push(current);
+        continue;
+      }
     }
 
     const sz = line.match(SIZE_LINE);

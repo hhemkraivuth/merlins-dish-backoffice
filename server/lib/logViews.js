@@ -161,9 +161,19 @@ function latestCounts(countRows = []) {
     if (!r[0] || !date || count === null) return;
     const name = String(r[0]).trim();
     const prev = map.get(name);
-    if (!prev || date.getTime() >= prev.date.getTime()) map.set(name, { date, count });
+    if (!prev || date.getTime() >= prev.date.getTime()) map.set(name, { date, count, typed: String(r[4] || '').trim() });
   });
   return map;
+}
+
+// The two stews are sold in Regular and Large, and the two sizes are never added together.
+const SIZED_DISHES = new Set(['red wine beef stew', 'dark beer stew']);
+const sizeOfOrder = (desc) => (/\blarge\b|\blg\b/i.test(String(desc || '')) ? 'Large' : 'Regular');
+// "5r 3l" (as typed in a count) -> { Regular: 5, Large: 3 }, or null when it does not name sizes.
+function sizesFromTyped(typed) {
+  const out = { Regular: 0, Large: 0 }; let found = false;
+  for (const m of String(typed || '').matchAll(/(\d+)\s*([rl])\b/gi)) { out[m[2].toLowerCase() === 'l' ? 'Large' : 'Regular'] += Number(m[1]); found = true; }
+  return found ? out : null;
 }
 
 function buildReadyStock({ today, ledger = [], cookBatches = [], countRows = [] }) {
@@ -193,8 +203,23 @@ function buildReadyStock({ today, ledger = [], cookBatches = [], countRows = [] 
     const negative = left < 0;
     const short = negative ? -left : 0;
     if (negative) left = 0;
+    // Regular and Large kept apart, from the typed count (5r 3l) plus what was packed and sold after it, each size on its own.
+    let sizes = null;
+    if (SIZED_DISHES.has(lc(dish))) {
+      const base = c ? sizesFromTyped(c.typed) : { Regular: 0, Large: 0 };
+      if (base) {
+        const after = (b) => !c || b.date.getTime() > c.date.getTime();
+        const out = { Regular: base.Regular, Large: base.Large };
+        for (const b of batches) if (after(b) && b.sizes) { out.Regular += b.sizes.Regular || 0; out.Large += b.sizes.Large || 0; }
+        for (const r of ledger) {
+          if (r.type !== 'Order' || !r.qty || lc(batchDishOf(r.desc)) !== lc(dish) || !(!c || r.date.getTime() > c.date.getTime())) continue;
+          out[sizeOfOrder(r.desc)] -= r.qty;
+        }
+        if (c || batches.some((b) => b.sizes)) sizes = { Regular: Math.max(0, out.Regular), Large: Math.max(0, out.Large) };
+      }
+    }
     return {
-      dish, left, basis, negative, short,
+      dish, left, basis, negative, short, sizes,
       countedOn: c ? formatDMY(c.date) : '',
       lastCooked: lastCooked ? formatDMY(lastCooked) : '',
       ageDays, stale: left > 0 && ageDays !== null && ageDays > STALE_DAYS,
@@ -236,5 +261,5 @@ function toCsv(headers, rows) {
 module.exports = {
   receiptItems, cookItems, parseMonth, monthKey, buildReceiptLog, receiptCsvRows, priceLogCsvRows, RECEIPT_CSV_HEADERS, PRICE_LOG_HEADERS,
   buildCookLog, cookCsvRows, COOK_CSV_HEADERS, cookLinesCsvRows, COOK_LINES_CSV_HEADERS,
-  buildReadyStock, applyCounts, latestCounts, READY_HEADERS, STALE_DAYS, toCsv,
+  buildReadyStock, applyCounts, latestCounts, sizesFromTyped, sizeOfOrder, READY_HEADERS, STALE_DAYS, toCsv,
 };

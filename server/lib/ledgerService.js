@@ -161,12 +161,18 @@ async function updateLedgerRow(key, changes) {
 // ---- loading the other teams' data -------------------------------------------------------------
 function cookBatchesFrom(logRows, sizeRows) {
   const sizes = new Map();
-  for (const r of (sizeRows || []).slice(1)) sizes.set(r[0], (sizes.get(r[0]) || 0) + (num(r[5]) || 0));
+  const bySize = new Map();
+  for (const r of (sizeRows || []).slice(1)) {
+    sizes.set(r[0], (sizes.get(r[0]) || 0) + (num(r[5]) || 0));
+    const m = bySize.get(r[0]) || { Regular: 0, Large: 0 };
+    if (/^large/i.test(String(r[3] || ''))) m.Large += num(r[5]) || 0; else m.Regular += num(r[5]) || 0;
+    bySize.set(r[0], m);
+  }
   const out = [];
   for (const r of (logRows || []).slice(1)) {
     const date = parseDate(r[1]);
     if (!date || !r[0]) continue;
-    out.push({ key: String(r[0]), date, dish: String(r[2] || '').trim(), portions: sizes.get(r[0]) || num(r[3]) || 0, cost: num(r[7]) || 0 });
+    out.push({ key: String(r[0]), date, dish: String(r[2] || '').trim(), portions: sizes.get(r[0]) || num(r[3]) || 0, cost: num(r[7]) || 0, sizes: bySize.get(r[0]) || null });
   }
   return out;
 }
@@ -175,8 +181,8 @@ function purchasesFrom(rows) {
 }
 
 async function loadAll() {
-  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows, wasteRows, closedRows] = await Promise.all([
-    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'), readOrEmpty('Closed Days'),
+  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows, wasteRows, closedRows, rdRows] = await Promise.all([
+    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'), readOrEmpty('Closed Days'), readOrEmpty('R&D Log'),
   ]);
   const purchases = purchasesFrom(expense);
   const lotBook = new LotBook(lotRows, [], bangkokToday());
@@ -186,7 +192,8 @@ async function loadAll() {
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
     waste: require('./wasteLog').wasteFrom(wasteRows),
     closed: require('./closedDays').closedFrom(closedRows),
-    purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows), ...walletPaidFrom(walletRows)],
+    rd: require('./rdBatches').rdFrom(rdRows),
+    purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows), ...walletPaidFrom(walletRows), ...require('./rdBatches').rdPurchases(rdRows)],
     expense: purchases.map((p) => ({ date: p.date, name: p.name, unitCost: p.unitCost })),
     handoffRows: handoffs,
     lowIngredients: lowItems(lotBook, parseLevels(levelRows)).map((x) => `${x.name}: ${Math.round(x.left)}${x.unit} left`),
@@ -199,8 +206,8 @@ async function computeReports(data) {
   const d = data || await loadAll();
   return {
     daily: summarise(d.ledger, d.cookBatches, d.purchases, 'day', { through: bangkokToday(), closed: d.closed }),
-    weekly: summarise(d.ledger, d.cookBatches, d.purchases, 'week', { through: bangkokToday() }),
-    monthly: summarise(d.ledger, d.cookBatches, d.purchases, 'month', { through: bangkokToday() }),
+    weekly: summarise(d.ledger, d.cookBatches, d.purchases, 'week', { through: bangkokToday(), closed: d.closed }),
+    monthly: summarise(d.ledger, d.cookBatches, d.purchases, 'month', { through: bangkokToday(), closed: d.closed }),
   };
 }
 

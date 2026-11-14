@@ -167,6 +167,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
         yield: b.yield ? num(b.yield) : null,
         lines, packagingQty, utilityQty, sizes,
         cookedWeight: b.cookedWeight ? num(b.cookedWeight) : null,
+        rd: b.rd === true,
       };
       const shorthand = await deps.loadShorthand();
       const priceBook = await deps.loadPriceBook();

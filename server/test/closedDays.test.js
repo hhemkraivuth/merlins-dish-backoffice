@@ -64,3 +64,31 @@ test('the group command runs it', async () => {
   const r = await runCommands('close 12/11 sick day', { waste: d }, Date.UTC(2026, 10, 14, 5));
   assert.match(r[0], /Closed 12\/11\/2026 noted: sick day/);
 });
+
+test('weekly and monthly reports count the closed days in them', () => {
+  const ledger = [{ date: day('10/11/2026'), channel: 'LINE', type: 'Order', net: 100, orderNo: 'A', dmy: '10/11/2026' }, { date: day('20/11/2026'), channel: 'LINE', type: 'Order', net: 100, orderNo: 'B', dmy: '20/11/2026' }];
+  const closed = new Map([['2026-11-12', 'rain'], ['2026-11-13', ''], ['2026-11-19', 'holiday']]);
+  const weeks = summarise(ledger, [], [], 'week', { closed });
+  assert.deepStrictEqual(weeks.map((w) => w.closedDays), [2, 1]);
+  assert.strictEqual(summarise(ledger, [], [], 'month', { closed })[0].closedDays, 3);
+  assert.strictEqual(summarise(ledger, [], [], 'week', {})[0].closedDays, 0);
+});
+
+test('unclose takes the day out of the Closed Days tab', async () => {
+  const tab = [['Date', 'Reason', 'Logged at'], ['12/11/2026', 'rain', 'x'], ['13/11/2026', '', 'y'], ['20/11/2026', 'holiday', 'z']];
+  const deps = { deleteRowsWhere: async (name, pred) => { assert.strictEqual(name, 'Closed Days'); let n = 0; for (let i = tab.length - 1; i > 0; i--) if (pred(tab[i])) { tab.splice(i, 1); n++; } return n; } };
+  const one = await processClose('unclose 12/11', today, deps);
+  assert.match(one[0], /Took 12\/11\/2026 out of the closed days \(1 row\)/);
+  const run = await processClose('reopen 12/11-14/11', today, deps);
+  assert.match(run[0], /12\/11\/2026 to 14\/11\/2026 was not marked closed|Took/);
+  assert.deepStrictEqual(tab.map((r) => r[0]), ['Date', '20/11/2026']);
+  const none = await processClose('unclose 01/11', today, deps);
+  assert.match(none[0], /was not marked closed here/);
+  assert.match((await processClose('unclose', today, deps)) || 'x', /x/);
+});
+
+test('unclose is passed on to the order app as well', () => {
+  const { classify } = require('../lib/botRelay');
+  assert.strictEqual(classify('unclose 12/11'), 'both');
+  assert.strictEqual(classify('reopen 12/11-14/11'), 'both');
+});
