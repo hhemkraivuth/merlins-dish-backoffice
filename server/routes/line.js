@@ -97,6 +97,7 @@ function defaultDeps() {
       sync: () => require('../lib/ledgerService').syncLineOrders(),
     },
     stock: { getAll: getAllStock, setCount: setStockCount },
+    botAct: (action, body) => require('../lib/botAdmin').act(action, body),
     // Photo receipts are off unless RECEIPT_PHOTOS=on (they need an Anthropic key). Typed receipts always work.
     receiptPhotos: String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on',
     receipt: require('../lib/receiptDeps').buildReceiptDeps(),

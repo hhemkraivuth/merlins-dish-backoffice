@@ -17,11 +17,21 @@ const { processOpenCommand } = require('./openBatches');
 const { processWaste } = require('./wasteLog');
 const { processReadyCount } = require('./readyCount');
 const { processClose } = require('./closedDays');
+const botRelay = require('./botRelay');
 
 async function runCommands(text, deps, nowMs = Date.now()) {
   const t = String(text || '').trim();
   if (/^(help|\?)$/i.test(t)) return [HELP];
   const day = bangkokToday(nowMs);
+  // Order app commands typed here go to the order app too (see botRelay.js).
+  const route = deps.botAct ? botRelay.classify(t) : null;
+  if (route === 'bot') return botRelay.relay(t, deps.botAct);
+  const own = await runOwn(t, deps, day);
+  if (route === 'both') return [...(own || []), ...(await botRelay.relay(t, deps.botAct))];
+  return own;
+}
+
+async function runOwn(t, deps, day) {
   return (deps.waste && await processClose(t, day, deps.waste))
     || (deps.waste && await processReadyCount(t, day, deps.waste))
     || (deps.receipt && deps.receipt.undo && await processReceiptUndo(t, deps.receipt.undo))
