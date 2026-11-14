@@ -88,6 +88,10 @@
     .bet > summary::-webkit-details-marker { display: none; }
     .bet .left { display: inline-block; margin-left: 6px; font-size: 13px; background: rgba(255,255,255,.2); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
     .bet .more { padding: 0 16px 14px; font-size: 15px; line-height: 1.4; }
+    .plancard { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 56px; padding: 12px 16px; margin: 4px 0 14px; border-radius: 14px; background: var(--blue); color: #fff; text-decoration: none; }
+    .plancard b { display: block; font-size: 17px; }
+    .plancard small { display: block; font-size: 14px; opacity: .85; margin-top: 2px; }
+    .plancard .chev.go { transform: rotate(-45deg); margin: 0 6px 0 8px; opacity: .9; }
     .chev { flex: none; width: 10px; height: 10px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin: 0 4px 3px 8px; opacity: .6; transition: transform .15s; }
     details[open] > summary > .chev { transform: rotate(225deg); margin-bottom: -3px; }
     .trends, .drawers { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0 16px; }
@@ -130,7 +134,7 @@
     <main class="main wide">
       <div class="status" id="status">Loading…</div>
       <div class="insight" id="top"></div>
-      <p><a href="content-plan.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;background:var(--blue);color:#fff;font-size:15px;font-weight:600;text-decoration:none;margin-right:8px">Content plan</a><button type="button" id="dlNotes" style="font:inherit;font-size:13px;padding:8px 14px;border:0;border-radius:8px;background:var(--accent);color:var(--card);font-weight:600;cursor:pointer">Download all notes (CSV)</button></p>
+      <p><button type="button" id="dlNotes" style="font:inherit;font-size:13px;padding:8px 14px;border:0;border-radius:8px;background:var(--accent);color:var(--card);font-weight:600;cursor:pointer">Download all notes (CSV)</button></p>
       <div id="sections"></div>
       <details class="box"><summary>Add a note by hand</summary>
         <h3>&nbsp;</h3>

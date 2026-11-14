@@ -1,6 +1,5 @@
 // The staff briefing pop up, the team to do card and the Today strip. Loaded on every page; the card and strip only exist on Home.
-// Away from Home a small Team report button sits bottom right, and the pop up opens by itself when there is something new
-// (or, once a day per tab, when a task is overdue or due today).
+// The pop up opens by itself once, on the first page opened in a browser tab, when there is something new or a task is due. After that it opens only from the Team report button on Home.
 // On open, the team "runs up" with anything new since Lily last closed the window. Closing it (Noted, the cross, Esc or a tap outside) marks it all as noted.
 // Below the reports sits the to do list, with due dates. The same list also lives on the Home page as the To do card.
 (function () {
@@ -96,7 +95,7 @@
     const keys = data.reports.map((r) => r.key);
     close();
     if (keys.length) { try { await call('/api/briefing/seen', { keys }); data.reports = []; } catch (e) { /* it will simply show again next time */ } }
-    drawStrip(); drawFab();
+    drawStrip();
   }
   function close() { if (modal) { document.removeEventListener('keydown', onKey); modal.remove(); modal = null; } }
   function onKey(e) { if (e.key === 'Escape') noted(); }
@@ -113,7 +112,7 @@
       <div class="bf-foot"><button class="bf-btn" data-noted type="button">Noted</button></div>`;
     modal.querySelector('[data-x]').addEventListener('click', noted);
     modal.querySelector('[data-noted]').addEventListener('click', noted);
-    wire(modal.querySelector('.bf-card'), () => { draw(); drawCard(); drawStrip(); drawFab(); });
+    wire(modal.querySelector('.bf-card'), () => { draw(); drawCard(); drawStrip(); });
   }
 
   function open() {
@@ -152,36 +151,16 @@
     box.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', open));
   }
 
-  // The floating Team report button on every page except Home.
-  const PIG = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="14" cy="14" r="7" fill="#f4a3b5"/><circle cx="50" cy="14" r="7" fill="#f4a3b5"/><circle cx="32" cy="34" r="25" fill="#f7b8c6" stroke="#2b4c9b" stroke-width="3"/><ellipse cx="32" cy="42" rx="11" ry="8" fill="#f08aa3" stroke="#2b4c9b" stroke-width="2"/><circle cx="28" cy="42" r="2" fill="#2b4c9b"/><circle cx="36" cy="42" r="2" fill="#2b4c9b"/><circle cx="22" cy="29" r="3" fill="#2b4c9b"/><circle cx="42" cy="29" r="3" fill="#2b4c9b"/></svg>';
-  let fab = null;
-  function drawFab() {
-    if (document.getElementById('todoBox') || document.getElementById('teamReport')) return; // Home has its own button
-    if (!fab) {
-      fab = document.createElement('button');
-      fab.type = 'button'; fab.className = 'bf-fab'; fab.setAttribute('aria-label', 'Team report');
-      fab.addEventListener('click', async () => { try { data = await call('/api/briefing'); } catch (e) { /* keep what we have */ } open(); drawFab(); });
-      document.body.appendChild(fab);
-    }
-    const count = data.reports.length + data.todos.filter((t) => t.overdue || t.today).length;
-    fab.innerHTML = `${PIG}<span>Team report</span>${count ? `<span class="n">${count}</span>` : ''}`;
-  }
-
   async function init() {
-    const home = Boolean(document.getElementById('todoBox'));
     const btn = document.getElementById('teamReport');
     if (btn) btn.addEventListener('click', async () => { try { data = await call('/api/briefing'); } catch (e) { /* keep what we have */ } drawCard(); drawStrip(); open(); });
     try { data = await call('/api/briefing'); } catch (e) { return; }
-    drawCard(); drawStrip(); drawFab();
+    drawCard(); drawStrip();
+    // The pop up opens by itself once, on the first page opened in this browser tab. After that it only opens when tapped.
     const urgent = data.todos.some((t) => t.overdue || t.today);
-    if (home) { if (data.reports.length || urgent) open(); return; }
-    // Other pages: anything new always opens it (closing marks it noted). Overdue and due today open it once a day per tab.
-    let shownToday = false;
-    try { shownToday = sessionStorage.getItem('bfDay') === data.today; } catch (e) { /* storage blocked */ }
-    if (data.reports.length || (urgent && !shownToday)) {
-      try { sessionStorage.setItem('bfDay', data.today); } catch (e) { /* fine */ }
-      open();
-    }
+    let entered = true; // if storage is blocked, never auto open, so it cannot repeat on every page
+    try { entered = sessionStorage.getItem('bfEntered') === '1'; if (!entered) sessionStorage.setItem('bfEntered', '1'); } catch (e) { entered = true; }
+    if (!entered && (data.reports.length || urgent)) open();
   }
   init();
 })();
