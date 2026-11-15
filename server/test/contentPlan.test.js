@@ -68,3 +68,10 @@ test('a saved caption edit replaces the caption and is flagged as edited', () =>
   assert.strictEqual(p.edited, true);
   assert.strictEqual(m.proposals.find((x) => x.id === 'cp-12').edited, false);
 });
+
+test('no proposal is dated on a Friday, and a Friday post is rejected', () => {
+  const dow = (dmy) => { const [d, m, y] = dmy.split('/').map(Number); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); };
+  for (const p of seed.proposals) assert.notStrictEqual(dow(p.date), 5, `${p.id} is on a Friday`);
+  const p = seed.proposals[0];
+  assert.ok(lib.check({ ...p, date: '20/11/2026' }, seed.pillars.map((x) => x.name)).some((m) => /Friday/.test(m)));
+});
