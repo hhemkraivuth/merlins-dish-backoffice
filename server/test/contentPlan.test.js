@@ -35,7 +35,8 @@ test('every proposal passes the house rules and belongs to a pillar', () => {
   const names = seed.pillars.map((x) => x.name);
   assert.strictEqual(seed.pillars.length, 6);
   assert.ok(seed.pillars.some((x) => x.name === 'How it arrives'));
-  assert.match(seed.footer, /Free delivery within 2km\*/);
+  assert.match(seed.footer, /Comfort Food Made With Magic/);
+  assert.match(seed.footer, /#MerlinsDish/);
   for (const p of seed.proposals) assert.deepStrictEqual(lib.check(p, names), [], p.id);
   assert.ok(seed.story && seed.story.points.length <= 4);
   assert.ok(!/ [-\u2013\u2014] /.test(JSON.stringify(seed.story)));
@@ -58,4 +59,12 @@ test('check rejects batch talk, scarcity lines, thanksgiving and dashes', () => 
 test('addWeek refuses a bad proposal without writing', async () => {
   await assert.rejects(() => lib.addWeek({ proposals: [{ id: 'w1', date: '17/11/2026', pillar: 'Play', format: 'Post', title: 't', hook: 'h', visual: 'v', caption: 'Reheat it.', why: 'w' }] }), /Not added/);
   await assert.rejects(() => lib.addWeek({ proposals: [] }), /proposals list/);
+});
+
+test('a saved caption edit replaces the caption and is flagged as edited', () => {
+  const m = lib.merge(seed, {}, { 'cp-11': 'My own words.' });
+  const p = m.proposals.find((x) => x.id === 'cp-11');
+  assert.strictEqual(p.caption, 'My own words.');
+  assert.strictEqual(p.edited, true);
+  assert.strictEqual(m.proposals.find((x) => x.id === 'cp-12').edited, false);
 });

@@ -8,6 +8,8 @@ const { setState, TAB } = require('./appState');
 
 const PLAN_KEY = 'content_plan_json';
 const STATUS_KEY = 'content_plan_status';
+const EDIT_KEY = 'content_plan_edits';
+const FOOTER_KEY = 'content_plan_footer';
 const MAX_CELL = 48000;
 const STATUSES = ['proposed', 'approved', 'dismissed', 'published'];
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -21,11 +23,13 @@ function pick(rs, key) {
 }
 
 // Plan text plus each proposal's saved status.
-function merge(plan, status) {
+function merge(plan, status, edits) {
   const st = status || {};
+  const ed = edits || {};
   const proposals = (plan.proposals || []).map((p) => {
     const s = st[p.id] || {};
-    return { ...p, status: STATUSES.includes(s.status) ? s.status : 'proposed', decided: s.at || '' };
+    const edited = typeof ed[p.id] === 'string' && ed[p.id].trim();
+    return { ...p, caption: edited ? ed[p.id] : p.caption, edited: !!edited, status: STATUSES.includes(s.status) ? s.status : 'proposed', decided: s.at || '' };
   });
   return { ...plan, proposals };
 }
@@ -33,7 +37,7 @@ function merge(plan, status) {
 async function load() {
   const rs = await rows();
   const { bangkokToday, formatDMY } = require('./dates');
-  return { ...merge(pick(rs, PLAN_KEY) || seed, pick(rs, STATUS_KEY)), footer: seed.footer, pillars: seed.pillars, today: formatDMY(bangkokToday()) };
+  return { ...merge(pick(rs, PLAN_KEY) || seed, pick(rs, STATUS_KEY), pick(rs, EDIT_KEY)), footer: pick(rs, FOOTER_KEY) || seed.footer, pillars: seed.pillars, today: formatDMY(bangkokToday()) };
 }
 
 async function setStatus({ id, status }, now = new Date()) {
@@ -46,6 +50,28 @@ async function setStatus({ id, status }, now = new Date()) {
   if (status === 'proposed') delete st[sid]; else st[sid] = { status, at: now.toISOString() };
   await setState(STATUS_KEY, JSON.stringify(st));
   return { ok: true, id: sid, status };
+}
+
+// Lily edits a caption by hand. The edit is kept apart from the plan, so a new weekly plan never wipes it. Empty text resets to the original.
+async function setCaption({ id, caption }) {
+  const sid = String(id || '').trim();
+  const text = String(caption == null ? '' : caption).replace(/\r/g, '').trim();
+  if (text.length > 2000) throw fail('That caption is too long. Keep it under 2000 characters.');
+  const rs = await rows();
+  const plan = pick(rs, PLAN_KEY) || seed;
+  if (!(plan.proposals || []).some((p) => p.id === sid)) throw fail('That proposal is not in the plan.', 404);
+  const ed = pick(rs, EDIT_KEY) || {};
+  if (text) ed[sid] = text; else delete ed[sid];
+  await setState(EDIT_KEY, JSON.stringify(ed));
+  return { ok: true, id: sid, edited: !!text };
+}
+
+// One footer for every post. Empty text goes back to the standard footer.
+async function setFooter({ footer }) {
+  const text = String(footer == null ? '' : footer).replace(/\r/g, '').trim();
+  if (text.length > 800) throw fail('That footer is too long. Keep it under 800 characters.');
+  await setState(FOOTER_KEY, JSON.stringify(text || null));
+  return { ok: true, footer: text || seed.footer };
 }
 
 // House rules for what a post may say. Lily never announces batch cooking, and nobody wants to hear "reheat".
@@ -69,7 +95,7 @@ function check(p, pillarNames) {
   if (pillarNames && !pillarNames.includes(p.pillar)) out.push(`${p.id} pillar must be one of ${pillarNames.join(', ')}`);
   const text = [p.title, p.hook, p.visual, p.caption, p.why].join(' ');
   for (const [re, msg] of BANNED) if (re.test(text)) out.push(`${p.id}: ${msg}`);
-  if (/link in (the last line|bio)|order direct/i.test(p.caption)) out.push(`${p.id}: the footer adds the order line, write only the caption`);
+  if (/link in (the last line|bio)|order direct|made with magic|#merlinsdish/i.test(p.caption)) out.push(`${p.id}: the footer adds the order line, write only the caption`);
   if (/%/.test(p.caption)) out.push(`${p.id}: no percentages in captions`);
   if (/ [-\u2013\u2014] /.test(p.caption + ' ' + p.hook)) out.push(`${p.id}: no dash joining clauses`);
   return out;
@@ -123,4 +149,4 @@ async function savePlan(body) {
   return { ok: true, proposals: plan.proposals.length };
 }
 
-module.exports = { load, setStatus, savePlan, addWeek, check, merge, STATUSES };
+module.exports = { load, setStatus, setCaption, setFooter, savePlan, addWeek, check, merge, STATUSES };
