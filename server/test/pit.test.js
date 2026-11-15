@@ -18,7 +18,7 @@ test('pit has the five teams and says how far each one runs', () => {
     ['04/11/2026', 'Operations', 'App sales, Direct sales', 'Noir Ragu is sold out.', 'Open', '', 'k'],
     ['03/11/2026', 'Purchasing', 'Operations', 'Pork is up 12%.', 'Done', '', 'k2']];
   const pit = buildPit({ today, ledger, cookBatches, purchases, handoffRows, stock: [{ dish: 'Noir Ragu', remaining: 4, oldestAgeDays: 2 }] });
-  assert.deepStrictEqual(pit.teams.map((t) => t.name), ['Grab sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing', 'Strategy', 'Creative', 'Paid Media']);
+  assert.deepStrictEqual(pit.teams.map((t) => t.name), ['Grab sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing', 'Strategy', 'Content', 'Paid Media']);
   const [app, direct, ops, buy] = pit.teams;
   assert.strictEqual(app.asOf, '04/11/2026');
   assert.match(app.updates[0], /1 order, ฿300 gross, ฿210 after fees/);
@@ -57,4 +57,14 @@ test('pit warns when Grab data is behind and flags a low yield batch', () => {
 test('openRows keeps only open handoffs, newest first', () => {
   const rows = [['h'], ['01/11', 'a', 'b', 'first', 'Open'], ['02/11', 'a', 'b', 'second', 'Open'], ['03/11', 'a', 'b', 'third', 'Done (cleared)']];
   assert.deepStrictEqual(openRows(rows).map((r) => r.message), ['second', 'first']);
+});
+
+test('the Content card shows how many posts wait for Lily', () => {
+  const { applyContent } = require('../lib/pit');
+  const pit = { teams: [{ name: 'Content', top: 'Content plan', updates: [] }] };
+  applyContent(pit, { proposals: [{ status: 'proposed' }, { status: 'proposed' }, { status: 'approved' }] });
+  assert.strictEqual(pit.teams[0].top, '2 posts');
+  assert.match(pit.teams[0].updates[0], /2 posts to review, 1 approved to shoot/);
+  applyContent(pit, { proposals: [{ status: 'approved' }] });
+  assert.strictEqual(pit.teams[0].top, 'All decided');
 });

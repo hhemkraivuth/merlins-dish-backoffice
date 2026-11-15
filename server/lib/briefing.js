@@ -14,7 +14,7 @@ const MAX_AUTO_NEW = 12; // most new automatic to dos in one pass, so the first 
 const MAX_SEEN = 300;
 const MAX_TODOS = 150;
 const MAX_CELL = 45000;
-const TEAMS = ['Me', 'Grab sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing', 'Strategy', 'Creative', 'Paid Media'];
+const TEAMS = ['Me', 'Grab sales', 'Direct sales', 'Operations', 'Purchasing', 'Marketing', 'Strategy', 'Content', 'Paid Media'];
 
 const fail = (message) => Object.assign(new Error(message), { status: 400 });
 const hash = (s) => crypto.createHash('sha1').update(String(s)).digest('hex').slice(0, 10);
@@ -85,7 +85,7 @@ function teamForHandoff(to) {
   if (/Operations/i.test(t)) return 'Operations';
   if (/Purchasing/i.test(t)) return 'Purchasing';
   if (/Paid Media/i.test(t)) return 'Paid Media';
-  if (/Creative/i.test(t)) return 'Creative';
+  if (/Creative|Content/i.test(t)) return 'Content';
   if (/Strategy/i.test(t)) return 'Strategy';
   if (/Marketing/i.test(t)) return 'Marketing';
   if (/App sales/i.test(t)) return 'Grab sales';

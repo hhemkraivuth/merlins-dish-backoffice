@@ -147,7 +147,7 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   } else mk.updates.push('No marketing notes logged yet.');
   const drafts = notes.filter((n) => n.kind === 'Ad draft' && n.status.toLowerCase() === 'draft');
 
-  // Strategy: the month's bet (a "Bet" note) and the latest weekly move. Creative: briefs waiting for it. Paid Media: ad drafts waiting for approval.
+  // Strategy: the month's bet (a "Bet" note) and the latest weekly move. Content: the social content plan, posts waiting for Lily's approval. Paid Media: ad drafts waiting for approval.
   const bet = notes.find((n) => n.kind === 'Bet');
   const move = notes.find((n) => n.kind === 'Move');
   const strategy = { name: 'Strategy', key: 'Strategy', channel: null, updates: [] };
@@ -157,18 +157,33 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   if (bet) strategy.updates.push(`Bet (${bet.date}): ${bet.title}.`); else strategy.updates.push('No monthly bet set yet.');
   if (move) strategy.updates.push(`Latest move (${move.date}): ${move.title}.`);
 
-  const creative = { name: 'Creative', key: 'Creative', channel: null, updates: [] };
+  const creative = { name: 'Content', key: 'Content', channel: null, updates: [] };
   const paid = { name: 'Paid Media', key: 'Paid Media', channel: null, updates: [] };
   paid.top = plural(drafts.length, 'ad draft'); paid.line = 'waiting for approval'; paid.headline = paid.top;
   paid.updates.push(drafts.length ? `${plural(drafts.length, 'ad draft')} waiting for approval.` : 'No ad drafts waiting.');
 
   const teams = [app, direct, ops, buy, mk, strategy, creative, paid];
-  for (const t of teams) t.open = open.filter(involves(t.key || t.name));
+  for (const t of teams) t.open = open.filter(involves(t.key || t.name) );
+  // Handoffs raised before the rename still say Creative.
+  creative.open = open.filter((h) => involves('Content')(h) || involves('Creative')(h));
   for (const t of teams) t.openShort = compactHandoffs(t.open);
-  const briefs = creative.open.filter((h) => h.to.includes('Creative')).length;
-  creative.top = plural(briefs, 'brief'); creative.line = 'waiting to be worked'; creative.headline = creative.top;
-  creative.updates.push(briefs ? `${plural(briefs, 'brief')} waiting from Strategy.` : 'No briefs waiting.');
+  creative.top = 'Content plan'; creative.line = 'posts for you to approve'; creative.headline = creative.top;
+  creative.updates.push('No content plan read yet.');
   return { today: formatDMY(today), teams, openTotal: open.length };
 }
 
-module.exports = { buildPit, openRows };
+// Fills the Content team card from the content plan: how many posts wait for Lily and how many are approved to shoot.
+function applyContent(pit, plan) {
+  const t = (pit.teams || []).find((x) => x.name === 'Content');
+  const ps = (plan && plan.proposals) || [];
+  if (!t || !ps.length) return pit;
+  const n = (st) => ps.filter((p) => p.status === st).length;
+  const review = n('proposed'), shoot = n('approved');
+  t.top = review ? plural(review, 'post') : 'All decided';
+  t.line = review ? 'to review' : 'nothing waiting';
+  t.headline = t.top;
+  t.updates = [review ? `${plural(review, 'post')} to review, ${shoot} approved to shoot.` : `Nothing to review, ${shoot} approved to shoot.`];
+  return pit;
+}
+
+module.exports = { buildPit, openRows, applyContent };

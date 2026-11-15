@@ -46,7 +46,7 @@ test('sortTodos: overdue and nearest first, no due date last, done separate', ()
 test('reports from the pit skip empty teams and change key when the text changes', () => {
   const pit = { teams: [
     { name: 'Operations', updates: ['Last batch 10/11/2026: Ragu, 8 portions.'], open: [] },
-    { name: 'Creative', updates: ['No briefs waiting.'], open: [] },
+    { name: 'Content', updates: ['No briefs waiting.'], open: [] },
   ] };
   const a = b.reportsFromPit(pit);
   assert.strictEqual(a.length, 1);
