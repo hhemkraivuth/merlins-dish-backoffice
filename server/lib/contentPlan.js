@@ -32,7 +32,8 @@ function merge(plan, status) {
 
 async function load() {
   const rs = await rows();
-  return merge(pick(rs, PLAN_KEY) || seed, pick(rs, STATUS_KEY));
+  const { bangkokToday, formatDMY } = require('./dates');
+  return { ...merge(pick(rs, PLAN_KEY) || seed, pick(rs, STATUS_KEY)), footer: seed.footer, pillars: seed.pillars, today: formatDMY(bangkokToday()) };
 }
 
 async function setStatus({ id, status }, now = new Date()) {
@@ -45,6 +46,64 @@ async function setStatus({ id, status }, now = new Date()) {
   if (status === 'proposed') delete st[sid]; else st[sid] = { status, at: now.toISOString() };
   await setState(STATUS_KEY, JSON.stringify(st));
   return { ok: true, id: sid, status };
+}
+
+// House rules for what a post may say. Lily never announces batch cooking, and nobody wants to hear "reheat".
+const BANNED = [
+  [/re-?heat|ready to heat|batch|freez|frozen|leftover/i, 'never mention batches, reheating or freezing'],
+  [/secret recipe/i, 'never say secret recipe'],
+  [/yellow tape|tape label/i, 'the yellow tape label is retired, use cover text'],
+  [/thanksgiving/i, 'Merlin\'s is European cuisine, no Thanksgiving'],
+  [/this week'?s menu/i, 'never say this week\'s menu'],
+  [/when they are gone|while stocks? last|only \d+ (left|portions?|shanks?)/i, 'no scarcity lines about stock'],
+];
+const REQUIRED = ['title', 'hook', 'visual', 'caption', 'why', 'pillar', 'format', 'date'];
+const DMY = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+// Returns a list of plain problems with one proposal. Empty means it is fine.
+function check(p, pillarNames) {
+  const out = [];
+  for (const k of REQUIRED) if (!p || !String(p[k] || '').trim()) out.push(`${(p && p.id) || 'proposal'} needs ${k}`);
+  if (out.length) return out;
+  if (!DMY.test(p.date)) out.push(`${p.id} date must be DD/MM/YYYY`);
+  if (pillarNames && !pillarNames.includes(p.pillar)) out.push(`${p.id} pillar must be one of ${pillarNames.join(', ')}`);
+  const text = [p.title, p.hook, p.visual, p.caption, p.why].join(' ');
+  for (const [re, msg] of BANNED) if (re.test(text)) out.push(`${p.id}: ${msg}`);
+  if (/link in (the last line|bio)|order direct/i.test(p.caption)) out.push(`${p.id}: the footer adds the order line, write only the caption`);
+  if (/%/.test(p.caption)) out.push(`${p.id}: no percentages in captions`);
+  if (/ [-\u2013\u2014] /.test(p.caption + ' ' + p.hook)) out.push(`${p.id}: no dash joining clauses`);
+  return out;
+}
+const dayNum = (dmy) => { const m = DMY.exec(String(dmy || '')); return m ? Date.UTC(+m[3], +m[2] - 1, +m[1]) / 86400000 : null; };
+
+// The weekly check adds next week's proposals. Same id replaces, new ids are added, old undecided ones are dropped after 21 days.
+async function addWeek(body, now = new Date()) {
+  const incoming = body && body.proposals;
+  if (!Array.isArray(incoming) || !incoming.length) throw fail('Send a proposals list.');
+  const names = (seed.pillars || []).map((x) => x.name);
+  const problems = [];
+  const ids = new Set();
+  for (const p of incoming) {
+    if (!p || !/^[a-z0-9-]{1,30}$/.test(String(p.id || ''))) { problems.push('every proposal needs a short id using letters, numbers and dashes'); continue; }
+    if (ids.has(p.id)) problems.push(`id ${p.id} is used twice`);
+    ids.add(p.id);
+    problems.push(...check(p, names));
+  }
+  if (problems.length) throw fail(`Not added: ${problems.join('; ')}.`);
+  const rs = await rows();
+  const plan = pick(rs, PLAN_KEY) || seed;
+  const st = pick(rs, STATUS_KEY) || {};
+  const today = Math.floor(now.getTime() / 86400000);
+  const keep = (plan.proposals || []).filter((p) => !ids.has(p.id)).filter((p) => {
+    const n = dayNum(p.date); const s = (st[p.id] || {}).status;
+    return n === null || n >= today - 21 || s === 'approved';
+  });
+  const next = { ...plan, proposals: [...keep, ...incoming].sort((a, b) => dayNum(a.date) - dayNum(b.date)) };
+  next.prepared = String(body.prepared || '').trim() || next.prepared;
+  const value = JSON.stringify(next);
+  if (value.length > MAX_CELL) throw fail('The plan is too long for one cell. Dismiss or publish old posts first.');
+  await setState(PLAN_KEY, value);
+  return { ok: true, added: incoming.length, total: next.proposals.length };
 }
 
 // A new plan posted by the weekly check. Decisions on ids that still exist are kept.
@@ -64,4 +123,4 @@ async function savePlan(body) {
   return { ok: true, proposals: plan.proposals.length };
 }
 
-module.exports = { load, setStatus, savePlan, merge, STATUSES };
+module.exports = { load, setStatus, savePlan, addWeek, check, merge, STATUSES };

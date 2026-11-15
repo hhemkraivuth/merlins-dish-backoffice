@@ -120,6 +120,7 @@ app.post('/api/marketing/report', marketingReportsRoute.save);
 const contentPlanRoute = require('./routes/contentPlan');
 app.get('/api/content-plan', contentPlanRoute.get);
 app.post('/api/content-plan/status', contentPlanRoute.status);
+app.post('/api/content-plan/week', contentPlanRoute.week);
 app.post('/api/content-plan', contentPlanRoute.save);
 app.post('/api/handoffs', ledgerRoute.addHandoff);
 app.get('/api/summary/spend', ledgerRoute.spendSummary);

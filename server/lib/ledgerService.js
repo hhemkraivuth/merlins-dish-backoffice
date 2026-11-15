@@ -12,7 +12,7 @@ const { LotBook } = require('./ingredientLots');
 const { dayDetail, summarise, reportRows, REPORT_HEADERS, sellThrough, priceMoves, riderGaps } = require('./reports');
 const { HANDOFF_TAB, HANDOFF_HEADERS, currentHandoffs, reconcile, openHandoffs } = require('./handoffs');
 const { buildHuddle, buildPeriodText } = require('./huddle');
-const { buildPit } = require('./pit');
+const { buildPit, applyContent } = require('./pit');
 const { buildReadyStock } = require('./logViews');
 const { buildSpend, buildCooking } = require('./summaries');
 const marketingLib = require('./marketing');
@@ -265,7 +265,9 @@ async function pit() {
   const stock = estimated.map((e) => { const c = counted.get(String(e.dish).toLowerCase()); return c ? { ...e, remaining: c.left, oldestAgeDays: c.ageDays } : e; });
   counted.forEach((c, key) => { if (!estimated.some((e) => String(e.dish).toLowerCase() === key)) stock.push({ dish: c.dish, remaining: c.left, oldestAgeDays: c.ageDays, live: [] }); });
   const noteRows = await readOrEmpty(marketingLib.TAB);
-  return buildPit({ noteRows, today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
+  const built = buildPit({ noteRows, today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
+  let plan = null; try { plan = await require('./contentPlan').load(); } catch (e) { /* the card keeps its default text */ }
+  return applyContent(built, plan);
 }
 
 // The order bot's public menu feed (read only), for Merlin's own price range. Never blocks the page if the bot is slow or away.
