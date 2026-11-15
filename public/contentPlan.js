@@ -83,11 +83,13 @@ function footerHtml() {
   return `<div class="footbox"><div class="caph"><b>Footer on every post</b><button type="button" class="mini" data-footedit>Edit footer</button></div><div class="foot" id="footView">${esc(PLAN.footer || '')}</div></div>`;
 }
 const CHANNELS = ['Instagram and Facebook', 'LINE broadcast'];
+let BRIEF_OPEN = false;
 let DRAFT = { text: '', date: '', channels: ['Instagram and Facebook'] };
 function briefHtml() {
   const list = (PLAN.briefs || []).slice().reverse();
   const items = list.map((b) => `<div class="bl"><span class="tag ${b.done ? 'done' : ''}">${b.done ? 'Done' : 'Waiting for Claude'}</span> ${esc(b.text)}<div class="meta">${esc([b.date, (b.channels || []).join(', ')].filter(Boolean).join(' · '))}${b.done && (b.posts || []).length ? ` · see ${b.posts.map((id) => `<a href="#post-${esc(id)}">${esc(id)}</a>`).join(', ')}` : ''}<button type="button" data-brief-rm="${esc(b.id)}">Remove</button></div></div>`).join('');
-  return `<div class="briefbox"><h3>Brief for Claude</h3><p class="hint">A few words is enough: what is happening, which dish or drink, when it goes live. Claude writes the captions and shot designs. Posts go to Instagram and Facebook, and LINE broadcasts for big news.</p><textarea id="briefText" placeholder="e.g. New dessert goes live Thu, order web and IG only">${esc(DRAFT.text)}</textarea><div class="row"><input type="text" id="briefDate" inputmode="numeric" placeholder="Go live date DD/MM/YYYY (optional)" value="${esc(DRAFT.date)}" /></div><div class="row">${CHANNELS.map((c) => `<label class="chip"><input type="checkbox" data-bch="${esc(c)}" ${DRAFT.channels.includes(c) ? 'checked' : ''} />${esc(c)}</label>`).join('')}</div><button type="button" class="send" data-brief-send>Send brief</button>${items}</div>`;
+  const waiting = (PLAN.briefs || []).filter((b) => !b.done).length;
+  return `<details class="briefbox" id="briefDetails" ${BRIEF_OPEN ? 'open' : ''}><summary><b>Brief for Claude</b>${waiting ? ` <span class="tag">${waiting} waiting</span>` : ''}</summary><p class="hint">A few words is enough: what is happening, which dish or drink, when it goes live. Claude writes the captions and shot designs. Posts go to Instagram and Facebook, and LINE broadcasts for big news.</p><textarea id="briefText" placeholder="e.g. New dessert goes live Thu, IG and Facebook">${esc(DRAFT.text)}</textarea><div class="row"><input type="text" id="briefDate" inputmode="numeric" placeholder="Go live date DD/MM/YYYY (optional)" value="${esc(DRAFT.date)}" /></div><div class="row">${CHANNELS.map((c) => `<label class="chip"><input type="checkbox" data-bch="${esc(c)}" ${DRAFT.channels.includes(c) ? 'checked' : ''} />${esc(c)}</label>`).join('')}</div><button type="button" class="send" data-brief-send>Send brief</button>${items}</details>`;
 }
 function draw() {
   const ps = PLAN.proposals;
@@ -201,6 +203,7 @@ document.addEventListener('click', async (e) => {
     await load();
   } catch (err) { const st = $('status'); st.className = 'status err'; st.textContent = `Not saved: ${err.message}`; all.forEach((x) => { x.disabled = false; }); }
 });
+document.addEventListener('toggle', (e) => { if (e.target.id === 'briefDetails') BRIEF_OPEN = e.target.open; }, true);
 document.addEventListener('input', (e) => {
   if (e.target.id === 'briefText') DRAFT.text = e.target.value;
   if (e.target.id === 'briefDate') DRAFT.date = e.target.value;

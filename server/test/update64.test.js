@@ -279,3 +279,17 @@ test('sheet reads are cached briefly, shared, copied, and forgotten after a writ
     for (const [k, v] of [['SHEETS_READ_CACHE_MS', saved.ttl], ['GOOGLE_SERVICE_ACCOUNT_EMAIL', saved.e], ['GOOGLE_PRIVATE_KEY', saved.k]]) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   }
 });
+
+test('autoCandidates gives one to do per dish when low stock and aged stock say the same thing', () => {
+  const pit = { teams: [
+    { open: [{ from: 'App sales, Direct sales', to: 'Operations', message: 'Tuscan Pork Braise: only 3 portions left. Cook another batch?' }] },
+    { open: [{ from: 'Operations', to: 'App sales, Direct sales', message: 'Tuscan Pork Braise: 3 portions from the 28/10/2026 batch are 18 days old. Time for a flash sale.' },
+             { from: 'Operations', to: 'App sales, Direct sales', message: 'Polished Pork Bolognese: 8 portions from the 29/10/2026 batch are 17 days old. Time for a flash sale.' }] },
+  ] };
+  const out = b.autoCandidates({ pit, todayIso: '2026-11-15' });
+  const tuscan = out.filter((x) => /Tuscan/.test(x.text));
+  assert.strictEqual(tuscan.length, 1);
+  assert.match(tuscan[0].text, /3 portions left, oldest 18 days old/);
+  assert.strictEqual(tuscan[0].team, 'Operations');
+  assert.strictEqual(out.filter((x) => /Bolognese/.test(x.text)).length, 1);
+});

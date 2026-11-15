@@ -66,7 +66,10 @@
     .capact { display: flex; gap: 8px; margin-top: 6px; }
     .capact[hidden] { display: none; }
     .briefbox { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 12px 0 0; }
-    .briefbox h3 { margin: 0 0 4px; font-size: 16px; }
+    .briefbox > summary { cursor: pointer; font-size: 16px; list-style: none; display: flex; gap: 8px; align-items: center; }
+    .briefbox > summary::-webkit-details-marker { display: none; }
+    .briefbox > summary::after { content: '\25BE'; margin-left: auto; color: var(--muted); }
+    .briefbox[open] > summary { margin-bottom: 4px; }
     .briefbox p.hint { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
     .briefbox textarea, .briefbox input[type=text] { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #FFFDFB; }
     .briefbox textarea { min-height: 84px; resize: vertical; }
