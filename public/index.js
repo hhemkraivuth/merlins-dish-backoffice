@@ -228,7 +228,7 @@ function wireMenu() {
   document.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', () => save('menu/restore', { id: b.dataset.restore }, 'Put back on the menu.')));
   $('addBtn').addEventListener('click', () => {
     $('addEdit').innerHTML = `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:8px 0">
-      <div class="row"><label>Name<input id="nN" style="width:min(320px,70vw)" /></label><label>Price (฿)<input id="nP" type="number" min="0" step="1" style="width:90px" /></label><label>Category<select id="nC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('')}</select></label></div>
+      <div class="row"><label>Name<select id="nB" style="width:min(320px,70vw)">${bibleToAdd().length ? '<option value="">Pick from the menu bible</option>' : ''}${bibleToAdd().map((i, n) => `<option value="${n}">${esc(i.name)}</option>`).join('')}<option value="other">Other, type a name</option></select><input id="nN" placeholder="Item name" style="width:min(320px,70vw);margin-top:6px;display:${bibleToAdd().length ? 'none' : 'block'}" /></label><label>Price (฿)<input id="nP" type="number" min="0" step="1" style="width:90px" /></label><label>Category<select id="nC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('')}</select></label></div>
       <label>Description (optional)<textarea id="nD"></textarea></label>
       ${choiceSelect('nO', 'none')}
       <p class="sub">Pasta: the customer picks a pasta type, a few cost +฿5, the dish price already includes the pasta. Size: Regular is the price above, Large adds ฿100. Stews and noodle dishes use these.</p>
@@ -236,6 +236,11 @@ function wireMenu() {
       <p class="sub">Pick a photo from your phone or computer. It is shrunk automatically.</p>
       <div class="row"><button class="primary-button" id="nSave">Add to the menu</button><button class="small-button" id="nCancel">Cancel</button></div></div>`;
     $('nCancel').addEventListener('click', () => { $('addEdit').innerHTML = ''; });
+    $('nB').addEventListener('change', () => {
+      const v = $('nB').value; const it = /^\d+$/.test(v) ? bibleToAdd()[Number(v)] : null;
+      $('nN').style.display = v === 'other' ? 'block' : 'none';
+      if (it) { $('nN').value = it.name; $('nD').value = it.en || ''; const c = categoryFor(it.category); if (c) $('nC').value = c; } else if (v === 'other') { $('nN').value = ''; }
+    });
     $('nSave').addEventListener('click', async () => {
       const f = $('nImg').files[0];
       let imageData = null;
@@ -244,6 +249,22 @@ function wireMenu() {
       save('menu/add', { name: $('nN').value, price: $('nP').value, category: $('nC').value, description: $('nD').value, options: $('nO').value, imageData }, 'Added. Customers can order it now.');
     });
   });
+}
+
+// ---------- menu bible names for "Add a menu item" ----------
+// Items saved in the menu bible that are not on the order menu yet (live or taken off). Pasta noodles are choices, not dishes.
+let BIBLE = [];
+const bkey = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
+async function loadBible() {
+  try { const r = await fetch('/api/menu-bible'); const d = await r.json(); BIBLE = (d.items || []).filter((i) => i.category !== 'Pasta'); } catch (err) { BIBLE = []; }
+}
+function bibleToAdd() {
+  const have = new Set([...(S.menu || []), ...(S.removed || [])].map((m) => bkey(m.name)));
+  return BIBLE.filter((i) => !have.has(bkey(i.name)));
+}
+function categoryFor(bibleCat) {
+  const c = (S.categories || []).find((x) => bkey(x.label) === bkey(bibleCat) || bkey(x.id) === bkey(bibleCat));
+  return c ? c.id : '';
 }
 
 // ---------- delivery fees ----------
@@ -330,7 +351,7 @@ function draw() {
     const res = await fetch('/api/index/state');
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
-    S = d; draw();
+    S = d; await loadBible(); draw();
     if (d.expired && d.expired.length) toast(`Switched off because the end date passed: ${d.expired.join('; ')}.`);
     if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) setTimeout(() => t.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); }
   } catch (err) { $('idx').innerHTML = `<div class="ix"><p class="sub" style="color:#b3261e">Could not load the order app: ${esc(err.message)}</p></div>`; }
