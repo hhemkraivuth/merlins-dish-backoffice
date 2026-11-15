@@ -10,6 +10,8 @@ const PLAN_KEY = 'content_plan_json';
 const STATUS_KEY = 'content_plan_status';
 const EDIT_KEY = 'content_plan_edits';
 const FOOTER_KEY = 'content_plan_footer';
+const BRIEF_KEY = 'content_plan_briefs';
+const CHANNELS = ['Instagram and Facebook', 'LINE broadcast'];
 const MAX_CELL = 48000;
 const STATUSES = ['proposed', 'approved', 'dismissed', 'published'];
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -37,7 +39,7 @@ function merge(plan, status, edits) {
 async function load() {
   const rs = await rows();
   const { bangkokToday, formatDMY } = require('./dates');
-  return { ...merge(pick(rs, PLAN_KEY) || seed, pick(rs, STATUS_KEY), pick(rs, EDIT_KEY)), footer: pick(rs, FOOTER_KEY) || seed.footer, pillars: seed.pillars, today: formatDMY(bangkokToday()) };
+  return { ...merge(pick(rs, PLAN_KEY) || seed, pick(rs, STATUS_KEY), pick(rs, EDIT_KEY)), footer: pick(rs, FOOTER_KEY) || seed.footer, briefs: pick(rs, BRIEF_KEY) || [], pillars: seed.pillars, today: formatDMY(bangkokToday()) };
 }
 
 async function setStatus({ id, status }, now = new Date()) {
@@ -72,6 +74,33 @@ async function setFooter({ footer }) {
   if (text.length > 800) throw fail('That footer is too long. Keep it under 800 characters.');
   await setState(FOOTER_KEY, JSON.stringify(text || null));
   return { ok: true, footer: text || seed.footer };
+}
+
+// Lily's briefs: a few words on what is happening (a new dish, a drink, a promo, a date). Claude turns each into captions and shot designs, then marks it done.
+async function addBrief({ text, date, channels }, now = new Date()) {
+  const t = String(text == null ? '' : text).replace(/\r/g, '').trim();
+  if (t.length < 3) throw fail('Write a few words about what is happening.');
+  if (t.length > 1500) throw fail('That brief is too long. Keep it under 1500 characters.');
+  const d = String(date || '').trim();
+  if (d && !/^\d{2}\/\d{2}\/\d{4}$/.test(d)) throw fail('Write the date as DD/MM/YYYY, or leave it empty.');
+  const ch = (Array.isArray(channels) ? channels : []).filter((c) => CHANNELS.includes(c));
+  const rs = await rows();
+  const list = pick(rs, BRIEF_KEY) || [];
+  if (list.length >= 30) throw fail('There are 30 briefs already. Remove some first.');
+  const brief = { id: `br-${now.getTime().toString(36)}`, text: t, date: d, channels: ch, at: now.toISOString(), done: false, posts: [] };
+  list.push(brief);
+  await setState(BRIEF_KEY, JSON.stringify(list));
+  return { ok: true, brief };
+}
+async function updateBrief({ id, done, remove, posts }) {
+  const rs = await rows();
+  const list = pick(rs, BRIEF_KEY) || [];
+  const i = list.findIndex((b) => b.id === String(id || '').trim());
+  if (i < 0) throw fail('That brief is not on the list.', 404);
+  if (remove) list.splice(i, 1);
+  else { list[i].done = !!done; if (Array.isArray(posts)) list[i].posts = posts.map(String).slice(0, 10); }
+  await setState(BRIEF_KEY, JSON.stringify(list));
+  return { ok: true, id: String(id) };
 }
 
 // House rules for what a post may say. Lily never announces batch cooking, and nobody wants to hear "reheat".
@@ -151,4 +180,4 @@ async function savePlan(body) {
   return { ok: true, proposals: plan.proposals.length };
 }
 
-module.exports = { load, setStatus, setCaption, setFooter, savePlan, addWeek, check, merge, STATUSES };
+module.exports = { load, setStatus, setCaption, setFooter, addBrief, updateBrief, CHANNELS, savePlan, addWeek, check, merge, STATUSES };
