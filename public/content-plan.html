@@ -65,6 +65,20 @@
     .capin { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; line-height: 1.45; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: var(--ink); resize: none; overflow: hidden; }
     .capact { display: flex; gap: 8px; margin-top: 6px; }
     .capact[hidden] { display: none; }
+    .briefbox { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 12px 0 0; }
+    .briefbox h3 { margin: 0 0 4px; font-size: 16px; }
+    .briefbox p.hint { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+    .briefbox textarea, .briefbox input[type=text] { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #FFFDFB; }
+    .briefbox textarea { min-height: 84px; resize: vertical; }
+    .briefbox .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; align-items: center; }
+    .briefbox .chip { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; background: #FAF6F0; }
+    .briefbox .send { width: 100%; padding: 11px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-size: 15px; font-weight: 700; }
+    .briefbox .send:disabled { opacity: .5; }
+    .bl { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; font-size: 14px; }
+    .bl .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .bl .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #FFE9A8; color: #6B4E00; }
+    .bl .tag.done { background: #D5F0E4; color: #1F6B4F; }
+    .bl button { font-size: 12px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin-left: 6px; }
     .footbox { background: #FAF6F0; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 12px 0 0; }
     .footbox .foot { margin-top: 0; }
     .foot { white-space: pre-wrap; font-size: 13px; line-height: 1.4; color: var(--muted); margin-top: 6px; }
@@ -122,6 +136,7 @@
       <p><a href="marketing.html" style="font-size:14px;font-weight:600;color:var(--blue);text-decoration:none">&larr; Back to Marketing</a></p>
       <div class="status" id="status">Loading…</div>
       <div id="top"></div>
+      <div id="brief"></div>
       <h2 class="sec">The thinking</h2>
       <div id="story"></div>
       <details class="box" id="pillarBox"><summary>The 6 pillars, and where each comes from</summary><div id="pillars"></div></details>

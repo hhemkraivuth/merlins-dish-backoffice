@@ -122,6 +122,8 @@ app.get('/api/content-plan', contentPlanRoute.get);
 app.post('/api/content-plan/status', contentPlanRoute.status);
 app.post('/api/content-plan/caption', contentPlanRoute.caption);
 app.post('/api/content-plan/footer', contentPlanRoute.footer);
+app.post('/api/content-plan/brief', contentPlanRoute.brief);
+app.post('/api/content-plan/brief/update', contentPlanRoute.briefUpdate);
 app.post('/api/content-plan/week', contentPlanRoute.week);
 app.post('/api/content-plan', contentPlanRoute.save);
 app.post('/api/handoffs', ledgerRoute.addHandoff);

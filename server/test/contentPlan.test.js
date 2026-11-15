@@ -76,3 +76,13 @@ test('no proposal is dated on a Friday, and a Friday post is rejected', () => {
   const p = seed.proposals[0];
   assert.ok(lib.check({ ...p, date: '20/11/2026' }, seed.pillars.map((x) => x.name)).some((m) => /Friday/.test(m)));
 });
+
+test('addBrief checks text, date and channels before touching the sheet', async () => {
+  await assert.rejects(() => lib.addBrief({ text: 'x' }), /few words/);
+  await assert.rejects(() => lib.addBrief({ text: 'x'.repeat(1501) }), /too long/);
+  await assert.rejects(() => lib.addBrief({ text: 'New dessert', date: '2026-11-20' }), /DD\/MM\/YYYY/);
+});
+
+test('updateBrief refuses an unknown brief', async () => {
+  await assert.rejects(() => lib.updateBrief({ id: 'nope', done: true }));
+});
