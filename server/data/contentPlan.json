@@ -84,22 +84,36 @@
  },
  "proposals": [
   {
-   "id": "cp-11",
-   "date": "17/11/2026",
-   "pillar": "Worth the wait",
-   "format": "Reel, 12s",
-   "title": "The 8 hour sofritto, finished",
-   "hook": "Worth the wait.",
-   "visual": "One continuous macro of the finished sauce in the pot, wooden spoon lift. Cover text \"Worth the wait\". Finish on the plated pasta with steam. Crop 4:5 for the grid cover.",
-   "caption": "Eight hours. Onion, carrot and celery, melting into amber. This is the base of every sauce we make, and yes, it smells as good as it looks. Worth the wait.",
-   "why": "Your best reel was one unbroken macro with one label (6,981 views). Repeating a proven format is the lowest risk first post, and the sauces behind it are your best sellers.",
-   "borrow": "Your own best reel formula",
-   "avoid": "No cuts faster than every 3 seconds",
+   "id": "cp-22",
+   "date": "16/11/2026",
+   "pillar": "Name the dish",
+   "format": "Reel, 8s",
+   "title": "Slow Braised Lamb Shank (launch)",
+   "hook": "It's here. Slow Braised Lamb Shank.",
+   "visual": "One hero shot at 45 degrees, steam rising, shank on a dark plate with carrots and gravy. Title card in warm amber, then no other text. One spoon lift to finish. Crop 4:5 for the grid cover.",
+   "caption": "It's here. Meet the Slow Braised Lamb Shank. One shank, sweet carrots and 300g of gravy, braised for hours until it falls off the bone. Fork optional. Live now on GrabFood, or order on our page 2 days ahead.",
+   "why": "Launch post for the day lamb goes live on GrabFood and the order page. A title card and one spoon lift keep it simple, and the 2 day lead time turns interest into direct orders. It goes straight to the reveal, so there is no tease to sit back to back with it.",
+   "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components",
+   "avoid": "No price in the caption",
+   "audience": "Expat 40 / Thai 60"
+  },
+  {
+   "id": "cp-23",
+   "date": "19/11/2026",
+   "pillar": "Occasions",
+   "format": "Static post, 4:5",
+   "title": "Drinks that go with your meal",
+   "hook": "Dinner needs a sidekick.",
+   "visual": "Top down on a dark table, the pot dish in the middle, three cold soft drinks around it (sparkling lemon, ginger beer, cloudy lemonade). One side lamp. Cover text \"Pick a sidekick\". No wine bottle or label in frame.",
+   "caption": "Dinner needs a sidekick. Sparkling lemon, ginger beer, cloudy lemonade and more, all ready to go with your pot. Pick your pairing when you order.",
+   "why": "Shows the drinks range so people add one to every order. Keeps the post about the whole range and leaves alcohol out of the caption and the picture, because Thai law restricts advertising it.",
+   "borrow": "@bshnuez dish name plus components caption",
+   "avoid": "No wine or alcohol names, bottles or labels, no price in the caption",
    "audience": "Thai 60 / Expat 40"
   },
   {
    "id": "cp-12",
-   "date": "19/11/2026",
+   "date": "23/11/2026",
    "pillar": "Name the dish",
    "format": "Static post, 4:5",
    "title": "Red Wine Beef Stew, cooler evenings",
@@ -109,20 +123,6 @@
    "why": "A cosy, appetite first post for the cooler weather. It names the dish and its parts with a smile, which earns trust before the next ask.",
    "borrow": "@bshnuez dish name plus components caption",
    "avoid": "No hard sell, no price in the caption",
-   "audience": "Thai 60 / Expat 40"
-  },
-  {
-   "id": "cp-13",
-   "date": "23/11/2026",
-   "pillar": "Hour by hour",
-   "format": "Reel, 15s",
-   "title": "Lamb shank, Hour 1 (tease)",
-   "hook": "Hour 1. The shanks meet the pot.",
-   "visual": "Top down on the pot. Cover text \"Hour 1\". Clip 1: shanks searing, deep brown. Clip 2: onion and garlic dropping in. End on the closed lid.",
-   "caption": "Hour 1. The lamb shanks have met the pot and the kitchen already smells like a very good decision. Something slow and special is coming soon.",
-   "why": "Starts the lamb story early and shows the craft that justifies the price. No order link yet, so nobody is sent to a dish they cannot buy.",
-   "borrow": "@solsnack numbered series, @notorious_foodie numbered steps",
-   "avoid": "No order link until the lamb can be ordered",
    "audience": "Thai 60 / Expat 40"
   },
   {
@@ -138,20 +138,6 @@
    "borrow": "@rhoifood bowl above the bag, one sticker as the brand mark",
    "avoid": "No platform logos on the bag in the shot, no comparisons",
    "audience": "Thai 60 / Expat 40"
-  },
-  {
-   "id": "cp-15",
-   "date": "29/11/2026",
-   "pillar": "Name the dish",
-   "format": "Reel, 8s",
-   "title": "Slow Braised Lamb Shank (reveal)",
-   "hook": "Slow Braised Lamb Shank.",
-   "visual": "One hero shot at 45 degrees, steam rising, shank on a dark plate with carrots and gravy. Title card in warm amber, then no other text. One spoon lift to finish. Post only once lamb can be ordered in the order app, and move the date to match.",
-   "caption": "Meet the Slow Braised Lamb Shank. One shank, sweet carrots and 300g of gravy, braised for hours until it falls off the bone. Fork optional. Order 2 days ahead.",
-   "why": "The payoff of the tease. A title card and one spoon lift keep it simple. The 2 day lead time is a true deadline that turns interest into orders.",
-   "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components",
-   "avoid": "Do not post before the lamb can be ordered",
-   "audience": "Expat 40 / Thai 60"
   },
   {
    "id": "cp-16",
@@ -236,10 +222,24 @@
    "borrow": "@rhoifood opened container flat lay",
    "avoid": "Do not show anything that is not in a real order",
    "audience": "Expat 40 / Thai 60"
+  },
+  {
+   "id": "cp-11",
+   "date": "16/12/2026",
+   "pillar": "Worth the wait",
+   "format": "Reel, 12s",
+   "title": "The 8 hour sofritto, finished",
+   "hook": "Worth the wait.",
+   "visual": "One continuous macro of the finished sauce in the pot, wooden spoon lift. Cover text \"Worth the wait\". Finish on the plated pasta with steam. Crop 4:5 for the grid cover.",
+   "caption": "Eight hours. Onion, carrot and celery, melting into amber. This is the base of every sauce we make, and yes, it smells as good as it looks. Worth the wait.",
+   "why": "Your best reel was one unbroken macro with one label (6,981 views). Repeating a proven format is the lowest risk first post, and the sauces behind it are your best sellers.",
+   "borrow": "Your own best reel formula",
+   "avoid": "No cuts faster than every 3 seconds",
+   "audience": "Thai 60 / Expat 40"
   }
  ],
  "story": {
-  "headline": "Six pillars, one job each. Two lamb posts, 6 days apart.",
+  "headline": "Six pillars, one job each. Lamb launches 16/11.",
   "points": [
    {
     "title": "Why this mix",
@@ -251,7 +251,7 @@
    },
    {
     "title": "Check before shooting",
-    "body": "Post the lamb reveal only once lamb can be ordered. Confirm the Christmas last orders date (22/12)."
+    "body": "Lamb goes live 16/11 on Instagram, GrabFood and the order page. Confirm the Christmas last orders date (22/12)."
    }
   ]
  },
