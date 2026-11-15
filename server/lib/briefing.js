@@ -119,9 +119,34 @@ function movesFromRows(rows) {
 function autoCandidates({ pit, moves = [], riderMissing = 0, todayIso }) {
   const out = [];
   const seen = new Set();
+  // One to do per dish. "only 3 left, cook another batch?" and "3 portions are 18 days old, flash sale?" say the same thing,
+  // so a dish with a low stock note gets one line that carries the age too, and its aged note is dropped.
+  const LOW = /^(.+?): only (\d+) portions? left\. Cook another batch\?$/;
+  const AGE = /^(.+?): (\d+) portions? from the .+ batch (?:are|is) (\d+) days? old\. Time for a flash sale\.$/;
+  const lowDish = new Map();
+  const oldest = new Map();
+  for (const t of (pit && pit.teams) || []) {
+    for (const h of t.open || []) {
+      let m = LOW.exec(h.message || '');
+      if (m) lowDish.set(m[1], { n: Number(m[2]), to: h.to });
+      m = AGE.exec(h.message || '');
+      if (m) oldest.set(m[1], Math.max(oldest.get(m[1]) || 0, Number(m[3])));
+    }
+  }
   for (const t of (pit && pit.teams) || []) {
     for (const h of t.open || []) {
       if (/has no rider fee yet/i.test(h.message)) continue; // rolled into the one rider fee to do below
+      const low = LOW.exec(h.message || '');
+      if (low) {
+        const days = oldest.get(low[1]);
+        const src = `ho|low|${low[1]}`;
+        if (seen.has(src)) continue; seen.add(src);
+        const n = lowDish.get(low[1]).n;
+        out.push({ src, text: days > 5 ? `${low[1]}: ${n} ${n === 1 ? 'portion' : 'portions'} left, oldest ${days} days old. Cook another batch or run a flash sale?` : firstSentence(h.message), team: teamForHandoff(h.to), due: addDays(todayIso, 2) });
+        continue;
+      }
+      const age = AGE.exec(h.message || '');
+      if (age && lowDish.has(age[1])) continue; // folded into the low stock line above
       const src = `ho|${hash(`${h.from}|${h.to}|${h.message}`)}`;
       if (seen.has(src)) continue; seen.add(src);
       out.push({ src, text: firstSentence(h.message), team: teamForHandoff(h.to), due: addDays(todayIso, 2) });
