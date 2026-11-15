@@ -93,6 +93,8 @@ function check(p, pillarNames) {
   if (out.length) return out;
   if (!DMY.test(p.date)) out.push(`${p.id} date must be DD/MM/YYYY`);
   if (pillarNames && !pillarNames.includes(p.pillar)) out.push(`${p.id} pillar must be one of ${pillarNames.join(', ')}`);
+  // Lily's rule for the current two posts a week. Revisit when the rhythm moves to three a week or every second day.
+  if (dayNum(p.date) !== null && (dayNum(p.date) + 4) % 7 === 5) out.push(`${p.id}: no Friday posts while we post twice a week (people go out), pick another day`);
   const text = [p.title, p.hook, p.visual, p.caption, p.why].join(' ');
   for (const [re, msg] of BANNED) if (re.test(text)) out.push(`${p.id}: ${msg}`);
   if (/link in (the last line|bio)|order direct|made with magic|#merlinsdish/i.test(p.caption)) out.push(`${p.id}: the footer adds the order line, write only the caption`);
