@@ -23,6 +23,9 @@
   .bf-rep{border:1px solid var(--line,#ddd);border-left:5px solid var(--red,#c0392b);border-radius:10px;padding:8px 10px;margin:0 0 8px;font-size:14px;line-height:1.35}
   .bf-rep b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#666);margin-bottom:2px}
   .bf-rep p{margin:2px 0}
+  .bf-bul{list-style:disc;margin:2px 0 0;padding-left:18px}
+  .bf-bul li{padding:6px 0;border-top:1px solid var(--line,#e6e0d4)}
+  .bf-bul li:first-child{border-top:0;padding-top:2px}
   .bf-rep a{color:var(--blue,#2b4c9b);font-weight:600}
   .bf-none{font-size:14px;color:var(--muted,#666);margin:0 0 6px}
   .bf-todo{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line,#ddd);font-size:14px}
@@ -87,8 +90,11 @@
     });
   }
 
-  function repHtml(r) {
-    return `<div class="bf-rep"><b>${esc(r.team)}</b>${r.lines.map((l) => `<p>${esc(l)}</p>`).join('')}${r.href ? `<p><a href="${esc(r.href)}">Open it</a></p>` : ''}</div>`;
+  // One box per team. Each report from that team is its own bullet inside the box, with a thin line between bullets.
+  function repsHtml(reports) {
+    const teams = [];
+    reports.forEach((r) => { let g = teams.find((t) => t.team === r.team); if (!g) { g = { team: r.team, list: [] }; teams.push(g); } g.list.push(r); });
+    return teams.map((g) => `<div class="bf-rep"><b>${esc(g.team)}</b><ul class="bf-bul">${g.list.map((r) => `<li>${r.lines.map((l, i) => `<p>${esc(l)}${r.href && i === r.lines.length - 1 ? ` <a href="${esc(r.href)}">Open it</a>` : ''}</p>`).join('')}${r.href && !r.lines.length ? `<p><a href="${esc(r.href)}">Open it</a></p>` : ''}</li>`).join('')}</ul></div>`).join('');
   }
 
   async function noted() {
@@ -107,7 +113,7 @@
     const line = n ? `${n} ${n === 1 ? 'thing' : 'things'} to tell you.` : 'Nothing new since you last looked.';
     modal.querySelector('.bf-card').innerHTML = `
       <div class="bf-head"><svg class="bf-pig" viewBox="0 0 64 64" aria-hidden="true"><circle cx="14" cy="14" r="7" fill="#f4a3b5"/><circle cx="50" cy="14" r="7" fill="#f4a3b5"/><circle cx="32" cy="34" r="25" fill="#f7b8c6" stroke="#2b4c9b" stroke-width="3"/><ellipse cx="32" cy="42" rx="11" ry="8" fill="#f08aa3" stroke="#2b4c9b" stroke-width="2"/><circle cx="28" cy="42" r="2" fill="#2b4c9b"/><circle cx="36" cy="42" r="2" fill="#2b4c9b"/><circle cx="22" cy="29" r="3" fill="#2b4c9b"/><circle cx="42" cy="29" r="3" fill="#2b4c9b"/></svg><div class="bf-bubble">Boss, got a minute?<small>${esc(data.today)}. ${esc(line)}${late ? ` ${late} overdue.` : ''}</small></div><button class="bf-x" data-x type="button" aria-label="Close">×</button></div>
-      <h3>Reports</h3>${n ? data.reports.map(repHtml).join('') : '<p class="bf-none">All quiet.</p>'}
+      <h3>Reports</h3>${n ? repsHtml(data.reports) : '<p class="bf-none">All quiet.</p>'}
       <h3>To do</h3><div data-list>${todoList()}</div>${addForm()}
       <div class="bf-foot"><button class="bf-btn" data-noted type="button">Noted</button></div>`;
     modal.querySelector('[data-x]').addEventListener('click', noted);
