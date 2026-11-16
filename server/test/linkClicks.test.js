@@ -23,7 +23,7 @@ test('counts today, 7 and 30 days per tag and ignores other triggers', () => {
   assert.deepStrictEqual([g.today, g.d7, g.d30], [0, 0, 1]);
   assert.strictEqual(r.sources.find((s) => s.tag === 'ad2').label, 'Meta ads (ad2)');
   assert.strictEqual(r.sources.find((s) => s.tag === '').label, 'No tag');
-  assert.deepStrictEqual(r.totals, { today: 2, d7: 5, d30: 6 });
+  assert.deepStrictEqual([r.totals.today, r.totals.d7, r.totals.d30], [2, 5, 6]);
 });
 test('busiest link over 7 days comes first', () => {
   assert.strictEqual(summarise(rows, now).sources[0].tag, 'ig');
@@ -31,4 +31,26 @@ test('busiest link over 7 days comes first', () => {
 test('empty or odd rows are fine', () => {
   assert.deepStrictEqual(summarise([], now).sources, []);
   assert.deepStrictEqual(summarise([['x', 'y', 'z', 'w', 'order app open (ig)']], now).sources, []);
+});
+
+const orderRows = [
+  ['Date', 'Time', 'Items', 'Order From', 'Type', 'Qty', 'Total', 'Name', 'Address', 'Phone', 'Ref', 'Slip', 'No', 'Link'],
+  ['01/11/2026', '10:00:00', '1x A', 'LINE Bot', 'Order', 1, 200, 'x', '', '', '', '', '001', ''],
+  ['14/11/2026', '10:00:00', '1x A', 'LINE Bot', 'Order', 1, 200, 'x', '', '', '', '', '001', 'ig'],
+  ['16/11/2026', '10:00:00', '1x A', 'LINE Bot', 'Order', 1, 200, 'x', '', '', '', '', '002', 'ig'],
+  ['16/11/2026', '11:00:00', '1x A', 'LINE Bot', 'Order', 1, 200, 'x', '', '', '', '', '003', ''],
+  ['16/11/2026', '11:00:00', 'Delivery fee', 'LINE Bot', 'Delivery', '', 50, 'x', '', '', '', '', '003', ''],
+];
+test('orders by link count from the first tagged order and give an order rate', () => {
+  const r = summarise(rows, now, orderRows);
+  const ig = r.sources.find((s) => s.tag === 'ig');
+  assert.deepStrictEqual([ig.o7, ig.o30, ig.rate30], [2, 2, 67]);
+  assert.strictEqual(r.sources.find((s) => s.tag === '').o7, 1);
+  assert.strictEqual(r.ordersTrackedFrom, '2026-11-14');
+  assert.strictEqual(r.totals.o30, 3);
+});
+test('no tagged orders yet means no order counts', () => {
+  const r = summarise(rows, now, [orderRows[0], orderRows[1].slice(0, 13), orderRows[4]]);
+  assert.strictEqual(r.totals.o30, 0);
+  assert.strictEqual(r.ordersTrackedFrom, null);
 });

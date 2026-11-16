@@ -35,4 +35,12 @@ async function readMenuTaps() {
   return res.data.values || [];
 }
 
-module.exports = { readOrders, readMenuTaps };
+// Orders with the link column (N) the order app now writes. Separate from readOrders so the ledger read is untouched.
+async function readOrdersWithLink() {
+  const id = process.env.ORDERS_SHEET_ID;
+  if (!id) throw new Error('ORDERS_SHEET_ID is not set in Railway. Use the same value as GOOGLE_SHEET_ID in merlins-dish-bot.');
+  const res = await getClient().spreadsheets.values.get({ spreadsheetId: id, range: 'Orders!A:N' });
+  return res.data.values || [];
+}
+
+module.exports = { readOrders, readMenuTaps, readOrdersWithLink };
