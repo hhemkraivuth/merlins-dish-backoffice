@@ -114,8 +114,9 @@ app.post('/api/todos/delete', briefingRoute.remove);
 app.post('/api/todos/remind', briefingRoute.remind);
 app.get('/api/link-clicks', async (req, res) => {
   try {
-    const { readMenuTaps } = require('./lib/ordersSheet');
-    res.json(require('./lib/linkClicks').summarise(await readMenuTaps()));
+    const { readMenuTaps, readOrdersWithLink } = require('./lib/ordersSheet');
+    const [taps, orders] = await Promise.all([readMenuTaps(), readOrdersWithLink().catch(() => [])]);
+    res.json(require('./lib/linkClicks').summarise(taps, new Date(), orders));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/marketing', ledgerRoute.marketing);
