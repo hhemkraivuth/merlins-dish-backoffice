@@ -28,4 +28,11 @@ async function readOrders() {
   return res.data.values || [];
 }
 
-module.exports = { readOrders };
+async function readMenuTaps() {
+  const id = process.env.ORDERS_SHEET_ID;
+  if (!id) throw new Error('ORDERS_SHEET_ID is not set in Railway. Use the same value as GOOGLE_SHEET_ID in merlins-dish-bot.');
+  const res = await getClient().spreadsheets.values.get({ spreadsheetId: id, range: 'Menu Taps!A:E' });
+  return res.data.values || [];
+}
+
+module.exports = { readOrders, readMenuTaps };

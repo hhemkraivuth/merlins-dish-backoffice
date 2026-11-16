@@ -112,6 +112,12 @@ app.post('/api/todos', briefingRoute.add);
 app.post('/api/todos/done', briefingRoute.done);
 app.post('/api/todos/delete', briefingRoute.remove);
 app.post('/api/todos/remind', briefingRoute.remind);
+app.get('/api/link-clicks', async (req, res) => {
+  try {
+    const { readMenuTaps } = require('./lib/ordersSheet');
+    res.json(require('./lib/linkClicks').summarise(await readMenuTaps()));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 app.get('/api/marketing', ledgerRoute.marketing);
 app.post('/api/marketing/note', ledgerRoute.addMarketingNote);
 app.get('/api/marketing/reports', marketingReportsRoute.list);
