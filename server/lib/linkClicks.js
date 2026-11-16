@@ -2,13 +2,15 @@
 // Display Name, Trigger). An open is a row whose Trigger is "order app open" or "order app open (tag)". The bot already
 // counts one open per person per 10 minutes, so these are opens, not unique people.
 const LABELS = {
-  ig: 'Instagram (bio, stories)',
-  gnew: 'Grab card, new customers',
-  gback: 'Grab card, returning customers',
+  ig: 'Instagram',
+  gnew: 'Grab card, new',
+  gback: 'Grab card, returning',
   rich: 'LINE rich menu',
   web: 'Web, no tag',
   '': 'No tag',
 };
+// The new and returning customer cards are one family, so they always sit next to each other (new first).
+const groupOf = (tag) => (tag === 'gnew' || tag === 'gback' ? 'grab' : tag);
 const labelOf = (tag) => (LABELS[tag] !== undefined ? LABELS[tag] : /^ad\d*$/.test(tag) ? (tag === 'ad' ? 'Meta ads' : `Meta ads (${tag})`) : tag);
 
 // "16/11/2026" to a day number in days since 1970 (calendar days, no timezone maths needed).
@@ -53,7 +55,13 @@ function summarise(rows, now = new Date(), orderRows = []) {
     if (age >= 0 && age < 7) s.o7 += 1;
     if (age >= 0 && age < 30) s.o30 += 1;
   }
-  const sources = [...by.values()].filter((s) => s.d30 > 0 || s.d7 > 0 || s.o30 > 0).sort((a, b) => b.d7 - a.d7 || b.d30 - a.d30 || a.label.localeCompare(b.label));
+  const kept = [...by.values()].filter((s) => s.d30 > 0 || s.d7 > 0 || s.o30 > 0);
+  const fam = new Map();
+  kept.forEach((s) => { const g = fam.get(groupOf(s.tag)) || { d7: 0, d30: 0 }; g.d7 += s.d7; g.d30 += s.d30; fam.set(groupOf(s.tag), g); });
+  const sources = kept.sort((a, b) => {
+    const ga = fam.get(groupOf(a.tag)); const gb = fam.get(groupOf(b.tag));
+    return gb.d7 - ga.d7 || gb.d30 - ga.d30 || groupOf(a.tag).localeCompare(groupOf(b.tag)) || (a.tag === 'gnew' ? -1 : b.tag === 'gnew' ? 1 : 0) || a.label.localeCompare(b.label);
+  });
   sources.forEach((s) => { s.rate30 = s.d30 > 0 ? Math.round((s.o30 / s.d30) * 100) : null; });
   const sum = (k) => sources.reduce((t, s) => t + s[k], 0);
   orderTotals = { o7: sum('o7'), o30: sum('o30') };
