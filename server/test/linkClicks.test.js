@@ -54,3 +54,14 @@ test('no tagged orders yet means no order counts', () => {
   assert.strictEqual(r.totals.o30, 0);
   assert.strictEqual(r.ordersTrackedFrom, null);
 });
+test('new and returning Grab cards stay next to each other, new first', () => {
+  const rows = [
+    ['16/11/2026', '10:00:00', 'u1', 'A', 'order app open (gnew)'],
+    ['16/11/2026', '10:01:00', 'u2', 'B', 'order app open (rich)'], ['16/11/2026', '10:02:00', 'u3', 'B', 'order app open (rich)'],
+    ['16/11/2026', '11:00:00', 'u4', 'C', 'order app open (gback)'], ['16/11/2026', '11:01:00', 'u5', 'C', 'order app open (gback)'],
+    ['16/11/2026', '11:02:00', 'u6', 'D', 'order app open (ig)'],
+  ];
+  const tags = summarise(rows, now).sources.map((s) => s.tag);
+  assert.strictEqual(Math.abs(tags.indexOf('gnew') - tags.indexOf('gback')), 1);
+  assert.ok(tags.indexOf('gnew') < tags.indexOf('gback'));
+});

@@ -211,9 +211,9 @@ function linkClicksBox(c) {
   if (!c || c.error) return `<div class="box"><h3>Link clicks</h3><p class="sub">${esc((c && c.error) || 'Could not read the tap log.')}</p></div>`;
   if (!c.sources.length) return '<div class="box"><h3>Link clicks</h3><p class="sub">No tagged opens in the last 30 days yet.</p></div>';
   const rate = (v) => (v === null || v === undefined ? '' : `${v}%`);
-  const row = (l, s, strong) => `<tr${strong ? ' style="font-weight:700;border-top:1px solid var(--line)"' : ''}><td style="padding:6px 6px 6px 0">${esc(l)}</td><td style="text-align:right;padding:6px 6px">${s.d7} · ${s.o7}</td><td style="text-align:right;padding:6px 6px">${s.d30} · ${s.o30}</td><td style="text-align:right;padding:6px 0 6px 6px">${rate(s.rate30)}</td></tr>`;
+  const row = (l, s, strong) => `<tr${strong ? ' style="font-weight:700;border-top:1px solid var(--line)"' : ''}><td style="padding:6px 4px 6px 0">${esc(l)}</td><td style="text-align:right;white-space:nowrap;padding:6px 4px">${s.d7} · ${s.o7}</td><td style="text-align:right;white-space:nowrap;padding:6px 4px">${s.d30} · ${s.o30}</td><td style="text-align:right;white-space:nowrap;padding:6px 0 6px 4px">${rate(s.rate30)}</td></tr>`;
   return `<div class="box"><h3>Link clicks</h3><p class="sub">Opens of the order page, then orders from that link. Opens count one per person per 10 minutes.${c.ordersTrackedFrom ? '' : ' Orders by link start counting from the first order placed after this update.'}</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px"><tr style="color:var(--muted);font-size:12px"><td></td><td style="text-align:right;padding:0 6px">7 days</td><td style="text-align:right;padding:0 6px">30 days</td><td style="text-align:right;padding:0 0 0 6px">Order rate</td></tr>
+    <table style="width:100%;border-collapse:collapse;font-size:14px"><tr style="color:var(--muted);font-size:12px"><td></td><td style="text-align:right;white-space:nowrap;padding:0 4px">7 days</td><td style="text-align:right;white-space:nowrap;padding:0 4px">30 days</td><td style="text-align:right;white-space:nowrap;padding:0 0 0 4px">Rate</td></tr>
     ${c.sources.map((s) => row(s.label, s)).join('')}${row('All links', c.totals, true)}</table></div>`;
 }
 
