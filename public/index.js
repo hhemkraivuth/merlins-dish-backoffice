@@ -260,7 +260,7 @@ async function loadBible() {
 }
 function bibleToAdd() {
   const have = new Set([...(S.menu || []), ...(S.removed || [])].map((m) => bkey(m.name)));
-  return BIBLE.filter((i) => !have.has(bkey(i.name)));
+  return BIBLE.filter((i) => !have.has(bkey(i.name))).sort((a, b) => String(a.name).localeCompare(String(b.name), 'en', { sensitivity: 'base' }));
 }
 function categoryFor(bibleCat) {
   const c = (S.categories || []).find((x) => bkey(x.label) === bkey(bibleCat) || bkey(x.id) === bkey(bibleCat));
