@@ -97,7 +97,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
             const sz = sizeRows.filter((x, i) => i > 0 && String(x[0]) === editKey);
             fromNote = {
               key: editKey, edit: true, rd: isRd, yield: Number(head[3]) || 0,
-              lines: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Ingredient').map((x) => ({ name: String(x[4]), inRecipe: true, qty: Number(x[5]), unit: String(x[6] || '') })),
+              lines: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Ingredient').map((x) => ({ name: String(x[4]), inRecipe: true, qty: Number(x[5]), unit: String(x[6] || ''), free: /^Free/i.test(String(x[9] || '')) })),
               utility: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Utility').map((x) => ({ name: String(x[4]), qty: Number(x[5]) })),
               sizeCounts: sz.map((x) => ({ name: String(x[3]), count: Number(x[5]) || 0, weight: Number(x[4]) || 0, cookedWeight: Number(x[7]) || 0 })).filter((z) => z.count > 0),
             };
@@ -146,7 +146,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       for (const l of b.lines || []) {
         const q = num(l.qty);
         if (!l.name || !(q >= 0)) { bad.push(`Ingredient "${l.name || '?'}" has no valid quantity`); continue; }
-        lines.push({ token: String(l.name), qty: q, unit: String(l.unit || 'g').trim().slice(0, 12) || 'g' });
+        lines.push({ token: String(l.name), qty: q, unit: String(l.unit || 'g').trim().slice(0, 12) || 'g', free: l.free === true });
       }
       const packagingQty = {};
       for (const p of b.packaging || []) {

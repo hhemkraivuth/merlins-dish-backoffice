@@ -508,7 +508,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     otherBox.innerHTML = '';
     rows.forEach((r, idx) => {
       const unitLabel = r.type === 'Ingredient' ? (r.unit || 'g') : r.unit;
-      const priceTxt = r.unitCost != null ? `${baht(r.unitCost)}/${escapeHtml(r.unit || 'unit')}${r.priceDate ? ' · ' + r.priceDate : ''}${r.note ? ' · ' + escapeHtml(r.note) : ''}` : 'no price';
+      const priceTxt = r.free ? 'Free for this batch, ฿0' : r.unitCost != null ? `${baht(r.unitCost)}/${escapeHtml(r.unit || 'unit')}${r.priceDate ? ' · ' + r.priceDate : ''}${r.note ? ' · ' + escapeHtml(r.note) : ''}` : 'no price';
       const node = el(`
         <div class="recipe-row${r.removed ? ' removed' : ''}" data-idx="${idx}">
           <span class="recipe-name">${escapeHtml(r.name)}${r.extra ? ' <em>(added)</em>' : ''}</span>
@@ -516,7 +516,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
           <span class="recipe-qty unit-cell">${escapeHtml(unitLabel)}</span>
           <span class="recipe-price">${priceTxt}</span>
           <span class="recipe-qty line-cost"></span>
-          ${r.type === 'Ingredient' ? `<span class="row-actions"><button class="stock-count-button swap-btn" type="button">Swap</button><button class="stock-count-button del-btn" type="button">${r.removed ? 'Restore' : 'Delete'}</button></span>` : ''}
+          ${r.type === 'Ingredient' ? `<span class="row-actions"><button class="stock-count-button free-btn" type="button">${r.free ? 'Undo free' : 'Free ฿0'}</button><button class="stock-count-button swap-btn" type="button">Swap</button><button class="stock-count-button del-btn" type="button">${r.removed ? 'Restore' : 'Delete'}</button></span>` : ''}
         </div>`);
       const inp = node.querySelector('.qty');
       inp.addEventListener('input', () => { r.qty = inp.value === '' ? '' : Number(inp.value); r.edited = true; refresh(); });
@@ -531,6 +531,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
             <button class="stock-count-button swapOk" type="button">Swap</button>
           </div>`);
         ingBox.appendChild(panel);
+        node.querySelector('.free-btn').addEventListener('click', () => { r.free = !r.free; r.edited = true; drawRows(); refresh(); });
         node.querySelector('.del-btn').addEventListener('click', () => {
           if (r.extra) { rows.splice(idx, 1); recipe.ingredients.pop(); }
           else if (r.removed) { r.removed = false; r.qty = r.prevQty !== undefined ? r.prevQty : r.original; r.edited = r.qty !== r.original; }
@@ -595,7 +596,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     let ing = 0, pkg = 0, utl = 0;
     rows.forEach((r, idx) => {
       const q = qtyOf(r);
-      const cost = q * (r.unitCost || 0);
+      const cost = r.free ? 0 : q * (r.unitCost || 0);
       if (r.type === 'Ingredient') ing += cost; else if (r.type === 'Packaging') pkg += cost; else utl += cost;
       const node = container.querySelector(`.recipe-row[data-idx="${idx}"]`);
       if (!node) return;
@@ -638,7 +639,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
 
   $('logBatch').addEventListener('click', async () => {
     const res = $('batchResult');
-    const lines = rows.filter((r) => r.type === 'Ingredient' && r.edited && (r.extra || Number(r.qty) !== r.original)).map((r) => ({ name: r.name, qty: r.qty, unit: r.unit }));
+    const lines = rows.filter((r) => r.type === 'Ingredient' && r.edited && (r.extra || r.free || Number(r.qty) !== r.original)).map((r) => ({ name: r.name, qty: r.qty, unit: r.unit, free: r.free ? true : undefined }));
     const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
     const body = {
       dish: recipe.tab, date: dateInput.value,
@@ -675,6 +676,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     // Every ingredient as it stands now is saved, so the batch is frozen as cooked even if the recipe changes before you count the portions.
     const lines = rows.filter((r) => r.type === 'Ingredient').map((r) => ({ name: r.name, qty: r.qty !== undefined ? r.qty : r.original, unit: r.extra ? r.unit : undefined })).filter((l) => Number(l.qty) >= 0);
     const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
+    if (rows.some((r) => r.type === 'Ingredient' && r.free)) { res.innerHTML = '<div class="result-card"><div class="error-item">Free ingredients can only be set when you log the whole batch with its servings. Nothing was saved.</div></div>'; return; }
     const body = { dish: recipe.tab, date: dateInput.value, lines, packaging, sizes: [], yield: undefined };
     res.innerHTML = '<div class="loading">Saving…</div>';
     $('saveOpen').disabled = true;
@@ -698,10 +700,10 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
     fn.lines.forEach((l) => {
       const row = rows.find((r) => r.type === 'Ingredient' && !r.extra && norm(r.name) === norm(l.name));
-      if (row) { row.qty = l.qty; row.edited = true; return; }
+      if (row) { row.qty = l.qty; row.edited = true; if (l.free) row.free = true; return; }
       const known = recipe.catalogue[l.name];
       if (!known) { unknown.push(l.name); return; }
-      rows.splice(recipe.ingredients.length, 0, { type: 'Ingredient', name: l.name, unit: l.unit || 'g', unitCost: known.unitCost, priceDate: known.priceDate, note: 'from your note', original: 0, qty: l.qty, edited: true, extra: true });
+      rows.splice(recipe.ingredients.length, 0, { type: 'Ingredient', name: l.name, unit: l.unit || 'g', unitCost: known.unitCost, priceDate: known.priceDate, note: 'from your note', original: 0, qty: l.qty, edited: true, extra: true, free: !!l.free });
       recipe.ingredients.push({});
     });
     if (fn.edit) (fn.utility || []).forEach((u) => { const r = rows.find((x) => x.type === 'Utility' && norm(x.name) === norm(u.name)); if (r) { const same = /reheat/i.test(r.name) ? u.qty === fn.yield : u.qty === r.original; if (!same) { r.qty = u.qty; r.edited = true; } } });

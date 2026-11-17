@@ -127,7 +127,7 @@ function buildCookLog({ logRows, sizeRows, rdRows = [], rdSizeRows = [], month, 
     months: monthsOf(all, today),
     totals: { batches: real.length, rdBatches: mine.length - real.length, portions, cost: r2(cost), perPortion: portions ? r2(cost / portions) : null },
     byDish: [...dishes.values()].map((d) => ({ ...d, cost: r2(d.cost), perPortion: d.portions ? r2(d.cost / d.portions) : null })).sort((a, b) => b.portions - a.portions),
-    rows: mine.map((x) => ({ key: x.key, rd: x.rd, date: formatDMY(x.date), dish: x.dish, portions: x.portions, sizes: x.sizes, ingredients: r2(x.ingredients), packaging: r2(x.packaging), utility: r2(x.utility), total: r2(x.total), perPortion: x.perPortion, lowYield: x.portions > 0 && x.portions <= 3, flags: x.flags })),
+    rows: mine.map((x) => ({ key: x.key, rd: x.rd, date: formatDMY(x.date), dish: x.dish, portions: x.portions, sizes: x.sizes, ingredients: r2(x.ingredients), packaging: r2(x.packaging), utility: r2(x.utility), total: r2(x.total), perPortion: x.perPortion, lowYield: !x.rd && x.portions > 0 && x.portions <= 3, flags: x.flags })),
   };
 }
 

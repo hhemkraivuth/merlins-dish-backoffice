@@ -209,3 +209,20 @@ test('Braised Lamb shank is a batch dish with its own shorthand', () => {
   const seed = require('../data/recipes.json');
   assert.ok(seed.dishes.some((d) => d.dish === 'Slow-Braised Lamb Shank' && d.lines.some((l) => /42 minutes/.test(l))));
 });
+
+test('an ingredient marked free costs 0 on that batch only', () => {
+  const sh = defaultShorthand();
+  const recipe = parseDishTab(bologneseRows);
+  const book = buildPriceBook({ priceLogRows: priceLog, today: TODAY });
+  const { batches } = parseNote(NOTE, sh, TODAY);
+  const base = costBatch({ batch: batches[0], recipe, shorthand: sh, priceBook: book });
+  const onion = base.lines.find((l) => l.type === 'Ingredient' && /^onion/i.test(l.name));
+  assert.ok(onion && onion.lineCost > 0);
+  const free = costBatch({ batch: { ...batches[0], lines: batches[0].lines.map((l) => (/^o$/i.test(l.token) ? { ...l, free: true } : l)) }, recipe, shorthand: sh, priceBook: book });
+  const freeOnion = free.lines.find((l) => l.type === 'Ingredient' && /^onion/i.test(l.name));
+  assert.strictEqual(freeOnion.lineCost, 0);
+  assert.match(freeOnion.priceSource, /^Free/);
+  assert.ok(Math.abs((base.ingredientCost - free.ingredientCost) - onion.lineCost) < 0.01);
+  // the next batch, with no free mark, is costed normally
+  assert.ok(costBatch({ batch: batches[0], recipe, shorthand: sh, priceBook: book }).lines.find((l) => /^onion/i.test(l.name)).lineCost > 0);
+});

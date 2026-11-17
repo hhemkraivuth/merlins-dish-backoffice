@@ -75,12 +75,15 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
   // 1. quantity per ingredient: recipe default, overridden by the note
   const qtyFor = new Map(); // normalised recipe name -> qty from note
   const extras = []; // note lines that aren't in the recipe
+  const freeSet = new Set(); // ingredients marked free (฿0) on this batch only
   for (const nl of batch.lines) {
     const { line, viaMeat, target, ambiguous } = findRecipeIngredient(nl.token, recipe, shorthand);
     if (line) {
       qtyFor.set(normName(line.name), nl.qty);
+      if (nl.free) freeSet.add(normName(line.name));
       if (viaMeat) notes.push(`Meat read as ${line.name}`);
     } else {
+      if (nl.free) freeSet.add(normName(target));
       extras.push({ name: target, qty: nl.qty, unit: nl.unit, token: nl.token, ambiguous });
     }
   }
@@ -115,6 +118,11 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
   }
 
   function priceLine(type, name, qty, unit, sheetCost, qtySource) {
+    // Marked free on the form: costs ฿0 on this batch only, takes nothing from stock lots, and the price book is untouched.
+    if (type === 'Ingredient' && freeSet.has(normName(name))) {
+      lines.push({ type, name, qty, unit, unitCost: 0, priceDate: '', priceSource: 'Free (฿0, set on this batch)', lineCost: 0, qtySource, staleDays: null });
+      return;
+    }
     if (type === 'Ingredient' && lotLine(name, qty, unit, qtySource)) return;
     const p = priceBook.lookup(name, date);
     let unitCost = null;
@@ -146,7 +154,7 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
   }
   for (const ex of extras) {
     const p = priceBook.lookup(ex.name, date);
-    if (p && !p.missing) {
+    if ((p && !p.missing) || freeSet.has(normName(ex.name))) {
       flags.push(`"${ex.token}" is not in the ${recipe.dish} recipe. Costed as an extra line.`);
       priceLine('Ingredient', ex.name, ex.qty, ex.unit, null, 'note (extra)');
     } else {
