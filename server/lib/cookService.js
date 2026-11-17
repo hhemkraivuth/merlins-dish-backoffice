@@ -6,7 +6,7 @@ const { costBatch } = require('./costBatch');
 const { parseDate, formatDMY, bangkokToday, bangkokNow } = require('./dates');
 const { parsePurchaseUnit, normName, looseKey } = require('./priceBook');
 const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
-const { splitOverheads, overheadRows } = require('./overheads');
+const { splitOverheads, overheadRows, isRd } = require('./overheads');
 const { toBaseQty } = require('./ingredientLots');
 const { applyPackSize, isContainerWord } = require('./packSizes');
 const { newReceiptId } = require('./receiptUndo');
@@ -344,10 +344,11 @@ async function processTypedReceipt(text, messageDate, deps) {
       if (!byDate.has(d)) byDate.set(d, []);
       byDate.get(d).push(`• ${it.name}, ${baht(it.price)}`);
     }
-    const adItems = oh.items.filter((it) => it.ads); const ohItems = oh.items.filter((it) => !it.ads);
+    const adItems = oh.items.filter((it) => it.ads); const rdItems = oh.items.filter((it) => !it.ads && isRd(it.category)); const ohItems = oh.items.filter((it) => !it.ads && !isRd(it.category));
     const sum = (a) => baht(a.reduce((s, it) => s + it.price, 0));
     const out = [];
     if (ohItems.length) out.push(`Overheads logged: ${ohItems.length} item${ohItems.length === 1 ? '' : 's'}, ${sum(ohItems)}. Counted as spending in the margin, not as food cost, and not taken off stock.`);
+    if (rdItems.length) out.push(`R&D logged: ${rdItems.length} item${rdItems.length === 1 ? '' : 's'}, ${sum(rdItems)}. Kept apart from food cost, counted as spending in the margin, and not taken off stock.`);
     if (adItems.length) out.push(`Ads logged: ${adItems.length} item${adItems.length === 1 ? '' : 's'}, ${sum(adItems)}. Shown in the Ads column and taken off the margin.`);
     for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
     if (oh.undated) out.push(`No date line above some items, so I used ${formatDMY(messageDate)}.`);

@@ -23,6 +23,10 @@ const PLATFORM = 'meta|facebook|instagram|google';
 const ADS = new RegExp(`^(?:(${PLATFORM})\\s+)?(?:ads?|advertising)(?:\\s+(${PLATFORM})\\b)?[\\s:\\-]*(.*)$`, 'i');
 const adsCategory = (m) => { const w = m[1] || m[2]; return `Ads${w ? ' ' + w[0].toUpperCase() + w.slice(1).toLowerCase() : ''}`; };
 const isAds = (category) => /^ads\b/i.test(String(category || ''));
+// R&D: "r&d" (or "r and d", "rd") on a line of its own starts an R&D block, e.g. test ingredients bought for a new recipe. The lines below
+// are logged to the Overheads tab with category R&D, so they stay apart from food cost. "r&d, lamb trial" keeps the words after it as a note.
+const RD_MARKER = /^(?:r\s*&\s*d|r\s+and\s+d|rd)(?:\s*[:\-,]\s*(.*))?$/i;
+const isRd = (category) => /^r&d\b/i.test(String(category || ''));
 const BACK_TO_FOOD = /^(ingredients?|food)$/i;
 const num = (s) => Number(String(s).replace(/[,฿\s]/g, ''));
 
@@ -55,7 +59,7 @@ function overheadItem(line) {
 function splitOverheads(text, today) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const isAdsLine = (l) => { const m = l.match(ADS); return !!m && (!m[3] || !!overheadItem(l)); };
-  if (!lines.some((l) => MARKER.test(l) || isAdsLine(l))) return { found: false, rest: text, items: [], problems: [], undated: false };
+  if (!lines.some((l) => MARKER.test(l) || isAdsLine(l) || RD_MARKER.test(l))) return { found: false, rest: text, items: [], problems: [], undated: false };
   const rest = []; const items = []; const problems = [];
   let date = null; let shop = ''; let mode = false; let category = ''; let undated = false;
   for (const line of lines) {
@@ -72,11 +76,15 @@ function splitOverheads(text, today) {
       if (one) { if (!date) undated = true; items.push({ date: date || today, name: one.name, price: one.price, usd: one.usd, repeat: one.repeat, shop, category: adsCategory(ad), ads: true }); continue; }
       if (!ad[3]) { mode = true; category = adsCategory(ad); continue; }
     }
+    const rd = line.match(RD_MARKER);
+    if (rd) { mode = true; category = rd[1] && rd[1].trim() ? `R&D ${rd[1].trim()}` : 'R&D'; continue; }
     const mk = line.match(MARKER);
     if (mk) { mode = true; category = mk[1].trim(); continue; }
     if (BACK_TO_FOOD.test(line)) { mode = false; category = ''; continue; }
     if (!mode) { rest.push(line); continue; }
-    const it = overheadItem(line);
+    let it = overheadItem(line);
+    // Inside an R&D block a price on the end with no comma or thb is fine: "lambshank 794g 277" -> lambshank 794g, 277
+    if (!it && isRd(category)) { const b = line.match(/^(.+?)\s+(\d[\d,]*(?:\.\d+)?)$/); if (b) it = { name: b[1].trim(), price: num(b[2]), repeat: false }; }
     if (!it) { problems.push(`Couldn't read "${line}". Write it like: pot 7lt, 2575thb`); continue; }
     if (!date) undated = true;
     items.push({ date: date || today, name: it.name, price: it.price, usd: it.usd, repeat: it.repeat, shop, category, ads: isAds(category) });
@@ -107,4 +115,4 @@ function overheadsFrom(rows) {
   return out;
 }
 
-module.exports = { isAds, splitOverheads, overheadItem, overheadRows, overheadsFrom, TAB, HEADERS };
+module.exports = { isAds, isRd, splitOverheads, overheadItem, overheadRows, overheadsFrom, TAB, HEADERS };

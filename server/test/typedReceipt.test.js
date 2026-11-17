@@ -395,3 +395,15 @@ test('ordinary chat that starts with the word ads is not read as an ads receipt'
   const { splitOverheads } = require('../lib/overheads');
   assert.strictEqual(splitOverheads('ads are working well today', new Date(Date.UTC(2026, 10, 4))).found, false);
 });
+
+test('r&d lines are their own category, with or without a comma before the price', async () => {
+  const { splitOverheads, overheadRows, overheadsFrom } = require('../lib/overheads');
+  const out = splitOverheads('13/11/2026\noverhead\nblender, 297\nr&d\nlambshank 794g 277', new Date(Date.UTC(2026, 10, 17)));
+  assert.deepStrictEqual(out.problems, []);
+  assert.deepStrictEqual(out.items.map((i) => [i.name, i.price, i.category]), [['blender', 297, ''], ['lambshank 794g', 277, 'R&D']]);
+  const rows = overheadRows(out.items);
+  assert.strictEqual(rows[1][2], 'R&D');
+  // R&D spend still counts as spending in the margin, like other overheads
+  assert.deepStrictEqual(overheadsFrom([['Date'], ...rows]).map((x) => x.kind), ['overhead', 'overhead']);
+  assert.ok(splitOverheads('r and d\nlamb 100thb', new Date(Date.UTC(2026, 10, 17))).items[0].category === 'R&D');
+});
