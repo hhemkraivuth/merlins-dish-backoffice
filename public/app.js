@@ -215,7 +215,7 @@ function renderReceipts() {
       </div>
       <div class="sum-grid" id="spendSummary"></div>
       <div class="shop-box" id="shopBox"><h2>Shopping plan</h2><div id="shopPlan"></div></div>
-      <p style="margin:0 0 6px;font-size:12px;line-height:1.5;color:#777">Date line first. <code>overhead</code> or <code>r&amp;d</code> on its own line, then items (<code>pot 7lt, 2575thb</code>, <code>lambshank 794g 277</code>). <code>meta ads, 1200thb</code>. <code>ingredients</code> to go back. <code>undo receipt</code> for a mistake.</p>
+      <p style="margin:0 0 6px;font-size:12px;line-height:1.5;color:#777">Date line first. <code>overhead</code> or <code>r&amp;d</code> on its own line, then items (<code>pot 7lt, 2575thb</code>, <code>lambshank 794g 277</code>). Bags or packs: <code>orzo 500g 2 bags, 78 each</code>. <code>meta ads, 1200thb</code>. <code>ingredients</code> to go back. <code>undo receipt</code> for a mistake.</p>
       <div id="receiptDraftNote" style="display:none;margin:0 0 6px;padding:6px 10px;border-radius:8px;background:#fde8c8;font-size:13px">Not saved yet. These lines could not be read, so they are kept here. Fix them and press Log receipt. Lines that were saved are not repeated.</div>
       <textarea id="receiptText" rows="8" placeholder="18/10&#10;minced pork 1000g 110thb&#10;onion 2kg 90thb" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="receiptSubmit" disabled>Type a receipt first</button>
