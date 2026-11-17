@@ -49,6 +49,8 @@ body {
 .tab-button.active { background: var(--blue); color: #fff; font-weight: 600; }
 
 .main { padding: 20px 20px 60px; max-width: 520px; margin: 0 auto; }
+/* Desktop: the working pages fill the screen like Home, Numbers and Analysis. Phones are unchanged. */
+.main.wide { max-width: 1000px; }
 .section { display: flex; flex-direction: column; gap: 14px; }
 
 .intro { margin-bottom: 4px; }

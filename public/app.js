@@ -56,7 +56,8 @@ function renderResultCard(container, data, { itemKey = 'orderId', writtenLabel =
 function escapeHtml(str) {
   const d = document.createElement('div');
   d.textContent = str;
-  return d.innerHTML;
+  // innerHTML leaves quotes alone, which broke any value placed inside an attribute (data-repeat="{"name"...}" was cut at the first quote).
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ---- Summary cards above the Weekly Receipts and Batch Cook boxes (this week and this month) ----
@@ -133,23 +134,36 @@ function monthlyLog(box, { title, api, links, totalsOf, draw }) {
 }
 
 // Monthly overheads: what repeats on the 1st, with a Stop button. Dollar items stay in dollars.
+const repeatingNow = new Map(); // item name (lower case) to its id in the monthly list
+const repKey = (n) => String(n || '').toLowerCase().replace(/\s+/g, ' ').trim();
+function syncRepeatButtons() {
+  document.querySelectorAll('button.repeat-btn').forEach((b) => {
+    let name = ''; try { name = JSON.parse(b.dataset.repeat).name; } catch (e) { /* ignore */ }
+    const on = repeatingNow.has(repKey(name));
+    b.dataset.state = on ? 'on' : '';
+    b.textContent = on ? 'Repeating, tap to stop' : 'Repeat monthly';
+    b.style.background = on ? '#e3f1ea' : 'var(--card)';
+  });
+}
 function monthlyOverheads(box, after) {
   async function load() {
     try {
       const res = await fetch('/api/overheads/monthly');
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error || 'Not available');
-      const rows = d.items.length ? d.items.map((x) => `<div class="sum-row"><span><b>${escapeHtml(x.name)}</b><small>${x.usd ? `USD ${num2(x.usd)}${d.rate ? `, about ฿${num2(x.usd * d.rate)} at ${d.rate} today` : ''}` : `฿${num2(x.thb)}`}${x.category ? `, ${escapeHtml(x.category)}` : ''}</small></span><span><button type="button" data-stop-monthly="${escapeHtml(x.id)}" style="font:inherit;font-size:13px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Stop</button></span></div>`).join('')
-        : '<p class="note">Nothing repeats yet. Tap Repeat monthly on an overhead in the log below, or type "monthly" after a line, like: railway 5usd, monthly</p>';
-      box.innerHTML = `<h2>Monthly overheads</h2><p class="note">Logged by itself on the 1st of every month. A dollar price stays in dollars, the baht is that day's conversion.</p>${rows}`;
+      repeatingNow.clear(); d.items.forEach((x) => repeatingNow.set(repKey(x.name), x.id)); syncRepeatButtons();
+      const rows = d.items.length ? d.items.map((x) => `<div class="sum-row"><span><b>${escapeHtml(x.name)}</b><small>${x.usd ? `USD ${num2(x.usd)}${d.rate ? `, about ฿${num2(x.usd * d.rate)} at ${d.rate} today` : ''}` : `฿${num2(x.thb)}`}${x.category ? `, ${escapeHtml(x.category)}` : ''}</small></span><span><button type="button" data-stop-monthly="${escapeHtml(x.id)}" style="font:inherit;font-size:13px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Remove</button></span></div>`).join('')
+        : '<p class="note">Nothing repeats. Only things you add here are logged again each month.</p>';
+      box.innerHTML = `<h2>Monthly overheads</h2><p class="note">Optional. For costs that are the same every month, like Railway or an instalment. To add one, tap Repeat monthly on its line in the list below, or type "monthly" after a line, like: railway 5usd, monthly. It is then logged by itself on the 1st. Remove stops it, lines already logged stay. A dollar price stays in dollars.</p>${rows}`;
     } catch (err) { box.innerHTML = `<h2>Monthly overheads</h2><p class="note stale">${escapeHtml(err.message)}</p>`; }
   }
   box.addEventListener('click', async (e) => {
     const b = e.target.closest('button[data-stop-monthly]'); if (!b) return;
-    if (!window.confirm('Stop repeating this every month? Rows already logged stay.')) return;
+    if (!window.confirm('Remove this from the monthly list? It will not be logged again. Lines already logged stay.')) return;
     b.disabled = true;
     try {
-      await fetch('/api/overheads/monthly/stop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: b.dataset.stopMonthly }) });
+      const res = await fetch('/api/overheads/monthly/stop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: b.dataset.stopMonthly }) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Could not remove it (${res.status}). Try again in a minute.`); }
       await load(); if (after) after();
     } catch (err) { b.disabled = false; window.alert(err.message); }
   });
@@ -166,8 +180,9 @@ function receiptLogTotals(log) {
 function repeatButton(r) {
   const usd = String(r.remarks || '').match(/USD\s+(\d+(?:\.\d+)?)/i);
   const data = { name: r.item, category: r.category || '', shop: r.shop || '', thb: r.price, usd: usd ? Number(usd[1]) : null, date: r.date };
-  const label = String(r.remarks || '').includes('Repeats monthly') ? 'Repeating' : 'Repeat monthly';
-  return `<button type="button" class="repeat-btn" data-repeat="${escapeHtml(JSON.stringify(data))}" style="font:inherit;font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;white-space:nowrap">${label}</button>`;
+  const on = repeatingNow.has(repKey(r.item));
+  const label = on ? 'Repeating, tap to stop' : 'Repeat monthly';
+  return `<button type="button" class="repeat-btn" data-state="${on ? 'on' : ''}" title="Logs this again by itself on the 1st of every month. Optional." data-repeat="${escapeHtml(JSON.stringify(data))}" style="font:inherit;font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;white-space:nowrap">${label}</button>`;
 }
 let receiptRowsShown = [];
 function receiptLogTable(log) {
@@ -206,6 +221,7 @@ function renderReceipts() {
       <button class="primary-button" id="receiptSubmit" disabled>Type a receipt first</button>
       <div id="receiptResult"></div>
       <div class="shop-box" id="monthlyBox"></div>
+      <div id="rcFlash" style="display:none;padding:8px 12px;border-radius:8px;background:#e3f1ea;font-size:14px;font-weight:600"></div>
       <div class="log-box" id="receiptLog"></div>
     </section>
   `);
@@ -228,18 +244,35 @@ function renderReceipts() {
     const btn = e.target.closest('button.repeat-btn'); if (!btn) return;
     btn.disabled = true;
     try {
+      if (btn.dataset.state === 'on') {
+        let name = ''; try { name = JSON.parse(btn.dataset.repeat).name; } catch (x) { /* ignore */ }
+        const id = repeatingNow.get(repKey(name));
+        if (id && window.confirm(`Stop ${name} repeating every month? Lines already logged stay.`)) {
+          const res = await fetch('/api/overheads/monthly/stop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) });
+          if (!res.ok) throw new Error(`Could not stop it (${res.status}). Try again in a minute.`);
+          await reloadMonthly();
+        }
+        btn.disabled = false; return;
+      }
       const res = await fetch('/api/overheads/monthly', { method: 'POST', headers: { 'content-type': 'application/json' }, body: btn.dataset.repeat });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error || 'Not saved');
-      btn.textContent = 'Repeating'; reloadMonthly();
+      if (!res.ok) throw new Error(d.error || `Could not add it (${res.status}). Try again in a minute.`);
+      await reloadMonthly(); btn.disabled = false;
     } catch (err) { btn.disabled = false; window.alert(err.message); }
   });
 
-  // Edit and Delete on any line of the list below.
+  // Edit and Delete on any line of the list below. A green note confirms it, since the list quietly redraws.
+  let flashTimer = null;
+  const flash = (text) => {
+    const f = section.querySelector('#rcFlash'); if (!f) return;
+    f.textContent = String(text).trim(); f.style.display = 'block';
+    f.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    clearTimeout(flashTimer); flashTimer = setTimeout(() => { f.style.display = 'none'; }, 8000);
+  };
   const post = async (url, body) => {
     const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const d = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+    if (!res.ok) throw new Error(d.error || `The server did not answer properly (${res.status}). Nothing was changed. Try again in a minute.`);
     return d;
   };
   section.querySelector('#receiptLog').addEventListener('click', async (e) => {
@@ -251,7 +284,7 @@ function renderReceipts() {
       const r = receiptRowsShown[Number(delBtn.dataset.rcDel)]; if (!r) return;
       if (!window.confirm(`Delete ${r.item}, ${r.price} baht, ${r.date}?${r.type === 'Ingredient' ? ' Its stock lot goes too, if no batch has used it.' : ''}`)) return;
       delBtn.disabled = true;
-      try { await post('/api/receipts/item/delete', { ref: r.ref }); reloadSpend(); } catch (err) { delBtn.disabled = false; window.alert(err.message); }
+      try { const d = await post('/api/receipts/item/delete', { ref: r.ref }); reloadSpend(); flash(`Deleted ${r.item}. ${d.text && d.text.includes('kept') ? d.text : ''}`); } catch (err) { delBtn.disabled = false; window.alert(err.message); }
       return;
     }
     if (cancelBtn) { const f = cancelBtn.closest('tr'); if (f) f.remove(); return; }
@@ -280,8 +313,8 @@ function renderReceipts() {
       const msg = form.querySelector('[data-rc-msg]');
       saveBtn.disabled = true; msg.textContent = 'Saving…'; msg.style.color = '#777';
       try {
-        await post('/api/receipts/item/edit', { ref: r.ref, date: v('date'), item: v('item'), qty: v('qty'), price: v('price'), shop: v('shop'), kind: v('kind') });
-        reloadSpend();
+        const d = await post('/api/receipts/item/edit', { ref: r.ref, date: v('date'), item: v('item'), qty: v('qty'), price: v('price'), shop: v('shop'), kind: v('kind') });
+        reloadSpend(); flash(`Saved ${v('item')}, ${v('price')} baht${v('shop') ? ', ' + v('shop') : ''}. ${d.text && d.text.includes('kept') ? d.text : ''}`);
       } catch (err) { saveBtn.disabled = false; msg.style.color = '#b3261e'; msg.textContent = err.message; }
     }
   });
