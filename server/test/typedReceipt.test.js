@@ -420,3 +420,13 @@ test('multipacks like 120gx3 and 3x120g are read as the whole lot', () => {
     assert.strictEqual(out.items[0].unit, 'g', line);
   }
 });
+
+test('a bare price after a quantity with a unit is a receipt line, and cook notes are still not', () => {
+  const { parseTypedReceipt, looksLikeTypedReceipt } = require('../lib/typedReceipt');
+  const out = parseTypedReceipt('13/11\nat makro\nmilk 2000ml 99.75\ncelery 2268g 133.75\nmushroom white 500g 129\ncarrot 809g 9', utc(2026, 10, 17));
+  assert.deepStrictEqual(out.problems, []);
+  assert.deepStrictEqual(out.items.map((i) => [i.typedName, i.qty, i.price]), [['milk', 2000, 99.75], ['celery', 2268, 133.75], ['mushroom white', 500, 129], ['carrot', 809, 9]]);
+  assert.strictEqual(out.items[0].shop, 'makro');
+  assert.strictEqual(looksLikeTypedReceipt('7/10\nBolo\nMeat 1000\nO 446\nG 60\nyield 21'), false);
+  assert.strictEqual(looksLikeTypedReceipt('portions r9 l4'), false);
+});

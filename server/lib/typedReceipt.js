@@ -26,6 +26,10 @@ const UNIT = '(kg|gm|grams?|g|ml|ltr|l|pieces?|pcs?|packs?|sets?|cans?|tins?|bot
 const WITH_MARK = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?[,\\s]+(?:฿\\s*${NUM}|${NUM}\\s*(?:thb|baht|฿))$`, 'i');
 const WITH_COMMA = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?\\s*,\\s*${NUM}$`, 'i');
 
+// A bare price after a quantity that has a unit: "milk 2000ml 99.75", "carrot 809g 9". The unit is required here, so a cook note line
+// such as "Meat 1000" is never mistaken for a receipt line.
+const WITH_BARE = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}[,\\s]+${NUM}$`, 'i');
+
 // "minced pork 1000g 110thb" / "pelati, 2550g, 275" -> { name, qtyText, unitText, price } or null
 // Multipacks: "120gx3" and "3x120g" mean 360g in all. The price on the line is the total for the whole lot.
 const MP_UNIT = '(kg|gm|grams?|g|ml|ltr|l)';
@@ -53,6 +57,8 @@ function matchItemPlain(line) {
   if (m) return { name: m[1], qtyText: m[2], unitText: m[3] || '', price: m[4] !== undefined ? m[4] : m[5] };
   m = t.match(WITH_COMMA);
   if (m) return { name: m[1], qtyText: m[2], unitText: m[3] || '', price: m[4] };
+  m = t.match(WITH_BARE);
+  if (m) return { name: m[1], qtyText: m[2], unitText: m[3], price: m[4] };
   return null;
 }
 
