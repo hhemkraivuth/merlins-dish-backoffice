@@ -97,6 +97,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
             const sz = sizeRows.filter((x, i) => i > 0 && String(x[0]) === editKey);
             fromNote = {
               key: editKey, edit: true, rd: isRd, yield: Number(head[3]) || 0,
+              noLines: !lineRows.some((x, i) => i > 0 && String(x[0]) === editKey),   // batches logged before R&D lines were kept
               lines: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Ingredient').map((x) => ({ name: String(x[4]), inRecipe: true, qty: Number(x[5]), unit: String(x[6] || ''), free: /^Free/i.test(String(x[9] || '')) })),
               utility: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Utility').map((x) => ({ name: String(x[4]), qty: Number(x[5]) })),
               sizeCounts: sz.map((x) => ({ name: String(x[3]), count: Number(x[5]) || 0, weight: Number(x[4]) || 0, cookedWeight: Number(x[7]) || 0 })).filter((z) => z.count > 0),

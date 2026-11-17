@@ -709,13 +709,13 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     if (fn.edit) (fn.utility || []).forEach((u) => { const r = rows.find((x) => x.type === 'Utility' && norm(x.name) === norm(u.name)); if (r) { const same = /reheat/i.test(r.name) ? u.qty === fn.yield : u.qty === r.original; if (!same) { r.qty = u.qty; r.edited = true; } } });
     if (fn.edit) {
       // An ingredient the logged batch did not use stays at 0.
-      rows.forEach((r) => { if (r.type === 'Ingredient' && !r.extra && !fn.lines.some((l) => norm(l.name) === norm(r.name))) { r.qty = 0; r.edited = true; } });
+      if (!fn.noLines) rows.forEach((r) => { if (r.type === 'Ingredient' && !r.extra && !fn.lines.some((l) => norm(l.name) === norm(r.name))) { r.qty = 0; r.edited = true; } });
       if (!recipe.sized && fn.yield) yieldInput.value = fn.yield;
       if (recipe.sized) fn.sizeCounts.forEach((z) => { const w = $(z.name === 'Large' ? 'lgWeight' : 'regWeight'); if (w && z.weight) w.value = z.weight; if (z.cookedWeight && $('cookedWeight')) $('cookedWeight').value = z.cookedWeight; });
     }
     if (recipe.sized) fn.sizeCounts.forEach((z) => { const box = $(z.name === 'Large' ? 'lgCount' : 'regCount'); if (box) box.value = z.count; });
     drawRows();
-    const banner = el(`<div class="result-card"><div class="result-headline">${fn.edit ? `Editing the batch logged for ${escapeHtml(dateInput.value)}. Change what you need and press Log this batch. The old one is replaced, and its stock is given back first.` : `Filled from the cook note you sent for ${escapeHtml(dateInput.value)}. Check it, change anything, add the portions and log it.`}${unknown.length ? ` Not found in the Price Tracker, so left out: ${escapeHtml(unknown.join(', '))}.` : ''}</div></div>`);
+    const banner = el(`<div class="result-card"><div class="result-headline">${fn.edit ? `Editing the batch logged for ${escapeHtml(dateInput.value)}. Change what you need and press Log this batch. The old one is replaced, and its stock is given back first.${fn.noLines ? ' This batch was logged before its exact ingredient amounts were kept, so the amounts below are the recipe defaults. Check them against what you really used.' : ''}` : `Filled from the cook note you sent for ${escapeHtml(dateInput.value)}. Check it, change anything, add the portions and log it.`}${unknown.length ? ` Not found in the Price Tracker, so left out: ${escapeHtml(unknown.join(', '))}.` : ''}</div></div>`);
     container.insertBefore(banner, container.firstChild);
     if (fn.edit) container.dataset.editKey = fn.key; else container.dataset.openKey = fn.key;
   }
