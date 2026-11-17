@@ -19,9 +19,14 @@ function createReceiptItems(getDeps) {
   }
 
   // Takes the row out. An ingredient's stock lot goes too, unless a batch has already used some of it.
-  async function removeRow(ref, row) {
+  async function removeRow(ref, row, { keepStock = false } = {}) {
     await sheets().deleteRowAt(TABS[ref.t], ref.i);
     let keptLot = '';
+    // An overhead that topped up the Stock page (foil, bags) takes it back off when deleted. An edit leaves stock alone.
+    if (ref.t === 'O' && !keepStock) {
+      const sm = String(row[5] || '').match(/Stock \+(\d+(?:\.\d+)?) ([^;]+)/);
+      if (sm) { try { await getDeps().adjustPacks(sm[2].trim(), -Number(sm[1])); } catch (err) { console.error('Stock take back failed:', err); } }
+    }
     if (ref.t === 'E') {
       const id = (String(row[6] || '').match(/R\d{6}-\d{6}/) || [])[0];
       if (id) {
@@ -67,13 +72,13 @@ function createReceiptItems(getDeps) {
       }
       const { processTypedReceipt } = require('../lib/cookService');
       const { bangkokToday } = require('../lib/dates');
-      const deps = { ...getDeps(), typedVia: 'Edited on the web' };
+      const deps = { ...getDeps(), typedVia: 'Edited on the web', skipStock: true };
       const replies = (await processTypedReceipt(lines.join('\n'), bangkokToday(), deps)) || [];
       const text = replies.join('\n');
       if (!/logged/i.test(text) || /Couldn't use these lines/.test(text)) {
         return res.status(400).json({ error: `The corrected line could not be read, so nothing was changed.\n${text || 'Check the item, how many and the price.'}` });
       }
-      const kept = await removeRow(b.ref, hit.row);
+      const kept = await removeRow(b.ref, hit.row, { keepStock: true });
       res.json({ ok: true, text: `Saved. ${kept ? `The old stock lot was kept because a batch already used some of it: ${kept}.` : ''}`.trim() });
     } catch (err) { console.error('Receipt line edit failed:', err); res.status(500).json({ error: `Couldn't save the change. Reason: ${err.message}` }); }
   }

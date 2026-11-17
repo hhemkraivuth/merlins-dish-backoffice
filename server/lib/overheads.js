@@ -99,12 +99,35 @@ function splitOverheads(text, today) {
   return { found: true, rest: rest.join('\n'), items, problems, undated };
 }
 
+// Stock top-up for overheads that are things you keep a count of (foil, bags, cups): "foil (star) 2 rolls 39" adds 2 to the Foil item on the
+// Stock page. Only a count word counts (roll, pack, pcs, box, set, bag, bottle, can, sheet), so "pot 7lt" or "blender" never touch stock.
+const COUNT_TAIL = /^(.+?)[\s,]+(\d+(?:\.\d+)?)\s*(?:rolls?|packs?|pcs?|pieces?|boxes|box|sets?|bags?|bottles?|cans?|sheets?)$/i;
+const plain = (n) => String(n || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+function stockQty(name) {
+  const m = String(name || '').trim().match(COUNT_TAIL);
+  return m ? { base: m[1].trim(), qty: Number(m[2]) } : null;
+}
+// items: the Stock page rows ({ itemName, unit }). Exactly one match or nothing; two possible matches are never guessed.
+function matchStock(base, items) {
+  const b = plain(base); if (!b) return { hit: null, ambiguous: [] };
+  const words = new Set(b.split(' '));
+  const exact = items.filter((i) => plain(i.itemName) === b);
+  if (exact.length === 1) return { hit: exact[0], ambiguous: [] };
+  const loose = items.filter((i) => { const w = plain(i.itemName).split(' ').filter(Boolean); return w.length && w.every((x) => words.has(x)); });
+  if (loose.length === 1) return { hit: loose[0], ambiguous: [] };
+  if (loose.length > 1) return { hit: null, ambiguous: loose };
+  // What you typed is part of a longer stock name ("paper bag" for "Paper bag small"): one match is used, two are not guessed between.
+  const part = items.filter((i) => { const w = new Set(plain(i.itemName).split(' ')); return [...words].every((x) => w.has(x)); });
+  return part.length === 1 ? { hit: part[0], ambiguous: [] } : { hit: null, ambiguous: part };
+}
+
 function overheadRows(items, receiptId = '', via = 'Typed in LINE') {
   return items.map((it) => {
     const parts = [via];
     if (it.usd) parts.push(`USD ${Number(it.usd).toFixed(2)} at ${it.rate}`); // the dollar amount stays on the row, the baht is that day's conversion
     if (it.repeat) parts.push('Repeats monthly');
     if (it.qty) parts.push(`Qty ${it.qty}`);
+    if (it.stockAdd) parts.push(`Stock +${it.stockAdd.qty} ${it.stockAdd.itemName}`);
     if (receiptId) parts.push(`Receipt ${receiptId}`);
     return [formatDMY(it.date), it.name, it.category, it.price, it.shop, parts.join('; ')];
   });
@@ -123,4 +146,4 @@ function overheadsFrom(rows) {
   return out;
 }
 
-module.exports = { isAds, isRd, splitQty, splitOverheads, overheadItem, overheadRows, overheadsFrom, TAB, HEADERS };
+module.exports = { isAds, isRd, splitQty, stockQty, matchStock, splitOverheads, overheadItem, overheadRows, overheadsFrom, TAB, HEADERS };

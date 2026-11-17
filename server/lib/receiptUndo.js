@@ -35,19 +35,26 @@ async function processReceiptUndo(text, deps) {
   if (!id) return ['No receipt with an ID found. Receipts sent before this feature have no ID, so delete those rows by hand in the Expense Log tab.'];
   const parts = [];
   const kept = [];
+  const stockBack = []; // overhead lines that topped up the Stock page: { name, qty }
   for (const t of TABS) {
     const n = await deps.deleteWhere(t.tab, (r) => {
       if (!String(r[t.col] || '').includes(id)) return false;
       // A lot that a batch has already used from is kept, so the cost of that batch stays right.
       if (t.lots && Number(r[6]) < Number(r[4]) - 1e-6) { kept.push(`${r[1]} (${r[6]} of ${r[4]} left)`); return false; }
+      if (t.tab === 'Overheads') { const sm = String(r[5] || '').match(/Stock \+(\d+(?:\.\d+)?) ([^;]+)/); if (sm) stockBack.push({ name: sm[2].trim(), qty: Number(sm[1]) }); }
       return true;
     });
     if (n) parts.push(`${n} ${t.label}`);
+  }
+  const backed = [];
+  for (const b of stockBack) {
+    try { if (deps.adjustStock) { const r = await deps.adjustStock(b.name, -b.qty); if (r && r.found) backed.push(`${b.name} -${b.qty} (now ${r.now})`); } } catch (err) { /* reported below */ }
   }
   if (deps.after) { try { await deps.after(); } catch (err) { /* best prices refresh is best effort */ } }
   if (!parts.length && !kept.length) return [`I found no rows for ${id}.`];
   const out = [`Receipt ${id} taken back out: ${parts.join(', ') || 'nothing removed'}.`];
   if (kept.length) out.push(`Kept because a batch already used some of it: ${kept.join(', ')}. Use "count" to correct the stock.`);
+  if (backed.length) out.push(`Stock taken back off: ${backed.join(', ')}.`);
   out.push('If it had condiment packs, fix those with "stock set".');
   return out;
 }

@@ -444,3 +444,27 @@ test('overhead lines accept a bare price on the end', () => {
   assert.deepStrictEqual(out.problems, []);
   assert.deepStrictEqual(out.items.map((i) => [i.name, i.price, i.shop]), [['foil (star)', 39, 'makro'], ['pot 7lt', 2575, 'makro']]);
 });
+
+test('an overhead with a count word tops up the matching Stock page item, and undo takes it back', async () => {
+  const { processTypedReceipt } = require('../lib/cookService');
+  const { processReceiptUndo } = require('../lib/receiptUndo');
+  const stock = [{ itemName: 'Foil', unit: 'roll', currentCount: 0 }, { itemName: 'Paper bag small', unit: 'pcs', currentCount: 5 }, { itemName: 'Paper bag large', unit: 'pcs', currentCount: 5 }];
+  const oh = []; const calls = [];
+  const deps = {
+    loadCatalogue: async () => [], appendExpenseRows: async () => {}, appendOverheads: async (x) => oh.push(...x),
+    stockItems: async () => stock,
+    adjustPacks: async (name, d) => { const i = stock.find((s) => s.itemName === name); i.currentCount += d; calls.push([name, d]); return { found: true, now: i.currentCount }; },
+  };
+  const text = '14/11\nat makro\noverhead\nfoil (star) 2 rolls 39\nblender 297\npaper bag 100 pcs 90\npot 7lt, 2575thb';
+  const replies = await processTypedReceipt(text, new Date(Date.UTC(2026, 10, 17)), deps);
+  assert.deepStrictEqual(calls, [['Foil', 2]]); // blender and pot never touch stock, the two paper bag items are not guessed between
+  assert.strictEqual(stock[0].currentCount, 2);
+  assert.ok(/Stock: Foil \+2 roll, now 2/.test(replies.join('\n')));
+  assert.ok(/Paper bag small or Paper bag large/.test(replies.join('\n')));
+  assert.ok(/Stock \+2 Foil/.test(oh[0][5]));
+  // undo reverses it
+  const rows = [['Date'], ...oh];
+  const out = await processReceiptUndo('undo receipt', { readRows: async (t) => (t === 'Overheads' ? rows : []), deleteWhere: async (t, p) => (t === 'Overheads' ? rows.slice(1).filter(p).length : 0), adjustStock: deps.adjustPacks });
+  assert.strictEqual(stock[0].currentCount, 0);
+  assert.ok(/Stock taken back off: Foil -2/.test(out.join('\n')));
+});

@@ -6,7 +6,7 @@ const { costBatch } = require('./costBatch');
 const { parseDate, formatDMY, bangkokToday, bangkokNow } = require('./dates');
 const { parsePurchaseUnit, normName, looseKey } = require('./priceBook');
 const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
-const { splitOverheads, overheadRows, isRd } = require('./overheads');
+const { splitOverheads, overheadRows, isRd, stockQty, matchStock } = require('./overheads');
 const { toBaseQty } = require('./ingredientLots');
 const { applyPackSize, isContainerWord } = require('./packSizes');
 const { newReceiptId } = require('./receiptUndo');
@@ -333,8 +333,30 @@ async function processTypedReceipt(text, messageDate, deps) {
       for (const it of oh.items) if (it.usd) { it.rate = info.rate; it.price = Math.round(it.usd * info.rate * 100) / 100; }
     }
   }
+  // Overheads you count (foil, bags, cups) with a quantity top up the Stock page item. Nothing else touches stock.
+  const stockNotes = [];
+  if (oh.items.length && deps.stockItems && deps.adjustPacks && !deps.skipStock) {
+    let stock = null;
+    for (const it of oh.items) {
+      if (it.ads || isRd(it.category)) continue;
+      const q = stockQty(it.name); if (!q) continue;
+      try {
+        stock = stock || await deps.stockItems();
+        const m = matchStock(q.base, stock);
+        if (m.hit) it.stockAdd = { itemName: m.hit.itemName, qty: q.qty, unit: m.hit.unit };
+        else if (m.ambiguous.length) stockNotes.push(`${it.name}: could be ${m.ambiguous.map((x) => x.itemName).join(' or ')}, so stock was not changed. Use the Stock page.`);
+      } catch (err) { stockNotes.push(`${it.name}: stock could not be checked, so it was not changed.`); }
+    }
+  }
   if (oh.items.length) {
     await deps.appendOverheads(overheadRows(oh.items, receiptId, deps.typedVia));
+    for (const it of oh.items) {
+      if (!it.stockAdd) continue;
+      try {
+        const r = await deps.adjustPacks(it.stockAdd.itemName, it.stockAdd.qty);
+        stockNotes.push(r && r.found ? `Stock: ${it.stockAdd.itemName} +${it.stockAdd.qty}${it.stockAdd.unit ? ' ' + it.stockAdd.unit : ''}, now ${r.now}.` : `${it.stockAdd.itemName} was not on the Stock page, so stock was not changed.`);
+      } catch (err) { stockNotes.push(`${it.stockAdd.itemName}: stock was not updated (${err.message}). Set it on the Stock page.`); }
+    }
     const repeats = oh.items.filter((it) => it.repeat);
     if (repeats.length && deps.addRecurring) {
       for (const it of repeats) await deps.addRecurring({ name: it.name, category: it.category, shop: it.shop, usd: it.usd, thb: it.usd ? null : it.price }, it.date);
@@ -354,6 +376,7 @@ async function processTypedReceipt(text, messageDate, deps) {
     for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
     if (oh.undated) out.push(`No date line above some items, so I used ${formatDMY(messageDate)}.`);
     if (repeats.length) out.push(`Repeats on the 1st of every month: ${repeats.map((it) => `${it.name} ${it.usd ? `USD ${it.usd.toFixed(2)} (baht worked out each month at that day's rate)` : baht(it.price)}`).join(', ')}. Stop it on the Receipts page, under Monthly overheads.`);
+    out.push(...stockNotes);
     out.push(`Receipt ${receiptId}. If this was a mistake, send: undo receipt`);
     replies.push(out.join('\n'));
   }

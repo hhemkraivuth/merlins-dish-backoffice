@@ -12,10 +12,11 @@ function buildReceiptDeps() {
   const appState = require('./appState');
   const appStore = { get: appState.getState, set: appState.setState };
   const refreshBestPrices = async () => require('./bestPrices').writeBestPrices(await live.loadPriceBook());
-  return {
+  const deps = {
     loadCatalogue: live.loadCatalogue,
     loadUnits: live.loadUnits,
     loadAliases: async () => receiptAliases(await cookLog.readShorthandRows()),
+    stockItems: async () => getAllStock(),
     adjustPacks: async (name, delta) => {
       const all = await getAllStock();
       const norm = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -44,6 +45,7 @@ function buildReceiptDeps() {
     undo: {
       readRows: (tab) => readTab(tab),
       deleteWhere: (tab, pred) => deleteRowsWhere(tab, pred),
+      adjustStock: (name, delta) => deps.adjustPacks(name, delta),
       after: async () => { live.invalidate(); await refreshBestPrices(); },
     },
     // used by "alias ..."
@@ -58,6 +60,7 @@ function buildReceiptDeps() {
       },
     },
   };
+  return deps;
 }
 
 module.exports = { buildReceiptDeps };
