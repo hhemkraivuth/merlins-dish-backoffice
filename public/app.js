@@ -182,7 +182,7 @@ function cookLogTotals(log) {
 }
 function cookLogTable(log) {
   const dishes = log.byDish.length ? `<details class="sum-more"><summary>By dish</summary>${log.byDish.map((d) => `<div class="sum-row"><span>${escapeHtml(d.dish)}<small>${d.batches} ${d.batches === 1 ? 'batch' : 'batches'}${d.perPortion === null ? '' : `, ${money(d.perPortion)} a portion`}</small></span><span>${d.portions} portions</span></div>`).join('')}</details>` : '';
-  const rows = log.rows.map((r) => `<tr${r.lowYield ? ' class="warn"' : ''}><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.dish)}${r.sizes ? `<small>${escapeHtml(r.sizes)}</small>` : ''}${r.lowYield ? '<small>Low yield, check the margin</small>' : ''}</td><td class="r">${r.portions}</td><td class="r">${num2(r.total)}</td><td class="r">${r.perPortion === null ? '' : num2(r.perPortion)}</td><td class="r"><div style="display:flex;flex-direction:column;gap:4px;align-items:stretch"><button type="button" class="stock-count-button" data-edit-batch="${escapeHtml(r.key)}" data-edit-dish="${escapeHtml(r.dish)}" data-edit-date="${escapeHtml(r.date)}">Edit</button><button type="button" class="stock-count-button" data-del-batch="${escapeHtml(r.key)}" data-del-label="${escapeHtml(r.dish)} ${escapeHtml(dmyShort(r.date))}, ${r.portions} portions">Delete</button></div></td></tr>`).join('');
+  const rows = log.rows.map((r) => `<tr${r.lowYield ? ' class="warn"' : ''}><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.dish)}${r.rd ? '<small style="display:inline-block;background:#fde8c8;border-radius:6px;padding:1px 6px;font-weight:600">R&amp;D test</small>' : ''}${r.sizes ? `<small>${escapeHtml(r.sizes)}</small>` : ''}${r.lowYield ? '<small>Low yield, check the margin</small>' : ''}</td><td class="r">${r.portions}</td><td class="r">${num2(r.total)}</td><td class="r">${r.perPortion === null ? '' : num2(r.perPortion)}</td><td class="r"><div style="display:flex;flex-direction:column;gap:4px;align-items:stretch"><button type="button" class="stock-count-button" data-edit-batch="${escapeHtml(r.key)}" data-edit-rd="${r.rd ? 1 : ''}" data-edit-dish="${escapeHtml(r.dish)}" data-edit-date="${escapeHtml(r.date)}">Edit</button><button type="button" class="stock-count-button" data-del-batch="${escapeHtml(r.key)}" data-del-label="${escapeHtml(r.dish)} ${escapeHtml(dmyShort(r.date))}, ${r.portions} portions">Delete</button></div></td></tr>`).join('');
   return `${dishes}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Dish</th><th class="r">Portions</th><th class="r">Cost ฿</th><th class="r">Per portion ฿</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -329,6 +329,7 @@ async function renderBatchCook() {
       section.querySelector('#dishSelect').value = opt.value;
       section.querySelector('#cookDate').value = ed.dataset.editDate;
       editKey = ed.dataset.editBatch;
+      rdTop.checked = !!ed.dataset.editRd; rdSync();   // an R&D batch is edited as an R&D batch
       await load();
       section.querySelector('#templateArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;

@@ -11,6 +11,9 @@ const { tokens } = require('./typedReceipt');
 const COOK_LOG = 'Cook Log';
 const COOK_LINES = 'Cook Log Lines';
 const COOK_SIZES = 'Cook Log Sizes';
+const RD_LOG = 'R&D Log';
+const RD_LINES = 'R&D Log Lines';
+const RD_SIZES = 'R&D Log Sizes';
 const USAGE = 'Lot Usage';
 const LOTS = 'Ingredient Lots';
 
@@ -35,8 +38,12 @@ async function undoBatch(dishWords, date, io = realIo()) {
 // The same takeback for one batch picked by its key, so two identical batches can be told apart (used by the Delete button).
 async function undoByKey(key, io = realIo()) {
   const rows = await io.readTab(COOK_LOG).catch(() => []);
-  const hit = rows.find((r, i) => i > 0 && String(r[0]) === String(key));
-  if (!hit) return { status: 'none', text: 'That batch is no longer in the Cook Log. Nothing was changed.' };
+  let hit = rows.find((r, i) => i > 0 && String(r[0]) === String(key));
+  if (!hit) {
+    const rd = await io.readTab(RD_LOG).catch(() => []);
+    hit = rd.find((r, i) => i > 0 && String(r[0]) === String(key));
+  }
+  if (!hit) return { status: 'none', text: 'That batch is no longer in the Cook Log or the R&D Log. Nothing was changed.' };
   return removeBatch(hit, formatDMY(parseDate(hit[1], new Date()) || new Date()), io);
 }
 
@@ -65,7 +72,7 @@ async function removeBatch(hit, dmy, io) {
     }
   }
 
-  const lines = await io.readTab(COOK_LINES).catch(() => []);
+  const lines = [...(await io.readTab(COOK_LINES).catch(() => [])), ...(await io.readTab(RD_LINES).catch(() => []))];
   const pack = lines.filter((r, i) => i > 0 && r[0] === key && /packag/i.test(String(r[3] || '')));
   const hadPackaging = pack.length > 0;
   // The cups and boxes the batch took off the Stock page go back on it.
@@ -78,7 +85,7 @@ async function removeBatch(hit, dmy, io) {
     }
   }
 
-  for (const tab of [COOK_LOG, COOK_LINES, COOK_SIZES, USAGE]) {
+  for (const tab of [COOK_LOG, COOK_LINES, COOK_SIZES, RD_LOG, RD_LINES, RD_SIZES, USAGE]) {
     try { await io.deleteRowsWhere(tab, (r) => r[0] === key); } catch (err) { /* a tab that never existed has nothing to remove */ }
   }
   const parts = [`Undone: ${dish}, ${dmy}, ${hits[0][3]} serves. It is out of the Cook Log${restored ? ` and ${restored} stock lot${restored === 1 ? ' has' : 's have'} got its quantity back` : ''}.`, 'Send the cook note again to log it.'];

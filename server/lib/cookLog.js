@@ -13,6 +13,8 @@ const COOK_LOG = 'Cook Log';
 const COOK_LINES = 'Cook Log Lines';
 const COOK_SIZES = 'Cook Log Sizes';
 const RD_LOG = 'R&D Log';
+const RD_LINES = 'R&D Log Lines';
+const RD_SIZES = 'R&D Log Sizes';
 const RD_HEADERS = ['Batch Key', 'Date Cooked', 'Dish', 'Portions', 'Ingredient Cost', 'Packaging Cost', 'Utility Cost', 'Total Batch Cost', 'Cost per Portion', 'Flags', 'Logged At', 'Source'];
 const SHORTHAND = 'Shorthand';
 
@@ -60,6 +62,15 @@ async function writeBatch(result, key, source = 'LINE') {
       key, d, result.dish, result.yield, result.ingredientCost, result.packagingCost, result.utilityCost,
       result.total, result.perPortion, result.flags.join(' | '), bangkokNow(), source,
     ]]);
+    // The lines and sizes live in their own R&D tabs, so Edit can refill the form and the shopping plan never sees them.
+    await ensureTab(RD_LINES, COOK_LINES_HEADERS);
+    await appendRows(RD_LINES, result.lines.map((l) => [
+      key, d, result.dish, l.type, l.name, l.qty, l.unit, Number(l.unitCost.toFixed(5)), l.priceDate, l.priceSource, Number(l.lineCost.toFixed(2)), l.qtySource,
+    ]));
+    if (result.sizes && result.sizes.length) {
+      await ensureTab(RD_SIZES, COOK_SIZES_HEADERS);
+      await appendRows(RD_SIZES, result.sizes.map((z) => [key, d, result.dish, z.name, z.weight, z.count, z.costPerPortion, result.cookedWeight, result.costPerGram]));
+    }
     return;
   }
   await ensureTab(COOK_LOG, COOK_LOG_HEADERS);

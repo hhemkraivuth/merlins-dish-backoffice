@@ -27,8 +27,8 @@ async function receiptLog(req) {
   return v.buildReceiptLog({ expenseRows, overheadRows, month: req.query.month, today: bangkokToday() });
 }
 async function cookLog(req) {
-  const [logRows, sizeRows] = await Promise.all([readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes')]);
-  return v.buildCookLog({ logRows, sizeRows, month: req.query.month, today: bangkokToday() });
+  const [logRows, sizeRows, rdRows, rdSizeRows] = await Promise.all([readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('R&D Log'), readOrEmpty('R&D Log Sizes')]);
+  return v.buildCookLog({ logRows, sizeRows, rdRows, rdSizeRows, month: req.query.month, today: bangkokToday() });
 }
 
 async function receiptsJson(req, res) { try { res.json(await receiptLog(req)); } catch (err) { fail(res, err); } }

@@ -80,3 +80,27 @@ test('forceRd marks every batch in a web note as R&D', async () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '../lib/cookService.js'), 'utf8');
   assert.ok(/if \(deps\.forceRd\) batch\.rd = true/.test(src));
 });
+
+test('What I cooked lists R&D batches with a tag, but keeps them out of the totals', () => {
+  const { buildCookLog } = require('../lib/logViews');
+  const head = ['Batch Key', 'Date Cooked', 'Dish', 'Yield', 'Ingredient Cost', 'Packaging Cost', 'Utility Cost', 'Total Batch Cost', 'Cost per Portion', 'Flags', 'Logged At', 'Source'];
+  const logRows = [head, ['A', '14/11/2026', 'Noir Ragu', 10, 400, 50, 10, 460, 46, '', '', 'Web']];
+  const rdRows = [head, ['R1', '17/11/2026', 'Braised Lamb shank', 6, 400, 30, 10, 440, 73.3, '', '', 'Web']];
+  const log = buildCookLog({ logRows, sizeRows: [], rdRows, rdSizeRows: [], month: '11/2026', today: new Date(Date.UTC(2026, 10, 17)) });
+  assert.strictEqual(log.rows.length, 2);
+  assert.deepStrictEqual(log.rows.map((r) => !!r.rd), [false, true]);
+  assert.strictEqual(log.totals.batches, 1);
+  assert.strictEqual(log.totals.portions, 10);
+  assert.strictEqual(log.totals.cost, 460);
+  assert.strictEqual(log.byDish.length, 1);
+});
+
+test('Delete finds an R&D batch by its key and clears its R&D rows', async () => {
+  const { undoByKey } = require('../lib/batchUndo');
+  const tabs = { 'Cook Log': [['Batch Key']], 'R&D Log': [['Batch Key'], ['R1', '17/11/2026', 'Braised Lamb shank', 6]], 'R&D Log Lines': [['k'], ['R1', '', '', 'Ingredient', 'Lamb - shank', 794, 'g']] };
+  const deleted = [];
+  const io = { readTab: async (t) => tabs[t] || [], updateRow: async () => {}, deleteRowsWhere: async (t, fn) => { if ((tabs[t] || []).slice(1).some(fn)) deleted.push(t); } };
+  const out = await undoByKey('R1', io);
+  assert.strictEqual(out.status, 'undone');
+  assert.deepStrictEqual(deleted.sort(), ['R&D Log', 'R&D Log Lines']);
+});

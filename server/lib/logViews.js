@@ -85,7 +85,7 @@ const priceLogCsvRows = (log) => log.rows.filter((r) => r.type === 'Ingredient')
 // logRows: Batch Key | Date Cooked | Dish | Yield | Ingredient Cost | Packaging Cost | Utility Cost | Total Batch Cost | Cost per Portion | Flags | Logged At | Source
 // sizeRows: Batch Key | Date Cooked | Dish | Size | Portion Weight (g) | Count Packed | Cost per Portion | Total Cooked Weight (g) | Cost per Gram
 // lineRows: Batch Key | Date Cooked | Dish | Type | Line | Qty | Unit | Unit Cost | Price Date | Price Source | Line Cost | Qty From
-function cookItems(logRows = [], sizeRows = []) {
+function cookItems(logRows = [], sizeRows = [], rd = false) {
   const sizes = new Map();
   for (const r of sizeRows.slice(1)) {
     if (!sizes.has(r[0])) sizes.set(r[0], []);
@@ -98,7 +98,7 @@ function cookItems(logRows = [], sizeRows = []) {
     const sz = sizes.get(r[0]) || [];
     const packed = sz.reduce((s, z) => s + z.count, 0);
     out.push({
-      n, key: String(r[0]), date, dish: String(r[2] || '').trim(),
+      n, key: String(r[0]), date, rd, dish: String(r[2] || '').trim(),
       portions: packed || num(r[3]) || 0,
       sizes: sz.map((z) => `${z.name} x${z.count}`).join(', '),
       ingredients: num(r[4]) || 0, packaging: num(r[5]) || 0, utility: num(r[6]) || 0, total: num(r[7]) || 0, perPortion: num(r[8]),
@@ -108,29 +108,31 @@ function cookItems(logRows = [], sizeRows = []) {
   return out.sort((a, b) => a.date - b.date || a.n - b.n);
 }
 
-function buildCookLog({ logRows, sizeRows, month, today }) {
-  const all = cookItems(logRows, sizeRows);
+function buildCookLog({ logRows, sizeRows, rdRows = [], rdSizeRows = [], month, today }) {
+  // R&D test batches are listed (tagged) so they can be found and edited, but never counted in the totals or by dish.
+  const all = [...cookItems(logRows, sizeRows), ...cookItems(rdRows, rdSizeRows, true)].sort((a, b) => a.date - b.date || a.n - b.n);
   const key = parseMonth(month, today);
   if (key === null) throw Object.assign(new Error('Month must look like 11/2026 or "all".'), { status: 400 });
   const mine = key === 'all' ? all : all.filter((x) => monthKey(x.date) === key);
-  const portions = mine.reduce((s, x) => s + x.portions, 0);
-  const cost = mine.reduce((s, x) => s + x.total, 0);
+  const real = mine.filter((x) => !x.rd);
+  const portions = real.reduce((s, x) => s + x.portions, 0);
+  const cost = real.reduce((s, x) => s + x.total, 0);
   const dishes = new Map();
-  for (const b of mine) {
+  for (const b of real) {
     const d = dishes.get(b.dish) || { dish: b.dish, batches: 0, portions: 0, cost: 0 };
     d.batches += 1; d.portions += b.portions; d.cost += b.total; dishes.set(b.dish, d);
   }
   return {
     month: key, label: key === 'all' ? 'All months' : monthLabel(key),
     months: monthsOf(all, today),
-    totals: { batches: mine.length, portions, cost: r2(cost), perPortion: portions ? r2(cost / portions) : null },
+    totals: { batches: real.length, rdBatches: mine.length - real.length, portions, cost: r2(cost), perPortion: portions ? r2(cost / portions) : null },
     byDish: [...dishes.values()].map((d) => ({ ...d, cost: r2(d.cost), perPortion: d.portions ? r2(d.cost / d.portions) : null })).sort((a, b) => b.portions - a.portions),
-    rows: mine.map((x) => ({ key: x.key, date: formatDMY(x.date), dish: x.dish, portions: x.portions, sizes: x.sizes, ingredients: r2(x.ingredients), packaging: r2(x.packaging), utility: r2(x.utility), total: r2(x.total), perPortion: x.perPortion, lowYield: x.portions > 0 && x.portions <= 3, flags: x.flags })),
+    rows: mine.map((x) => ({ key: x.key, rd: x.rd, date: formatDMY(x.date), dish: x.dish, portions: x.portions, sizes: x.sizes, ingredients: r2(x.ingredients), packaging: r2(x.packaging), utility: r2(x.utility), total: r2(x.total), perPortion: x.perPortion, lowYield: x.portions > 0 && x.portions <= 3, flags: x.flags })),
   };
 }
 
 const COOK_CSV_HEADERS = ['Date cooked', 'Dish', 'Portions made', 'Sizes packed', 'Ingredient cost', 'Packaging cost', 'Utility cost', 'Total batch cost', 'Cost per portion', 'Flags', 'Batch key'];
-const cookCsvRows = (log) => log.rows.map((r) => [r.date, r.dish, r.portions, r.sizes, r.ingredients, r.packaging, r.utility, r.total, r.perPortion === null ? '' : r.perPortion, r.flags, r.key]);
+const cookCsvRows = (log) => log.rows.map((r) => [r.date, r.dish, r.portions, r.sizes, r.ingredients, r.packaging, r.utility, r.total, r.perPortion === null ? '' : r.perPortion, r.rd ? ['R&D test batch', r.flags].filter(Boolean).join(' | ') : r.flags, r.key]);
 
 // Every ingredient line of the batches in the month (the audit trail), for the detailed download.
 const COOK_LINES_CSV_HEADERS = ['Date cooked', 'Dish', 'Type', 'Line', 'Qty', 'Unit', 'Unit cost', 'Price date', 'Line cost', 'Batch key'];

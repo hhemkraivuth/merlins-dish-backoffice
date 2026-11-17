@@ -84,12 +84,19 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
         // Editing a batch already logged: its own lines, sizes and portions fill the form.
         try {
           const sheets = require('../lib/sheets');
-          const [logRows, lineRows, sizeRows] = await Promise.all(['Cook Log', 'Cook Log Lines', 'Cook Log Sizes'].map((t) => sheets.readTab(t).catch(() => [])));
-          const head = logRows.find((x, i) => i > 0 && String(x[0]) === editKey);
+          let [logRows, lineRows, sizeRows] = await Promise.all(['Cook Log', 'Cook Log Lines', 'Cook Log Sizes'].map((t) => sheets.readTab(t).catch(() => [])));
+          let head = logRows.find((x, i) => i > 0 && String(x[0]) === editKey);
+          let isRd = false;
+          if (!head) {
+            // An R&D batch keeps its rows in the R&D tabs
+            [logRows, lineRows, sizeRows] = await Promise.all(['R&D Log', 'R&D Log Lines', 'R&D Log Sizes'].map((t) => sheets.readTab(t).catch(() => [])));
+            head = logRows.find((x, i) => i > 0 && String(x[0]) === editKey);
+            isRd = !!head;
+          }
           if (head) {
             const sz = sizeRows.filter((x, i) => i > 0 && String(x[0]) === editKey);
             fromNote = {
-              key: editKey, edit: true, yield: Number(head[3]) || 0,
+              key: editKey, edit: true, rd: isRd, yield: Number(head[3]) || 0,
               lines: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Ingredient').map((x) => ({ name: String(x[4]), inRecipe: true, qty: Number(x[5]), unit: String(x[6] || '') })),
               utility: lineRows.filter((x, i) => i > 0 && String(x[0]) === editKey && x[3] === 'Utility').map((x) => ({ name: String(x[4]), qty: Number(x[5]) })),
               sizeCounts: sz.map((x) => ({ name: String(x[3]), count: Number(x[5]) || 0, weight: Number(x[4]) || 0, cookedWeight: Number(x[7]) || 0 })).filter((z) => z.count > 0),
