@@ -251,6 +251,7 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       const { runCommands } = require('../lib/textCommands');
       const cmdDeps = { ...getCommandDeps() };   // a copy, so LINE keeps its own label
       if (cmdDeps.receipt) cmdDeps.receipt = { ...cmdDeps.receipt, typedVia: 'Typed on the web' };
+      if (req.body && req.body.rd === true && cmdDeps.note) cmdDeps.note = { ...cmdDeps.note, forceRd: true };
       const replies = await runCommands(text, cmdDeps);
       if (!replies) return res.status(400).json({ error: `I didn't recognise that as a cook note, a stock command or a receipt, so nothing was changed.\nSend "help" to see the formats.` });
       res.json({ replies });

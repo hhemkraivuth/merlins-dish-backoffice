@@ -250,6 +250,7 @@ async function processNote(text, deps) {
 
   let anyLogged = false;
   for (const batch of batches) {
+    if (deps.forceRd) batch.rd = true;   // the R&D switch on the Kitchen Production page
     const out = await handleBatch(batch, cached, shorthand, priceBook, { today, source: 'LINE' });
     if (out.status === 'logged') anyLogged = true;
     replies.push(out.text);

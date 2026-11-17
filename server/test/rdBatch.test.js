@@ -75,3 +75,8 @@ test('R&D cost shows on its own line, comes off the margin, and never touches fo
   assert.strictEqual(wk.margin, -240);
   assert.strictEqual(wk.moneyToTakeOut, 0);
 });
+
+test('forceRd marks every batch in a web note as R&D', async () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../lib/cookService.js'), 'utf8');
+  assert.ok(/if \(deps\.forceRd\) batch\.rd = true/.test(src));
+});

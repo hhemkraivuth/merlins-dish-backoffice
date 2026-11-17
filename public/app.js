@@ -292,6 +292,11 @@ async function renderBatchCook() {
       </div>
       <div class="sum-grid" id="cookSummary"></div>
       <div id="openBatches"></div>
+      <div id="rdBox" style="margin:0 0 12px">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="rdTop" /> R&amp;D batch (test cook, not for sale)</label>
+        <div id="rdHint" style="font-size:12px;color:#777;margin-top:2px">Regular batch? Leave this off and fill in as normal. Applies to both the note box and the form below.</div>
+        <div id="rdOn" style="display:none;margin-top:6px;padding:6px 10px;border-radius:8px;background:#fde8c8;font-size:13px">R&amp;D test cook. Not for sale, not added to stock.</div>
+      </div>
       <label class="label">Paste a cook note or any command</label>
       <textarea id="noteText" rows="10" placeholder="7/10&#10;Bolo&#10;Meat 1000&#10;O 446&#10;G 60&#10;yield 21" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="noteSubmit" disabled>Paste a note first</button>
@@ -350,6 +355,10 @@ async function renderBatchCook() {
   }
   const reloadCooking = () => { reloadCooking0(); reloadCookLog(); loadOpen(); };
   loadOpen();
+  const rdTop = section.querySelector('#rdTop');
+  const rdSync = () => { section.querySelector('#rdOn').style.display = rdTop.checked ? 'block' : 'none'; section.querySelector('#rdHint').style.display = rdTop.checked ? 'none' : 'block'; };
+  rdTop.addEventListener('change', rdSync);
+  const rdReset = () => { rdTop.checked = false; rdSync(); };
   const noteLabel = () => { const has = noteInput.value.trim().length > 0; noteBtn.disabled = !has; noteBtn.textContent = has ? 'Log cook note' : 'Paste a note first'; };
   noteInput.addEventListener('input', noteLabel);
   noteBtn.addEventListener('click', async () => {
@@ -358,12 +367,13 @@ async function renderBatchCook() {
     noteBtn.textContent = 'Logging…';
     noteResult.innerHTML = '';
     try {
-      const res = await fetch('/api/cook/note', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: noteInput.value }) });
+      const res = await fetch('/api/cook/note', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: noteInput.value, rd: rdTop.checked || undefined }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
       const html = data.replies.map((r) => `<div class="result-card"><pre style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(r)}</pre></div>`).join('');
       noteResult.appendChild(el(`<div>${html}</div>`));
       noteInput.value = '';
+      rdReset();
       reloadCooking();
     } catch (err) {
       noteResult.appendChild(el(`<div class="result-card"><pre class="error-item" style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(err.message)}</pre></div>`));
@@ -468,7 +478,6 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
     <div class="recipe-table" id="otherRows"></div>
     <label class="label">Servings yielded</label>
     <input class="input" type="number" id="yieldInput" placeholder="${recipe.sized ? 'fills from the packed counts below' : 'e.g. 21'}" />
-    <label class="label"><input type="checkbox" id="rdBatch" /> R&amp;D batch (test cook, not for sale)</label>
     ${recipe.sized ? `
       <div class="subheading">Pack-out (Regular in 16oz cups, Large in 26oz cups)</div>
       <div class="size-row"><span class="size-name">Regular: weight (g)</span><input class="size-input" type="number" id="regWeight" value="${(recipe.portionWeights && recipe.portionWeights.Regular) || ''}" /></div>
@@ -637,7 +646,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       cookedWeight: recipe.sized ? Number($('cookedWeight').value) || undefined : undefined,
       utility: rows.filter((r) => r.type === 'Utility' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) })),
       replaceKey: container.dataset.editKey || undefined,
-      rd: $('rdBatch') && $('rdBatch').checked ? true : undefined,
+      rd: document.getElementById('rdTop') && document.getElementById('rdTop').checked ? true : undefined,
     };
     if (!yieldN()) { res.innerHTML = '<div class="result-card"><div class="error-item">Add the servings yielded first. Nothing was logged.</div></div>'; return; }
     res.innerHTML = '<div class="loading">Logging…</div>';
@@ -649,6 +658,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       const bad = data.status !== 'logged';
       res.innerHTML = `<div class="result-card"><div class="${bad ? 'error-item' : 'result-headline'}" style="white-space:pre-wrap">${escapeHtml(data.text)}</div></div>`;
       if (!bad && container.dataset.openKey) { try { await fetch('/api/cook/open/drop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: container.dataset.openKey }) }); } catch (e) { /* the list shows it until it is dropped */ } }
+      if (!bad) { const t = document.getElementById('rdTop'); if (t && t.checked) { t.checked = false; t.dispatchEvent(new Event('change')); } }
       if (!bad && onLogged) onLogged();
     } catch (err) {
       res.innerHTML = `<div class="result-card"><div class="error-item" style="white-space:pre-wrap">${escapeHtml(err.message)}</div></div>`;
@@ -659,6 +669,8 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
 
   $('saveOpen').addEventListener('click', async () => {
     const res = $('batchResult');
+    const rdOn = document.getElementById('rdTop');
+    if (rdOn && rdOn.checked) { res.innerHTML = '<div class="result-card"><div class="error-item">An R&D batch needs its servings yielded, so log it all at once. Nothing was saved.</div></div>'; return; }
     // Every ingredient as it stands now is saved, so the batch is frozen as cooked even if the recipe changes before you count the portions.
     const lines = rows.filter((r) => r.type === 'Ingredient').map((r) => ({ name: r.name, qty: r.qty !== undefined ? r.qty : r.original, unit: r.extra ? r.unit : undefined })).filter((l) => Number(l.qty) >= 0);
     const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
