@@ -468,3 +468,18 @@ test('an overhead with a count word tops up the matching Stock page item, and un
   assert.strictEqual(stock[0].currentCount, 0);
   assert.ok(/Stock taken back off: Foil -2/.test(out.join('\n')));
 });
+
+test('packaging is counted by the piece: the size stays in the name', () => {
+  const { parseTypedReceipt } = require('../lib/typedReceipt');
+  for (const line of ['packaging box 1500ml x 50 226', 'packaging box 1500ml 50set 226thb', 'packaging box 50 x 1500ml, 226', 'packaging box 1500ml, 50pcs, 226']) {
+    const out = parseTypedReceipt(`16/11\n${line}`, utc(2026, 10, 17));
+    assert.deepStrictEqual(out.problems, [], line);
+    const it = out.items[0];
+    assert.strictEqual(it.typedName, 'packaging box 1500ml', line);
+    assert.strictEqual(it.qty, 50, line);
+    assert.strictEqual(it.price, 226, line);
+    assert.ok(!/ml$/.test(it.purchaseUnit), line);
+  }
+  // food multipacks still multiply
+  assert.strictEqual(parseTypedReceipt('16/11\nspinach gratin 120gx3 129thb', utc(2026, 10, 17)).items[0].qty, 360);
+});

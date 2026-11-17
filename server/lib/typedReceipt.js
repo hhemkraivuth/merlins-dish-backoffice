@@ -42,8 +42,19 @@ function expandMultipack(t) {
   return t;
 }
 
+// Packaging is bought by the piece, and the size is part of what it is: "packaging box 1500ml x 50, 226" is 50 boxes of 1500ml, not 75000ml.
+const PACK_NAME = /\b(packaging|box|boxes|cup|cups|lid|lids|container|containers|bowl|bowls|sleeve|sleeves|carton|cartons|sticker|stickers|label|labels)\b/i;
+function packSize(t) {
+  if (!PACK_NAME.test(t)) return t;
+  const SZ = '(ml|l|ltr|oz|cm)';
+  return t
+    .replace(new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*${SZ}\\s*[x×]\\s*(\\d+)(?![\\d.,a-z])`, 'i'), '$1$2 $3pcs')
+    .replace(new RegExp(`(?<![\\d.,])(\\d+)\\s*[x×]\\s*(\\d+(?:[.,]\\d+)?)\\s*${SZ}(?![a-z])`, 'i'), '$2$3 $1pcs');
+}
 function matchItem(line) {
-  let t = expandMultipack(String(line || '').trim());
+  const packaging = PACK_NAME.test(String(line || ''));
+  let t = packSize(String(line || '').trim());
+  t = packaging ? t : expandMultipack(t);
   // "2 cans, 16thb ea" / "16 each": the price is for one, not for the lot
   let each = false;
   const ea = t.match(/^(.*?)[\s,]*(?:\/\s*)?(?:ea\.?|each)$/i);
@@ -199,7 +210,7 @@ function parseTypedReceipt(text, today) {
     const isCount = /^(pieces?|pcs?|p)$/.test(unit) || isContainerWord(unit);
     const sizeUnit = plain ? (/^(ml|ltr|l)$/i.test(plain[3]) ? 'ml' : 'g') : '';
     const sizeNum = plain ? Number(plain[2]) * (/^(ltr|l)$/i.test(plain[3]) ? 1000 : 1) : 0;
-    if (plain && isCount && !assumed.startsWith('read') && (sizeUnit === 'ml' || Number.isInteger(Number(plain[2])))) {
+    if (plain && isCount && !PACK_NAME.test(name) && !assumed.startsWith('read') && (sizeUnit === 'ml' || Number.isInteger(Number(plain[2])))) {
       eachWeight = { size: sizeNum, unit: sizeUnit, count: Number(qtyText), containerWord: unit, text: `${plain[2]}${plain[3]}` };
       name = plain[1].trim();
       qtyText = String(Number((sizeNum * eachWeight.count).toFixed(3)));
