@@ -407,3 +407,16 @@ test('r&d lines are their own category, with or without a comma before the price
   assert.deepStrictEqual(overheadsFrom([['Date'], ...rows]).map((x) => x.kind), ['overhead', 'rdshop']);
   assert.ok(splitOverheads('r and d\nlamb 100thb', new Date(Date.UTC(2026, 10, 17))).items[0].category === 'R&D');
 });
+
+test('multipacks like 120gx3 and 3x120g are read as the whole lot', () => {
+  const { parseTypedReceipt } = require('../lib/typedReceipt');
+  for (const line of ['spinach gratin (aero) 120gx3 129thb', 'spinach gratin (aero) 3x120g 129thb', 'spinach gratin (aero) 3 x 120g, 129']) {
+    const out = parseTypedReceipt(`17/11\n${line}`, utc(2026, 10, 17));
+    assert.deepStrictEqual(out.problems, [], line);
+    assert.strictEqual(out.items.length, 1, line);
+    assert.strictEqual(out.items[0].price, 129, line);
+    assert.ok(/spinach gratin/i.test(out.items[0].typedName), line);
+    assert.strictEqual(out.items[0].qty, 360, line);
+    assert.strictEqual(out.items[0].unit, 'g', line);
+  }
+});

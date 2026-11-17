@@ -27,8 +27,19 @@ const WITH_MARK = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?[,\\s]+(?:฿\\s*${
 const WITH_COMMA = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?\\s*,\\s*${NUM}$`, 'i');
 
 // "minced pork 1000g 110thb" / "pelati, 2550g, 275" -> { name, qtyText, unitText, price } or null
+// Multipacks: "120gx3" and "3x120g" mean 360g in all. The price on the line is the total for the whole lot.
+const MP_UNIT = '(kg|gm|grams?|g|ml|ltr|l)';
+function expandMultipack(t) {
+  const fmt = (n) => String(Math.round(n * 1000) / 1000);
+  let m = t.match(new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*${MP_UNIT}\\s*[x×]\\s*(\\d+)(?![\\d.,a-z])`, 'i'));
+  if (m) return t.replace(m[0], `${fmt(Number(m[1].replace(',', '.')) * Number(m[3]))}${m[2]}`);
+  m = t.match(new RegExp(`(?<![\\d.,])(\\d+)\\s*[x×]\\s*(\\d+(?:[.,]\\d+)?)\\s*${MP_UNIT}(?![a-z])`, 'i'));
+  if (m) return t.replace(m[0], `${fmt(Number(m[1]) * Number(m[2].replace(',', '.')))}${m[3]}`);
+  return t;
+}
+
 function matchItem(line) {
-  let t = String(line || '').trim();
+  let t = expandMultipack(String(line || '').trim());
   // "2 cans, 16thb ea" / "16 each": the price is for one, not for the lot
   let each = false;
   const ea = t.match(/^(.*?)[\s,]*(?:\/\s*)?(?:ea\.?|each)$/i);
