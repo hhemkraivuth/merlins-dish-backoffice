@@ -110,7 +110,7 @@ function overheadsFrom(rows) {
     const date = parseDate(r[0]);
     const amount = num(r[3]);
     if (!date || !Number.isFinite(amount)) return;
-    out.push({ date, name: String(r[1] || '').trim(), amount, kind: isAds(r[2]) ? 'ads' : 'overhead' });
+    out.push({ date, name: String(r[1] || '').trim(), amount, kind: isAds(r[2]) ? 'ads' : isRd(r[2]) ? 'rdshop' : 'overhead' });
   });
   return out;
 }

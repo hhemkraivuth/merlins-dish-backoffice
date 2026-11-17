@@ -348,7 +348,7 @@ async function processTypedReceipt(text, messageDate, deps) {
     const sum = (a) => baht(a.reduce((s, it) => s + it.price, 0));
     const out = [];
     if (ohItems.length) out.push(`Overheads logged: ${ohItems.length} item${ohItems.length === 1 ? '' : 's'}, ${sum(ohItems)}. Counted as spending in the margin, not as food cost, and not taken off stock.`);
-    if (rdItems.length) out.push(`R&D logged: ${rdItems.length} item${rdItems.length === 1 ? '' : 's'}, ${sum(rdItems)}. Kept apart from food cost, counted as spending in the margin, and not taken off stock.`);
+    if (rdItems.length) out.push(`R&D logged: ${rdItems.length} item${rdItems.length === 1 ? '' : 's'}, ${sum(rdItems)}. Kept apart from food cost and the margin, added to the money you take out, and not taken off stock.`);
     if (adItems.length) out.push(`Ads logged: ${adItems.length} item${adItems.length === 1 ? '' : 's'}, ${sum(adItems)}. Shown in the Ads column and taken off the margin.`);
     for (const [d, lines] of byDate) { out.push(d); out.push(...lines); }
     if (oh.undated) out.push(`No date line above some items, so I used ${formatDMY(messageDate)}.`);

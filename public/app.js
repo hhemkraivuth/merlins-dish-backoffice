@@ -198,6 +198,14 @@ function renderReceipts() {
       </div>
       <div class="sum-grid" id="spendSummary"></div>
       <div class="shop-box" id="shopBox"><h2>Shopping plan</h2><div id="shopPlan"></div></div>
+      <div class="shop-box" style="margin-bottom:10px"><h2>How to log</h2><div style="font-size:14px;line-height:1.6">
+        <div><b>Shopping:</b> a date line, then <code>minced pork 1000g 110thb</code></div>
+        <div><b>Overhead</b> (pots, bags, knives): a line saying <code>overhead</code>, then <code>pot 7lt, 2575thb</code></div>
+        <div><b>R&amp;D</b> (test shopping): a line saying <code>r&amp;d</code>, then <code>lambshank 794g 277</code>. Price only on the end is fine</div>
+        <div><b>Meta ads:</b> <code>meta ads, 1200thb</code></div>
+        <div><b>Back to ingredients:</b> a line saying <code>ingredients</code>. A new date line also resets it</div>
+        <div><b>Mistake?</b> send <code>undo receipt</code></div>
+      </div></div>
       <textarea id="receiptText" rows="8" placeholder="18/10&#10;minced pork 1000g 110thb&#10;onion 2kg 90thb" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="receiptSubmit" disabled>Type a receipt first</button>
       <div id="receiptResult"></div>

@@ -403,7 +403,7 @@ test('r&d lines are their own category, with or without a comma before the price
   assert.deepStrictEqual(out.items.map((i) => [i.name, i.price, i.category]), [['blender', 297, ''], ['lambshank 794g', 277, 'R&D']]);
   const rows = overheadRows(out.items);
   assert.strictEqual(rows[1][2], 'R&D');
-  // R&D spend still counts as spending in the margin, like other overheads
-  assert.deepStrictEqual(overheadsFrom([['Date'], ...rows]).map((x) => x.kind), ['overhead', 'overhead']);
+  // R&D shopping is its own kind: cash you paid out, but not part of the margin
+  assert.deepStrictEqual(overheadsFrom([['Date'], ...rows]).map((x) => x.kind), ['overhead', 'rdshop']);
   assert.ok(splitOverheads('r and d\nlamb 100thb', new Date(Date.UTC(2026, 10, 17))).items[0].category === 'R&D');
 });

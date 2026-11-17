@@ -87,7 +87,7 @@ function summarise(ledger, cookBatches, purchases, type = 'week', { through = nu
         grab: { orders: new Set(), gross: 0, discount: 0, commission: 0, marketing: 0, otherFees: 0, recipeCost: 0 },
         line: { orders: new Set(), gross: 0, discount: 0, delivery: 0, rider: 0, estCost: 0, missing: new Map() },
         cook: { batches: 0, portions: 0, cost: 0 },
-        purchases: 0, overheads: 0, ads: 0, walletPaid: 0, rd: { batches: 0, portions: 0, cost: 0 }, flags: new Set(),
+        purchases: 0, overheads: 0, ads: 0, rdShop: 0, walletPaid: 0, rd: { batches: 0, portions: 0, cost: 0 }, flags: new Set(),
       });
     }
     return periods.get(p.key);
@@ -123,7 +123,7 @@ function summarise(ledger, cookBatches, purchases, type = 'week', { through = nu
     const p = get(b.date);
     p.cook.batches += 1; p.cook.portions += b.portions || 0; p.cook.cost += b.cost || 0;
   }
-  for (const x of purchases) { if (x.kind === 'rd') { const q = get(x.date).rd; q.batches += 1; q.portions += x.portions || 0; q.cost += x.amount || 0; } else if (x.kind === 'walletpaid') get(x.date).walletPaid += x.amount || 0; else if (x.kind === 'grabads') get(x.date).grab.otherFees += x.amount || 0; else if (x.kind === 'overhead') get(x.date).overheads += x.amount || 0; else if (x.kind === 'ads') get(x.date).ads += x.amount || 0; else get(x.date).purchases += x.amount || 0; }
+  for (const x of purchases) { if (x.kind === 'rd') { const q = get(x.date).rd; q.batches += 1; q.portions += x.portions || 0; q.cost += x.amount || 0; } else if (x.kind === 'walletpaid') get(x.date).walletPaid += x.amount || 0; else if (x.kind === 'grabads') get(x.date).grab.otherFees += x.amount || 0; else if (x.kind === 'overhead') get(x.date).overheads += x.amount || 0; else if (x.kind === 'rdshop') get(x.date).rdShop += x.amount || 0; else if (x.kind === 'ads') get(x.date).ads += x.amount || 0; else get(x.date).purchases += x.amount || 0; }
 
   // Every day (or week, or month) between the first and the last one appears, even with nothing in it, so no date is skipped.
   // "through" (usually today) extends the end, so quiet days since the last order show too.
@@ -157,7 +157,7 @@ function summarise(ledger, cookBatches, purchases, type = 'week', { through = nu
       rdCost: r2(p.rd.cost), rdBatches: p.rd.batches, rdPortions: p.rd.portions,
       // Everything Lily paid out of her own pocket this period and must be reimbursed: ingredient receipts, overheads (pots, bags, knives) and Meta ads,
       // less anything paid straight from the Merlin's account (the Wallet Paid tab).
-      moneyToTakeOut: r2(p.purchases + p.overheads + p.ads - p.walletPaid),
+      moneyToTakeOut: r2(p.purchases + p.overheads + p.ads + p.rdShop - p.walletPaid),
       missingCosts: [...p.line.missing].map(([n, q]) => `${n} x${q}`),
       flags: [...p.flags],
     };
@@ -185,7 +185,7 @@ function dayDetail(ledger, cookBatches, purchases, date, toDate = null, closed =
     orderFrom: r.orderFrom, status: statusOf(r.orderFrom), moneyIn: r.moneyIn, cost: r.cost, net: r.net, flags: r.flags, key: r.key,
   }));
   const cooked = cookBatches.filter((b) => inRange(b.date)).map((b) => ({ date: formatDMY(b.date), dish: b.dish, portions: b.portions, cost: r2(b.cost || 0), perPortion: b.portions ? r2((b.cost || 0) / b.portions) : null }));
-  const bought = purchases.filter((x) => inRange(x.date)).map((x) => ({ date: formatDMY(x.date), name: x.name || '', amount: r2(x.amount || 0), kind: x.kind === 'overhead' ? 'Overhead' : x.kind === 'ads' ? 'Ads' : x.kind === 'grabads' ? 'Grab ads' : x.kind === 'walletpaid' ? 'Paid from account' : x.kind === 'rd' ? 'R&D batch' : 'Ingredient' }));
+  const bought = purchases.filter((x) => inRange(x.date)).map((x) => ({ date: formatDMY(x.date), name: x.name || '', amount: r2(x.amount || 0), kind: x.kind === 'overhead' ? 'Overhead' : x.kind === 'ads' ? 'Ads' : x.kind === 'grabads' ? 'Grab ads' : x.kind === 'walletpaid' ? 'Paid from account' : x.kind === 'rd' ? 'R&D batch' : x.kind === 'rdshop' ? 'R&D shopping' : 'Ingredient' }));
   const summary = range ? null : (summarise(ledger, cookBatches, purchases, 'day', { closed }).find((d) => d.key === date.toISOString().slice(0, 10)) || null);
   // Who ordered and when: one entry per order, so the peak hours and the repeat customers show up.
   const seen = new Set(); const orders = []; const byHour = {};
