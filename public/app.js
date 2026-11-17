@@ -295,14 +295,14 @@ function renderReceipts() {
       const fld = (label, id, val, w) => `<label style="display:flex;flex-direction:column;font-size:12px;color:#777;gap:2px">${label}<input class="input" data-f="${id}" value="${escapeHtml(val)}" style="width:${w}px;padding:6px 8px" /></label>`;
       const isIng = r.type === 'Ingredient';
       const kind = r.type === 'R&D' ? 'R&D' : r.type === 'Ads' ? 'Meta ads' : 'Overhead';
-      const form = el(`<tr class="rc-form"><td colspan="6"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;background:#fde8c8;padding:10px;border-radius:8px">
+      const form = document.createElement('tr'); form.className = 'rc-form'; form.innerHTML = (`<td colspan="6"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;background:#fde8c8;padding:10px;border-radius:8px">
         ${fld('Date (DD/MM/YYYY)', 'date', r.date, 110)}
         ${fld('Item', 'item', r.item, 170)}
         ${isIng ? fld('How many (with unit)', 'qty', r.qty, 110) : `<label style="display:flex;flex-direction:column;font-size:12px;color:#777;gap:2px">Type<select class="select" data-f="kind" style="padding:6px 8px">${['Overhead', 'R&D', 'Meta ads'].map((k) => `<option${k === kind ? ' selected' : ''}>${k}</option>`).join('')}</select></label>`}
         ${fld('Price ฿', 'price', String(r.price), 80)}
         ${fld('Where', 'shop', r.shop, 110)}
         <button type="button" class="stock-count-button" data-rc-save="${n}">Save</button><button type="button" class="stock-count-button" data-rc-cancel="1">Cancel</button>
-        <div data-rc-msg style="flex-basis:100%;font-size:13px;color:#b3261e;white-space:pre-wrap"></div></div></td></tr>`);
+        <div data-rc-msg style="flex-basis:100%;font-size:13px;color:#b3261e;white-space:pre-wrap"></div></div></td>`);
       tr.after(form);
       return;
     }
