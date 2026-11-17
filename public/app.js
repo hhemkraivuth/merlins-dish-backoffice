@@ -199,6 +199,7 @@ function renderReceipts() {
       <div class="sum-grid" id="spendSummary"></div>
       <div class="shop-box" id="shopBox"><h2>Shopping plan</h2><div id="shopPlan"></div></div>
       <p style="margin:0 0 6px;font-size:12px;line-height:1.5;color:#777">Date line first. <code>overhead</code> or <code>r&amp;d</code> on its own line, then items (<code>pot 7lt, 2575thb</code>, <code>lambshank 794g 277</code>). <code>meta ads, 1200thb</code>. <code>ingredients</code> to go back. <code>undo receipt</code> for a mistake.</p>
+      <div id="receiptDraftNote" style="display:none;margin:0 0 6px;padding:6px 10px;border-radius:8px;background:#fde8c8;font-size:13px">Not saved yet. These lines could not be read, so they are kept here. Fix them and press Log receipt. Lines that were saved are not repeated.</div>
       <textarea id="receiptText" rows="8" placeholder="18/10&#10;minced pork 1000g 110thb&#10;onion 2kg 90thb" style="width:100%;box-sizing:border-box;padding:12px;font:inherit;border-radius:8px;border:1px solid #ccc"></textarea>
       <button class="primary-button" id="receiptSubmit" disabled>Type a receipt first</button>
       <div id="receiptResult"></div>
@@ -238,20 +239,59 @@ function renderReceipts() {
     submitBtn.textContent = has ? 'Log receipt' : 'Type a receipt first';
   });
 
+  // Anything that failed stays in the box (with the date, shop and overhead / r&d line it sat under) and is kept for next visit.
+  const DRAFT = 'boh_receipt_unsaved';
+  const store = { get() { try { return window.localStorage.getItem(DRAFT) || ''; } catch (e) { return ''; } }, set(v) { try { if (v) window.localStorage.setItem(DRAFT, v); else window.localStorage.removeItem(DRAFT); } catch (e) { /* storage is optional */ } } };
+  const failedLinesOnly = (original, replies) => {
+    const bad = [];
+    for (const r of replies) { const re = /Couldn't read(?: the quantity in)? "([^"]+)"/g; let m; while ((m = re.exec(r))) bad.push(m[1]); }
+    if (!bad.length) return '';
+    const isDate = (l) => /^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/.test(l);
+    const isShop = (l) => /^(?:shopped\s+at|shop|store|at)\s*[:\-]?\s+\S/i.test(l);
+    const isMode = (l) => /^(overheads?\b.*|r\s*&\s*d\b.*|r\s+and\s+d|rd|ingredients?|food|ads?|meta ads)$/i.test(l);
+    const out = []; let ctx = { date: '', shop: '', mode: '' }; let shown = { date: '', shop: '', mode: '' };
+    for (const raw of original.split(/\r?\n/)) {
+      const l = raw.trim(); if (!l) continue;
+      if (isDate(l)) { ctx = { date: l, shop: '', mode: '' }; continue; }
+      if (isShop(l)) { ctx.shop = l; continue; }
+      if (isMode(l)) { ctx.mode = l; continue; }
+      const i = bad.indexOf(l);
+      if (i === -1) continue;
+      bad.splice(i, 1);
+      if (ctx.date !== shown.date) { if (out.length) out.push(''); if (ctx.date) out.push(ctx.date); shown = { date: ctx.date, shop: '', mode: '' }; }
+      if (ctx.shop !== shown.shop && ctx.shop) { out.push(ctx.shop); }
+      if (ctx.mode !== shown.mode && ctx.mode) { out.push(ctx.mode); }
+      shown.shop = ctx.shop; shown.mode = ctx.mode;
+      out.push(l);
+    }
+    return [...out, ...bad].join('\n');
+  };
+  const draftNote = section.querySelector('#receiptDraftNote');
+  const showDraft = (text) => {
+    input.value = text; input.dispatchEvent(new Event('input'));
+    draftNote.style.display = text ? 'block' : 'none';
+  };
+  if (store.get()) showDraft(store.get());
+
   submitBtn.addEventListener('click', async () => {
     if (!input.value.trim()) return;
+    const original = input.value;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Logging…';
     resultDiv.innerHTML = '';
     try {
-      const res = await fetch('/api/receipts/typed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: input.value }) });
+      const res = await fetch('/api/receipts/typed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: original }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
       const html = data.replies.map((r) => `<div class="result-card"><pre style="white-space:pre-wrap;font:inherit;margin:0">${escapeHtml(r)}</pre></div>`).join('');
       resultDiv.appendChild(el(`<div>${html}</div>`));
-      input.value = '';
+      const left = failedLinesOnly(original, data.replies);
+      store.set(left); showDraft(left);
       reloadSpend();
     } catch (err) {
+      // Nothing was saved, so the whole text stays exactly as typed.
+      store.set(original);
+      draftNote.style.display = 'block';
       resultDiv.appendChild(el(`<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`));
     } finally {
       submitBtn.disabled = !input.value.trim();

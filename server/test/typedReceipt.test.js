@@ -430,3 +430,9 @@ test('a bare price after a quantity with a unit is a receipt line, and cook note
   assert.strictEqual(looksLikeTypedReceipt('7/10\nBolo\nMeat 1000\nO 446\nG 60\nyield 21'), false);
   assert.strictEqual(looksLikeTypedReceipt('portions r9 l4'), false);
 });
+
+test('lines above an overhead line that read as nothing are reported, not dropped', async () => {
+  const deps = { loadCatalogue: async () => [], appendExpenseRows: async () => {}, appendOverheads: async () => {} };
+  const out = await processTypedReceipt('13/11\nat makro\nsome words here\n\noverhead\nblender, 297', utc(2026, 10, 17), deps);
+  assert.ok(out.some((r) => /Couldn't read "some words here"/.test(r)));
+});

@@ -360,6 +360,11 @@ async function processTypedReceipt(text, messageDate, deps) {
   if (oh.problems.length) replies.push(`Couldn't use these lines:\n${oh.problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
   const food = await processIngredientReceipt(oh.rest, messageDate, deps, receiptId);
   if (food) replies.push(...food);
+  else {
+    // Nothing above the overhead / R&D lines read as an ingredient, but lines were typed there: say so rather than dropping them.
+    const left = String(oh.rest || '').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?$/.test(l) && !/^(?:shopped\s+at|shop|store|at)\s*[:\-]?\s+\S/i.test(l) && !/^(ingredients?|food|groceries)\s*:?\s*$/i.test(l));
+    if (left.length) replies.push(`Couldn't use these lines:\n${left.slice(0, 6).map((l) => `• Couldn't read "${l}". Write it like: minced pork 1000g 110thb`).join('\n')}`);
+  }
   return replies.length ? replies : ['I saw "overhead" but no item lines. Write it like:\n13/10\nat paragon\noverhead\npot 7lt, 2575thb'];
 }
 
