@@ -437,3 +437,10 @@ test('lines above an overhead line that read as nothing are reported, not droppe
   const out = await processTypedReceipt('13/11\nat makro\nsome words here\n\noverhead\nblender, 297', utc(2026, 10, 17), deps);
   assert.ok(out.some((r) => /Couldn't read "some words here"/.test(r)));
 });
+
+test('overhead lines accept a bare price on the end', () => {
+  const { splitOverheads } = require('../lib/overheads');
+  const out = splitOverheads('14/11\nat makro\noverhead\nfoil (star) 39\npot 7lt 2575', new Date(Date.UTC(2026, 10, 17)));
+  assert.deepStrictEqual(out.problems, []);
+  assert.deepStrictEqual(out.items.map((i) => [i.name, i.price, i.shop]), [['foil (star)', 39, 'makro'], ['pot 7lt', 2575, 'makro']]);
+});

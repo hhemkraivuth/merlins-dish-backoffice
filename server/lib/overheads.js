@@ -89,8 +89,8 @@ function splitOverheads(text, today) {
     if (BACK_TO_FOOD.test(line)) { mode = false; category = ''; continue; }
     if (!mode) { rest.push(line); continue; }
     let it = overheadItem(line);
-    // Inside an R&D block a price on the end with no comma or thb is fine: "lambshank 794g 277" -> lambshank 794g, 277
-    if (!it && isRd(category)) { const b = line.match(/^(.+?)\s+(\d[\d,]*(?:\.\d+)?)$/); if (b) it = { name: b[1].trim(), price: num(b[2]), repeat: false }; }
+    // In any overhead or R&D block a price on the end with no comma or thb is fine: "foil (star) 39", "lambshank 794g 277"
+    if (!it) { const b = line.match(/^(.+?)\s+(\d[\d,]*(?:\.\d+)?)$/); if (b) it = { name: b[1].trim(), price: num(b[2]), repeat: false }; }
     if (!it) { problems.push(`Couldn't read "${line}". Write it like: pot 7lt, 2575thb`); continue; }
     if (!date) undated = true;
     const q = isRd(category) ? splitQty(it.name) : { name: it.name, qty: '' };
