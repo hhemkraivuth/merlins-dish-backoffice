@@ -23,8 +23,8 @@ const NUM = '(\\d+(?:[.,]\\d+)?)';
 // kg, g, ml, litres, pieces, and things counted by the container (cans, bottles, bags and so on)
 const UNIT = '(kg|gm|grams?|g|ml|ltr|l|pieces?|pcs?|packs?|sets?|cans?|tins?|bottles?|jars?|bags?|boxes|box|sachets?|cartons?|bunch|heads?|trays?|rolls?|loaves|loaf|p)(?![a-z])';
 // Price either carries thb / baht / ฿, or comes after a comma ("celery 2kg, 138"). Commas around the quantity are fine.
-const WITH_MARK = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?[,\\s]+(?:฿\\s*${NUM}|${NUM}\\s*(?:thb|baht|฿))$`, 'i');
-const WITH_COMMA = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}?\\s*,\\s*${NUM}$`, 'i');
+const WITH_MARK = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*(?:${UNIT})?[,\\s]+(?:฿\\s*${NUM}|${NUM}\\s*(?:thb|baht|฿))$`, 'i');
+const WITH_COMMA = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*(?:${UNIT})?\\s*,\\s*${NUM}$`, 'i');
 
 // A bare price after a quantity that has a unit: "milk 2000ml 99.75", "carrot 809g 9". The unit is required here, so a cook note line
 // such as "Meat 1000" is never mistaken for a receipt line.
@@ -182,7 +182,8 @@ function parseTypedReceipt(text, today) {
     // "tomato paste (Mica) 560g 12pcs": the word in brackets is the brand, it is not part of the ingredient name.
     let brand = '';
     const br = name.match(/^(.*?)\s*\(([^)]+)\)\s*(.*)$/);
-    if (br && br[1]) { brand = br[2].trim(); name = `${br[1]} ${br[3]}`.trim(); }
+    // A size in brackets, (1500ml) or (26oz), is part of the name of packaging, not a brand.
+    if (br && br[1] && !/\d\s*(?:ml|l|oz|cm|g|kg)\b/i.test(br[2])) { brand = br[2].trim(); name = `${br[1]} ${br[3]}`.trim(); }
     let qtyText = it.qtyText.replace(',', '.');
     let unit = (it.unitText || 'piece').toLowerCase();
     let price = num(it.price);

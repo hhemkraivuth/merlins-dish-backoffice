@@ -483,3 +483,17 @@ test('packaging is counted by the piece: the size stays in the name', () => {
   // food multipacks still multiply
   assert.strictEqual(parseTypedReceipt('16/11\nspinach gratin 120gx3 129thb', utc(2026, 10, 17)).items[0].qty, 360);
 });
+
+test('a count with no unit is read: "packaging box (1500ml) 50, 226" is 50 pieces', () => {
+  const { parseTypedReceipt } = require('../lib/typedReceipt');
+  for (const line of ['packaging box (1500ml) 50, 226', 'packaging box (1500ml) 50, 226thb', 'packaging box 1500ml 50 226thb']) {
+    const out = parseTypedReceipt(`16/11/2026\n${line}`, utc(2026, 10, 17));
+    assert.deepStrictEqual(out.problems, [], line);
+    assert.strictEqual(out.items[0].qty, 50, line);
+    assert.strictEqual(out.items[0].price, 226, line);
+    assert.strictEqual(out.items[0].unit, 'piece', line);
+  }
+  const it = parseTypedReceipt('16/11/2026\npackaging box (1500ml) 50, 226', utc(2026, 10, 17)).items[0];
+  assert.strictEqual(it.typedName, 'packaging box (1500ml)'); // the size stays in the name
+  assert.strictEqual(it.brand, '');
+});
