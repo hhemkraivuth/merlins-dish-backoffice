@@ -1,6 +1,6 @@
 {
- "prepared": "15/11/2026",
- "sources": "Competitor audit 11/11/2026, content plan study 11/11/2026, inspo visual 11/11/2026, content style reference 02/11/2026, Merlin's Instagram read 15/11/2026",
+ "prepared": "17/11/2026",
+ "sources": "Competitor audit 11/11/2026, content plan study 11/11/2026, inspo visual 11/11/2026, content style reference 02/11/2026, Merlin's Instagram read 17/11/2026, shop closures from Lily 17/11/2026",
  "analysis": {
   "borrow": [
    {
@@ -85,14 +85,14 @@
  "proposals": [
   {
    "id": "cp-22",
-   "date": "16/11/2026",
+   "date": "17/11/2026",
    "pillar": "Name the dish",
    "format": "Reel, 8s",
-   "title": "Slow Braised Lamb Shank (launch)",
-   "hook": "It's here. Slow Braised Lamb Shank.",
-   "visual": "One hero shot at 45 degrees, steam rising, shank on a dark plate with carrots and gravy. Title card in warm amber, then no other text. One spoon lift to finish. Crop 4:5 for the grid cover.",
-   "caption": "It's here. Meet the Slow Braised Lamb Shank. One shank, sweet carrots and 300g of gravy, braised for hours until it falls off the bone. Fork optional. Live now on GrabFood, or order on our page 2 days ahead.",
-   "why": "Launch post for the day lamb goes live on GrabFood and the order page. A title card and one spoon lift keep it simple, and the 2 day lead time turns interest into direct orders. It goes straight to the reveal, so there is no tease to sit back to back with it.",
+   "title": "Lamb shank with orzo (live)",
+   "hook": "Soft orzo. Slow braised lamb. One very good gravy.",
+   "visual": "Reel of the plated lamb shank on soft orzo, cover text \"BRAISED LAMB SHANK\", one spoon lift. Posted 17/11 after the launch photo on 15/11. Crop 4:5 for the grid cover.",
+   "caption": "Soft orzo. Slow braised lamb. One very good gravy. 🥄 Fair warning: you will want a spoon for that gravy, and possibly a second shank. It braises for hours until it slides off the bone. Dig in.",
+   "why": "Live on Instagram. The launch photo went up on 15/11 and this reel on 17/11, so the lamb shank launched with two posts.",
    "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components",
    "avoid": "No price in the caption",
    "audience": "Expat 40 / Thai 60"
@@ -105,7 +105,7 @@
    "title": "Drinks that go with your meal",
    "hook": "Dinner needs a sidekick.",
    "visual": "Top down on a dark table, the pot dish in the middle, three cold soft drinks around it (sparkling lemon, ginger beer, cloudy lemonade). One side lamp. Cover text \"Pick a sidekick\". No wine bottle or label in frame.",
-   "caption": "Dinner needs a sidekick. Sparkling lemon, ginger beer, cloudy lemonade and more, all ready to go with your pot. Pick your pairing when you order.",
+   "caption": "Dinner needs a sidekick. Sparkling lemon, ginger beer, cloudy lemonade and more, all ready to go with your pot. Pick your pairing when you order. 😉",
    "why": "Shows the drinks range so people add one to every order. Keeps the post about the whole range and leaves alcohol out of the caption and the picture, because Thai law restricts advertising it.",
    "borrow": "@bshnuez dish name plus components caption",
    "avoid": "No wine or alcohol names, bottles or labels, no price in the caption",
@@ -119,8 +119,8 @@
    "title": "Red Wine Beef Stew, cooler evenings",
    "hook": "Cooler nights. Warm pot.",
    "visual": "Top down on the stew bowl, one side lamp, dark table. Dish name and components only on the cover.",
-   "caption": "Cooler evenings called. Red Wine Beef Stew answered. Tender beef, red wine, carrot and a gravy that coats the spoon. Come hungry. Order 2 days ahead.",
-   "why": "A cosy, appetite first post for the cooler weather. It names the dish and its parts with a smile, which earns trust before the next ask.",
+   "caption": "Cooler evenings called. Red Wine Beef Stew answered. Tender beef, red wine, carrot and a gravy that coats the spoon. Gathering around the table this Thursday? Bring the warmth. Order 2 days ahead.",
+   "why": "A cosy, appetite first post for the cooler weather. It posts on Monday 23/11, three days before the US holiday on Thursday 26/11, so anyone gathering that day can still order in time. A nod to what customers need, never a Merlin's occasion.",
    "borrow": "@bshnuez dish name plus components caption",
    "avoid": "No hard sell, no price in the caption",
    "audience": "Thai 60 / Expat 40"
@@ -140,46 +140,46 @@
    "audience": "Thai 60 / Expat 40"
   },
   {
+   "id": "cp-14",
+   "date": "30/11/2026",
+   "pillar": "Hour by hour",
+   "format": "Reel, 12s",
+   "title": "Why we brown first, plus we close 06/12",
+   "hook": "Brown first. Always.",
+   "visual": "Close on meat hitting the oil, then the dark crust lifting with water. Cover text \"Brown first\". Two clips of 4s, one reveal of 4s.",
+   "caption": "Brown first. Always. That dark crust on the pan is where the flavour lives, so every bit goes back into the braise. We do not do shortcuts. We close from 06/12 to 11/12, so order and stock up on your favourites by Fri 04/12, or schedule an order for when we are back on Mon 14/12.",
+   "why": "Moved from 07/12 to the week before the 06/12 to 11/12 closure, so a technique post also tells people to order and stock up. Shows technique, which supports the price, and it works for any dish.",
+   "borrow": "@ratto.bangkok technique authority",
+   "avoid": "Share the idea, not the full recipe",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
    "id": "cp-16",
    "date": "02/12/2026",
    "pillar": "Occasions",
    "format": "Static carousel, 3 slides",
    "title": "A pot for dad (Father's Day, 05/12)",
    "hook": "Dinner for dad, done.",
-   "visual": "Slide 1: a pot and two bowls. Slide 2: the pot being lifted. Slide 3: dish name with \"serves 2\". Warm lamp, dark table. Post 02/12 so the 2 day lead time works for the long weekend 05/12 to 07/12.",
-   "caption": "Father's Day dinner, sorted. Red Wine Beef Stew, Tuscan Pork Braise or the new Slow Braised Lamb Shank, slow cooked for hours and delivered to your door. Dad just has to show up hungry. Order 2 days ahead.",
-   "why": "Father's Day on 05/12 is a Thai holiday and a long weekend, so it speaks to the Thai audience. Posting on 02/12 respects the 2 day lead time.",
+   "visual": "Slide 1: a pot and two bowls. Slide 2: the pot being lifted. Slide 3: dish name with \"serves 2\". Warm lamp, dark table. Post 02/12, two days before the last order day Fri 04/12.",
+   "caption": "Father's Day dinner, sorted. Red Wine Beef Stew, Tuscan Pork Braise or the new Slow Braised Lamb Shank, slow cooked for hours and delivered to your door. Dad just has to show up hungry. Last day to order is Fri 04/12 because we close from 06/12 to 11/12, so order now or schedule one for when we are back on Mon 14/12.",
+   "why": "Father's Day on 05/12 is a Thai holiday, so it speaks to the Thai audience. It also lands in the closure week, so the post carries the last order day.",
    "borrow": "@hangrybeefnoodle sharing post (228 likes)",
    "avoid": "No percentage language",
    "audience": "Thai 60"
   },
   {
-   "id": "cp-17",
-   "date": "05/12/2026",
-   "pillar": "Play",
-   "format": "Story poll plus static post",
-   "title": "Pick the sauce",
-   "hook": "Pick one. We cook it.",
-   "visual": "Two pots side by side from above. Story poll sticker added in the app. Reveal the winner in a Stories reply.",
-   "caption": "Spicy Rosso or Noir Ragu? Tough choice, we know. Vote in Stories and the winner goes in the pot next.",
-   "why": "Gets people to do something instead of just looking. A game post gave a competitor its best of the latest 6 (228 likes). Votes also tell you what people want. Keep it to one a month.",
-   "borrow": "@hangrybeefnoodle game post, once a month",
-   "avoid": "No more than one game post a month",
-   "audience": "Thai 60 / Expat 40"
-  },
-  {
-   "id": "cp-14",
+   "id": "cp-21",
    "date": "07/12/2026",
-   "pillar": "Hour by hour",
-   "format": "Reel, 12s",
-   "title": "Why we brown first",
-   "hook": "Brown first. Always.",
-   "visual": "Close on meat hitting the oil, then the dark crust lifting with water. Cover text \"Brown first\". Two clips of 4s, one reveal of 4s.",
-   "caption": "Brown first. Always. That dark crust on the pan is where the flavour lives, so every bit goes back into the braise. We do not do shortcuts.",
-   "why": "Shows technique, which supports the price, and it works for any dish. It also gives the lamb tease a few days to breathe before the reveal.",
-   "borrow": "@ratto.bangkok technique authority",
-   "avoid": "Share the idea, not the full recipe",
-   "audience": "Thai 60 / Expat 40"
+   "pillar": "How it arrives",
+   "format": "Static carousel, 3 slides",
+   "title": "Open the bag",
+   "hook": "Everything that comes in the bag.",
+   "visual": "Reference: @rhoifood opened container with sauces in small pots and a tied spoon. Slide 1: the closed bag with your sticker. Slide 2: flat lay from above of exactly what comes in an order, container open, sides, spoon, anything you tuck in. Slide 3: close on the sticker or lid label. Warm grey or cream backdrop, hard side light. Shoot only what really goes in the bag.",
+   "caption": "Open the bag. A slow cooked dish, everything that comes with it, and a little care on top. Unwrapping dinner is half the fun. We are closed until Mon 14/12, so schedule your order now and we will deliver once we are back.",
+   "why": "Moved from 14/12 to 07/12, 11 days after the first arrival post. Shoot it before you leave. It goes out while the shop is closed, so the call is to schedule an order.",
+   "borrow": "@rhoifood opened container flat lay",
+   "avoid": "Do not show anything that is not in a real order",
+   "audience": "Expat 40 / Thai 60"
   },
   {
    "id": "cp-19",
@@ -189,57 +189,99 @@
    "title": "Noir Ragu, the pot lift",
    "hook": "Worth every hour.",
    "visual": "One continuous macro of Noir Ragu in the pot, a spoon lift, the sauce falling slowly. Cover text \"Worth every hour\". End on the plated pasta.",
-   "caption": "Noir Ragu. Dark, deep and slow, and worth every hour. One spoon and you will understand.",
-   "why": "A second payoff post, three weeks after the first, so the format builds familiarity without repeating the same dish. Noir Ragu is a top 3 seller.",
+   "caption": "Noir Ragu. Dark, deep and slow, and worth every hour. One spoon and you will understand. We are back Mon 14/12, so schedule your order now.",
+   "why": "A payoff post that goes out while the shop is closed (06/12 to 11/12), so the call is to schedule an order for 14/12. Noir Ragu is a top 3 seller. Shoot it before you leave.",
    "borrow": "Your own best reel formula",
-   "avoid": "Do not reuse the cp-11 shot",
+   "avoid": "Do not reuse an earlier shot",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
+   "id": "cp-11",
+   "date": "14/12/2026",
+   "pillar": "Hour by hour",
+   "format": "Reel, 12s",
+   "title": "The 8 hour sofritto",
+   "hook": "Eight hours, one base.",
+   "visual": "Close on the sofritto in the pot, onion, carrot and celery melting into amber. Cover text \"Hour 8 of 8\". Finish on a wooden spoon lift. Crop 4:5 for the grid cover.",
+   "caption": "Eight hours. Onion, carrot and celery, melting into amber. This is the base of every sauce we make, and yes, it smells as good as it looks. We are back today, and Christmas ordering is open.",
+   "why": "Hour by hour post on the day the shop reopens (Mon 14/12), and it opens the Christmas ordering run. It comes from your sofritto series.",
+   "borrow": "Your own best reel formula",
+   "avoid": "No cuts faster than every 3 seconds",
    "audience": "Thai 60 / Expat 40"
   },
   {
    "id": "cp-18",
-   "date": "12/12/2026",
+   "date": "16/12/2026",
    "pillar": "Occasions",
    "format": "Reel, 10s",
-   "title": "Christmas table, last orders 22/12",
+   "title": "Christmas table, we close 26/12",
    "hook": "Christmas, slow cooked.",
-   "visual": "Lamb shank or beef stew plated with rosemary and a candle, shot at 45 degrees. Cover text \"Last orders 22/12\". Confirm the last order date against your own capacity first.",
-   "caption": "A slow pot for the Christmas table. Slow Braised Lamb Shank or Red Wine Beef Stew, cooked for hours so you can enjoy the day. Last orders 22/12, so please order 2 days ahead.",
-   "why": "Christmas is the real European moment for Merlin's. A last orders date is a true deadline, so it gives people a reason to decide now.",
+   "visual": "Lamb shank or beef stew plated with rosemary and a candle, shot at 45 degrees. Cover text \"Last order Fri 25/12\".",
+   "caption": "A slow pot for the Christmas table. Slow Braised Lamb Shank or Red Wine Beef Stew, cooked for hours so you can enjoy the day. We close from Sat 26/12 and are back Mon 04/01, so order ahead now or schedule your Christmas order.",
+   "why": "Christmas is the real European moment for Merlin's. Moved from 12/12 to 16/12 so it starts the order push ahead of the 26/12 closure.",
    "borrow": "@notorious_foodie festive series",
-   "avoid": "Do not set a last order date you cannot meet",
+   "avoid": "Do not promise a delivery date the order page cannot take. Scheduled orders deliver once the shop reopens",
    "audience": "Expat 40 / Thai 60"
   },
   {
-   "id": "cp-21",
-   "date": "14/12/2026",
-   "pillar": "How it arrives",
-   "format": "Static carousel, 3 slides",
-   "title": "Open the bag",
-   "hook": "Everything that comes in the bag.",
-   "visual": "Reference: @rhoifood opened container with sauces in small pots and a tied spoon. Slide 1: the closed bag with your sticker. Slide 2: flat lay from above of exactly what comes in an order, container open, sides, spoon, anything you tuck in. Slide 3: close on the sticker or lid label. Warm grey or cream backdrop, hard side light. Shoot only what really goes in the bag.",
-   "caption": "Open the bag. A slow cooked dish, everything that comes with it, and a little care on top. Unwrapping dinner is half the fun.",
-   "why": "A second arrival post, after the first has been seen, shows the full order. A gift ready bag suits the Christmas run, and the layout (opened container, small pots, one tied detail) is straight from your @rhoifood reference.",
-   "borrow": "@rhoifood opened container flat lay",
-   "avoid": "Do not show anything that is not in a real order",
-   "audience": "Expat 40 / Thai 60"
+   "id": "cp-24",
+   "date": "21/12/2026",
+   "pillar": "Name the dish",
+   "format": "Static post, 4:5",
+   "title": "Lamb shank for the Christmas table",
+   "hook": "The centrepiece, sorted.",
+   "visual": "Slow Braised Lamb Shank on soft orzo with a sprig of rosemary and a candle, shot at 45 degrees on a dark table, one side lamp. Cover text \"Closing 26/12\". Crop 4:5.",
+   "caption": "The Christmas table centrepiece, sorted. Slow Braised Lamb Shank on soft orzo, with a gravy made for spooning. We close Sat 26/12 and are back Mon 04/01, so order and stock up now, or schedule your order for when we reopen.",
+   "why": "Order push in the week before the 26/12 closure. Names one hero dish and tells people to order and stock up.",
+   "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components",
+   "avoid": "No price, no stock scarcity lines, no delivery date before 04/01",
+   "audience": "Thai 60 / Expat 40"
   },
   {
-   "id": "cp-11",
-   "date": "16/12/2026",
+   "id": "cp-25",
+   "date": "23/12/2026",
    "pillar": "Worth the wait",
    "format": "Reel, 12s",
-   "title": "The 8 hour sofritto, finished",
-   "hook": "Worth the wait.",
-   "visual": "One continuous macro of the finished sauce in the pot, wooden spoon lift. Cover text \"Worth the wait\". Finish on the plated pasta with steam. Crop 4:5 for the grid cover.",
-   "caption": "Eight hours. Onion, carrot and celery, melting into amber. This is the base of every sauce we make, and yes, it smells as good as it looks. Worth the wait.",
-   "why": "Your best reel was one unbroken macro with one label (6,981 views). Repeating a proven format is the lowest risk first post, and the sauces behind it are your best sellers.",
+   "title": "Christmas table payoff, last orders",
+   "hook": "Last call before Christmas.",
+   "visual": "One continuous macro of the lamb shank gravy, a spoon lift, the sauce falling slowly. Cover text \"Last order Fri 25/12\". End on the plated shank.",
+   "caption": "Slow braised for hours, ready for your table. Last day to order is Fri 25/12, then we are closed until Mon 04/01. Order now, or schedule your order and we will deliver once we are back.",
+   "why": "Second order push in the closure week. A last order day is a true deadline, so it gives people a reason to decide now.",
    "borrow": "Your own best reel formula",
-   "avoid": "No cuts faster than every 3 seconds",
+   "avoid": "No cuts faster than every 3 seconds, no delivery date before 04/01",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
+   "id": "cp-17",
+   "date": "28/12/2026",
+   "pillar": "Play",
+   "format": "Story poll plus static post",
+   "title": "First dish back",
+   "hook": "Pick one. We cook it first.",
+   "visual": "Two pots side by side from above. Story poll sticker added in the app. Reveal the winner in a Stories reply.",
+   "caption": "We are closed until Mon 04/01, so you get to pick our first dish back. Spicy Rosso or Noir Ragu? Vote in Stories and the winner goes in the pot first. Schedule your order now and we will deliver once we reopen.",
+   "why": "Moved from 05/12 to 28/12. It goes out while the shop is closed, gives people something to do, and the votes tell you what to cook first. Keep it to one a month.",
+   "borrow": "@hangrybeefnoodle game post, once a month",
+   "avoid": "No more than one game post a month",
+   "audience": "Thai 60 / Expat 40"
+  },
+  {
+   "id": "cp-26",
+   "date": "31/12/2026",
+   "pillar": "Occasions",
+   "format": "Static post, 4:5",
+   "title": "New Year, back 04/01",
+   "hook": "Happy New Year.",
+   "visual": "A pot on a dark table, warm side lamp, soft focus string lights behind. Cover text \"Back Mon 04/01\". Crop 4:5.",
+   "caption": "Happy New Year from our kitchen. Thank you for eating with us this year. We are back Mon 04/01, and you can schedule your first order of 2027 right now.",
+   "why": "A thank you and a reminder while the shop is closed (26/12 to 03/01). New Year is a Thai and European occasion.",
+   "borrow": "@bshnuez one cosy mood line",
+   "avoid": "No price, no promotion language",
    "audience": "Thai 60 / Expat 40"
   }
  ],
  "story": {
-  "headline": "Six pillars, one job each. Lamb launches 16/11.",
+  "headline": "Six pillars, one job each. Two closures, two order pushes.",
   "points": [
    {
     "title": "Why this mix",
@@ -251,7 +293,7 @@
    },
    {
     "title": "Check before shooting",
-    "body": "Lamb goes live 16/11 on Instagram, GrabFood and the order page. Confirm the Christmas last orders date (22/12)."
+    "body": "The shop is closed 06/12 to 11/12 and 26/12 to 03/01. Posts in the week before each ask people to order and stock up, or schedule an order. Shoot the 07/12, 09/12 and 28/12 posts before you leave."
    }
   ]
  },
@@ -303,19 +345,27 @@
  "calendarDates": [
   {
    "date": "24/11/2026",
-   "label": "Loy Krathong (confirm 24 or 25)"
+   "label": "Loy Krathong (most sources say 24, a few say 25)"
+  },
+  {
+   "date": "04/12/2026",
+   "label": "Last order day before the closure"
   },
   {
    "date": "05/12/2026",
-   "label": "Father's Day, long weekend to 07/12"
+   "label": "Father's Day"
   },
   {
-   "date": "22/12/2026",
-   "label": "Last orders for Christmas (confirm)"
+   "date": "06/12/2026",
+   "label": "Shop closed to 11/12, back Mon 14/12"
   },
   {
    "date": "25/12/2026",
-   "label": "Christmas Day"
+   "label": "Christmas Day, last order day before the closure"
+  },
+  {
+   "date": "26/12/2026",
+   "label": "Shop closed to 03/01, back Mon 04/01"
   },
   {
    "date": "31/12/2026",
