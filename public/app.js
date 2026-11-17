@@ -160,7 +160,7 @@ function monthlyOverheads(box, after) {
 function receiptLogTotals(log) {
   const t = log.totals;
   const bit = (n, v) => `<div><span>${n}</span><strong>${money(v)}</strong></div>`;
-  return `${bit('Total', t.all)}${bit('Ingredients', t.ingredients)}${bit('Overheads', t.overheads)}${t.ads ? bit('Meta ads', t.ads) : ''}`;
+  return `${bit('Total', t.all)}${bit('Ingredients', t.ingredients)}${bit('Overheads', t.overheads)}${t.rd ? bit('R&D', t.rd) : ''}${t.ads ? bit('Meta ads', t.ads) : ''}`;
 }
 // Repeat button: makes an overhead repeat on the 1st of every month. A dollar price stays in dollars (read back from the Remarks).
 function repeatButton(r) {
@@ -169,9 +169,11 @@ function repeatButton(r) {
   const label = String(r.remarks || '').includes('Repeats monthly') ? 'Repeating' : 'Repeat monthly';
   return `<button type="button" class="repeat-btn" data-repeat="${escapeHtml(JSON.stringify(data))}" style="font:inherit;font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;white-space:nowrap">${label}</button>`;
 }
+let receiptRowsShown = [];
 function receiptLogTable(log) {
+  receiptRowsShown = log.rows;
   const shops = log.byShop.length ? `<details class="sum-more"><summary>Spend by shop</summary>${log.byShop.map((x) => `<div class="sum-row"><span>${escapeHtml(x.shop)}</span><span>${money(x.amount)}</span></div>`).join('')}</details>` : '';
-  const rows = log.rows.map((r) => `<tr><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.item)}${r.type !== 'Ingredient' ? `<small>${escapeHtml(r.type)}${r.category && r.type === 'Overhead' ? ', ' + escapeHtml(r.category) : ''}</small>` : ''}</td><td>${escapeHtml(r.qty)}</td><td class="r">${num2(r.price)}</td><td>${escapeHtml(r.shop)}</td><td>${r.type === 'Ingredient' ? '' : repeatButton(r)}</td></tr>`).join('');
+  const rows = log.rows.map((r, n) => `<tr data-rc-row="${n}"><td>${escapeHtml(dmyShort(r.date))}</td><td>${escapeHtml(r.item)}${r.type !== 'Ingredient' ? `<small>${escapeHtml(r.type)}${r.category && r.type === 'Overhead' ? ', ' + escapeHtml(r.category) : ''}</small>` : ''}</td><td>${escapeHtml(r.qty)}</td><td class="r">${num2(r.price)}</td><td>${escapeHtml(r.shop)}</td><td>${r.type === 'Ingredient' || r.type === 'R&D' ? '' : repeatButton(r)}<div style="display:flex;gap:4px;margin-top:4px"><button type="button" class="stock-count-button" data-rc-edit="${n}">Edit</button><button type="button" class="stock-count-button" data-rc-del="${n}">Delete</button></div></td></tr>`).join('');
   return `${shops}<div class="log-scroll"><table class="log-table"><thead><tr><th>Date</th><th>Item</th><th>How many</th><th class="r">฿</th><th>Where</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -231,6 +233,57 @@ function renderReceipts() {
       if (!res.ok) throw new Error(d.error || 'Not saved');
       btn.textContent = 'Repeating'; reloadMonthly();
     } catch (err) { btn.disabled = false; window.alert(err.message); }
+  });
+
+  // Edit and Delete on any line of the list below.
+  const post = async (url, body) => {
+    const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+    return d;
+  };
+  section.querySelector('#receiptLog').addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('[data-rc-del]');
+    const editBtn = e.target.closest('[data-rc-edit]');
+    const saveBtn = e.target.closest('[data-rc-save]');
+    const cancelBtn = e.target.closest('[data-rc-cancel]');
+    if (delBtn) {
+      const r = receiptRowsShown[Number(delBtn.dataset.rcDel)]; if (!r) return;
+      if (!window.confirm(`Delete ${r.item}, ${r.price} baht, ${r.date}?${r.type === 'Ingredient' ? ' Its stock lot goes too, if no batch has used it.' : ''}`)) return;
+      delBtn.disabled = true;
+      try { await post('/api/receipts/item/delete', { ref: r.ref }); reloadSpend(); } catch (err) { delBtn.disabled = false; window.alert(err.message); }
+      return;
+    }
+    if (cancelBtn) { const f = cancelBtn.closest('tr'); if (f) f.remove(); return; }
+    if (editBtn) {
+      const n = Number(editBtn.dataset.rcEdit); const r = receiptRowsShown[n]; if (!r) return;
+      const tr = editBtn.closest('tr');
+      const old = tr.parentNode.querySelector('tr.rc-form'); if (old) old.remove();
+      const fld = (label, id, val, w) => `<label style="display:flex;flex-direction:column;font-size:12px;color:#777;gap:2px">${label}<input class="input" data-f="${id}" value="${escapeHtml(val)}" style="width:${w}px;padding:6px 8px" /></label>`;
+      const isIng = r.type === 'Ingredient';
+      const kind = r.type === 'R&D' ? 'R&D' : r.type === 'Ads' ? 'Meta ads' : 'Overhead';
+      const form = el(`<tr class="rc-form"><td colspan="6"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;background:#fde8c8;padding:10px;border-radius:8px">
+        ${fld('Date (DD/MM/YYYY)', 'date', r.date, 110)}
+        ${fld('Item', 'item', r.item, 170)}
+        ${isIng ? fld('How many (with unit)', 'qty', r.qty, 110) : `<label style="display:flex;flex-direction:column;font-size:12px;color:#777;gap:2px">Type<select class="select" data-f="kind" style="padding:6px 8px">${['Overhead', 'R&D', 'Meta ads'].map((k) => `<option${k === kind ? ' selected' : ''}>${k}</option>`).join('')}</select></label>`}
+        ${fld('Price ฿', 'price', String(r.price), 80)}
+        ${fld('Where', 'shop', r.shop, 110)}
+        <button type="button" class="stock-count-button" data-rc-save="${n}">Save</button><button type="button" class="stock-count-button" data-rc-cancel="1">Cancel</button>
+        <div data-rc-msg style="flex-basis:100%;font-size:13px;color:#b3261e;white-space:pre-wrap"></div></div></td></tr>`);
+      tr.after(form);
+      return;
+    }
+    if (saveBtn) {
+      const r = receiptRowsShown[Number(saveBtn.dataset.rcSave)]; if (!r) return;
+      const form = saveBtn.closest('tr');
+      const v = (id) => { const x = form.querySelector(`[data-f="${id}"]`); return x ? x.value : ''; };
+      const msg = form.querySelector('[data-rc-msg]');
+      saveBtn.disabled = true; msg.textContent = 'Saving…'; msg.style.color = '#777';
+      try {
+        await post('/api/receipts/item/edit', { ref: r.ref, date: v('date'), item: v('item'), qty: v('qty'), price: v('price'), shop: v('shop'), kind: v('kind') });
+        reloadSpend();
+      } catch (err) { saveBtn.disabled = false; msg.style.color = '#b3261e'; msg.textContent = err.message; }
+    }
   });
 
   input.addEventListener('input', () => {

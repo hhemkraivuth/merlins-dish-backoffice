@@ -33,6 +33,9 @@ app.post('/api/orders/batch', upload.array('screenshots', 60), ordersRoute.handl
 
 // Mode 2: Weekly Receipts
 app.post('/api/receipts/typed', receiptsRoute.handleTyped);
+const receiptItemsRoute = require('./routes/receiptItems');
+app.post('/api/receipts/item/delete', receiptItemsRoute.del);
+app.post('/api/receipts/item/edit', receiptItemsRoute.edit);
 // Photo reading is off unless RECEIPT_PHOTOS=on (it needs an Anthropic key and credit).
 if (String(process.env.RECEIPT_PHOTOS || '').toLowerCase() === 'on') {
   app.post('/api/receipts/batch', upload.array('receipts', 60), receiptsRoute.handleBatch);

@@ -89,3 +89,15 @@ test('ready stock never shows a negative number', () => {
   const n = r.items.find((i) => i.dish === 'Noir Ragu');
   assert.equal(n.left, 0); assert.equal(n.negative, true);
 });
+
+test('receipt log rows carry a ref, and an R&D overhead shows as type R&D', () => {
+  const { buildReceiptLog } = require('../lib/logViews');
+  const out = buildReceiptLog({
+    expenseRows: [['Date'], ['13/11/2026', 'Milk', 99.75, '2000ml', 0.05, 'makro', 'Receipt R261117-1']],
+    overheadRows: [['Date'], ['13/11/2026', 'blender', '', 297, '', ''], ['13/11/2026', 'lamb shank 794g', 'R&D', 277, 'makro', '']],
+    month: '11/2026', today: new Date(Date.UTC(2026, 10, 17)),
+  });
+  assert.deepStrictEqual(out.rows.map((r) => r.type), ['Ingredient', 'Overhead', 'R&D']);
+  assert.strictEqual(out.totals.rd, 277);
+  assert.deepStrictEqual(out.rows[2].ref, { t: 'O', i: 2, d: '13/11/2026', n: 'lamb shank 794g', p: '277' });
+});

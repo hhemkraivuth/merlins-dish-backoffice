@@ -7,7 +7,7 @@
 
 const { parseDate, formatDMY, daysBetween } = require('./dates');
 const { num } = require('./ledger');
-const { isAds } = require('./overheads');
+const { isAds, isRd } = require('./overheads');
 const { BATCH_DISHES, batchDishOf } = require('./dishes');
 const { sellThrough } = require('./reports');
 
@@ -46,13 +46,13 @@ function receiptItems(expenseRows = [], overheadRows = []) {
     if (isHeader(r, i)) return;
     const date = parseDate(r[0]); const price = num(r[2]);
     if (!date || price === null) return;
-    out.push({ date, type: 'Ingredient', item: String(r[1] || '').trim(), qty: String(r[3] || '').trim(), price, perUnit: num(r[4]), shop: String(r[5] || '').trim(), remarks: String(r[6] || '').trim(), category: '' });
+    out.push({ ref: { t: 'E', i, d: String(r[0] || ''), n: String(r[1] || ''), p: String(r[2] || '') }, date, type: 'Ingredient', item: String(r[1] || '').trim(), qty: String(r[3] || '').trim(), price, perUnit: num(r[4]), shop: String(r[5] || '').trim(), remarks: String(r[6] || '').trim(), category: '' });
   });
   overheadRows.forEach((r, i) => {
     if (isHeader(r, i)) return;
     const date = parseDate(r[0]); const price = num(r[3]);
     if (!date || price === null) return;
-    out.push({ date, type: isAds(r[2]) ? 'Ads' : 'Overhead', item: String(r[1] || '').trim(), qty: '', price, perUnit: null, shop: String(r[4] || '').trim(), remarks: String(r[5] || '').trim(), category: String(r[2] || '').trim() });
+    out.push({ ref: { t: 'O', i, d: String(r[0] || ''), n: String(r[1] || ''), p: String(r[3] || '') }, date, type: isAds(r[2]) ? 'Ads' : isRd(r[2]) ? 'R&D' : 'Overhead', item: String(r[1] || '').trim(), qty: '', price, perUnit: null, shop: String(r[4] || '').trim(), remarks: String(r[5] || '').trim(), category: String(r[2] || '').trim() });
   });
   // Date, then the order they were logged in
   return out.map((x, n) => ({ ...x, n })).sort((a, b) => a.date - b.date || a.n - b.n);
@@ -69,9 +69,9 @@ function buildReceiptLog({ expenseRows, overheadRows, month, today }) {
   return {
     month: key, label: key === 'all' ? 'All months' : monthLabel(key),
     months: monthsOf(all, today),
-    totals: { ingredients: sum('Ingredient'), overheads: sum('Overhead'), ads: sum('Ads'), all: r2(mine.reduce((s, x) => s + x.price, 0)), lines: mine.length },
+    totals: { ingredients: sum('Ingredient'), overheads: sum('Overhead'), rd: sum('R&D'), ads: sum('Ads'), all: r2(mine.reduce((s, x) => s + x.price, 0)), lines: mine.length },
     byShop: [...shops].map(([shop, amount]) => ({ shop, amount: r2(amount) })).sort((a, b) => b.amount - a.amount),
-    rows: mine.map((x) => ({ date: formatDMY(x.date), type: x.type, item: x.item, qty: x.qty, price: x.price, perUnit: x.perUnit, shop: x.shop, remarks: x.remarks, category: x.category })),
+    rows: mine.map((x) => ({ ref: x.ref, date: formatDMY(x.date), type: x.type, item: x.item, qty: x.qty, price: x.price, perUnit: x.perUnit, shop: x.shop, remarks: x.remarks, category: x.category })),
   };
 }
 

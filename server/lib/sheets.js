@@ -119,6 +119,19 @@ async function updateRow(tabName, rowIndex, values) {
   } finally { forgetTab(tabName); }
 }
 
+// Deletes the one data row at 0-based position i (header is 0, so i >= 1).
+async function deleteRowAt(tabName, i) {
+  if (!(i >= 1)) return 0;
+  const sheets = await getSheetsClient();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: CLAUDE_LOG_SHEET_ID, fields: 'sheets.properties(sheetId,title)' });
+  const tab = (meta.data.sheets || []).find((x) => x.properties.title === tabName);
+  if (!tab) return 0;
+  try {
+    await sheets.spreadsheets.batchUpdate({ spreadsheetId: CLAUDE_LOG_SHEET_ID, requestBody: { requests: [{ deleteDimension: { range: { sheetId: tab.properties.sheetId, dimension: 'ROWS', startIndex: i, endIndex: i + 1 } } }] } });
+  } finally { forgetTab(tabName); }
+  return 1;
+}
+
 // Deletes every data row (never the header) of a tab where predicate(row) is true. Returns how many went.
 async function deleteRowsWhere(tabName, predicate) {
   const rows = await readTabFresh(tabName);
@@ -168,4 +181,4 @@ async function updateCells(tabName, rowIndex, cells) {
   } finally { forgetTab(tabName); }
 }
 
-module.exports = { updateCells, sortTab, deleteRowsWhere, appendRows, writeTab, readTab, readTabFresh, clearReadCache, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };
+module.exports = { deleteRowAt, updateCells, sortTab, deleteRowsWhere, appendRows, writeTab, readTab, readTabFresh, clearReadCache, updateRow, getSheetsClient, CLAUDE_LOG_SHEET_ID };
