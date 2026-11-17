@@ -7,7 +7,7 @@
 
 const { parseDate, formatDMY, daysBetween } = require('./dates');
 const { num } = require('./ledger');
-const { isAds, isRd } = require('./overheads');
+const { isAds, isRd, splitQty } = require('./overheads');
 const { BATCH_DISHES, batchDishOf } = require('./dishes');
 const { sellThrough } = require('./reports');
 
@@ -52,7 +52,11 @@ function receiptItems(expenseRows = [], overheadRows = []) {
     if (isHeader(r, i)) return;
     const date = parseDate(r[0]); const price = num(r[3]);
     if (!date || price === null) return;
-    out.push({ ref: { t: 'O', i, d: String(r[0] || ''), n: String(r[1] || ''), p: String(r[3] || '') }, date, type: isAds(r[2]) ? 'Ads' : isRd(r[2]) ? 'R&D' : 'Overhead', item: String(r[1] || '').trim(), qty: '', price, perUnit: null, shop: String(r[4] || '').trim(), remarks: String(r[5] || '').trim(), category: String(r[2] || '').trim() });
+    const rd = isRd(r[2]);
+    // R&D buys carry a How many: from the Qty note on the row, or, for older rows, read off the end of the name ("lamb shank 794g").
+    let item = String(r[1] || '').trim(); let qty = '';
+    if (rd) { const note = String(r[5] || '').match(/Qty\s+([^\s;]+)/); if (note) qty = note[1]; else { const q = splitQty(item); item = q.name; qty = q.qty; } }
+    out.push({ ref: { t: 'O', i, d: String(r[0] || ''), n: String(r[1] || ''), p: String(r[3] || '') }, date, type: isAds(r[2]) ? 'Ads' : rd ? 'R&D' : 'Overhead', item, qty, price, perUnit: null, shop: String(r[4] || '').trim(), remarks: String(r[5] || '').trim(), category: String(r[2] || '').trim() });
   });
   // Date, then the order they were logged in
   return out.map((x, n) => ({ ...x, n })).sort((a, b) => a.date - b.date || a.n - b.n);

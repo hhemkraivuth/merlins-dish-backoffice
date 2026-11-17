@@ -101,3 +101,16 @@ test('receipt log rows carry a ref, and an R&D overhead shows as type R&D', () =
   assert.strictEqual(out.totals.rd, 277);
   assert.deepStrictEqual(out.rows[2].ref, { t: 'O', i: 2, d: '13/11/2026', n: 'lamb shank 794g', p: '277' });
 });
+
+test('R&D buys show a How many: from the Qty note, or read off the end of an older name', () => {
+  const { receiptItems } = require('../lib/logViews');
+  const { splitOverheads, overheadRows } = require('../lib/overheads');
+  const today = new Date(Date.UTC(2026, 10, 17));
+  const oh = splitOverheads('13/11\nat makro\nr&d\nlamb shank 794g 277', today);
+  assert.equal(oh.items[0].name, 'lamb shank');
+  assert.equal(oh.items[0].qty, '794g');
+  const rows = [['Date', 'Item', 'Category', 'Price', 'Shopped at', 'Remarks'], ...overheadRows(oh.items, 'R000001-000001'), ['13/11/2026', 'lamb shank 794g', 'R&D', 277, 'makro', 'Typed']];
+  const out = receiptItems([], rows);
+  assert.deepEqual(out.map((x) => [x.item, x.qty, x.type]), [['lamb shank', '794g', 'R&D'], ['lamb shank', '794g', 'R&D']]);
+  assert.equal(out[1].ref.n, 'lamb shank 794g'); // the old row is still found by what is really in the sheet
+});

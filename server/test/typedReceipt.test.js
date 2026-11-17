@@ -400,7 +400,8 @@ test('r&d lines are their own category, with or without a comma before the price
   const { splitOverheads, overheadRows, overheadsFrom } = require('../lib/overheads');
   const out = splitOverheads('13/11/2026\noverhead\nblender, 297\nr&d\nlambshank 794g 277', new Date(Date.UTC(2026, 10, 17)));
   assert.deepStrictEqual(out.problems, []);
-  assert.deepStrictEqual(out.items.map((i) => [i.name, i.price, i.category]), [['blender', 297, ''], ['lambshank 794g', 277, 'R&D']]);
+  assert.deepStrictEqual(out.items.map((i) => [i.name, i.price, i.category]), [['blender', 297, ''], ['lambshank', 277, 'R&D']]);
+  assert.strictEqual(out.items[1].qty, '794g'); // the quantity is its own field, not part of the name
   const rows = overheadRows(out.items);
   assert.strictEqual(rows[1][2], 'R&D');
   // R&D shopping is its own kind: cash you paid out, but not part of the margin

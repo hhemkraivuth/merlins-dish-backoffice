@@ -29,6 +29,12 @@ const RD_MARKER = /^(?:r\s*&\s*d|r\s+and\s+d|rd)(?:\s*[:\-,]\s*(.*))?$/i;
 const isRd = (category) => /^r&d\b/i.test(String(category || ''));
 const BACK_TO_FOOD = /^(ingredients?|food)$/i;
 const num = (s) => Number(String(s).replace(/[,฿\s]/g, ''));
+// "lamb shank 794g" -> { name: 'lamb shank', qty: '794g' }. Used for R&D buys so they carry a How many like any ingredient.
+const QTY_TAIL = /^(.+?)[\s,]+(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|lt|ltr|litres?|liters?|pcs?|pieces?|packs?|bags?|cans?|bottles?|oz|lb))$/i;
+function splitQty(name) {
+  const m = String(name || '').trim().match(QTY_TAIL);
+  return m ? { name: m[1].trim(), qty: m[2].replace(/\s+/g, '') } : { name: String(name || '').trim(), qty: '' };
+}
 
 // "pot 7lt, 2575thb" / "paper bag 100pcs 120thb" -> { name, price } or null. The quantity stays in the name as typed.
 // US dollars: "railway 5usd" / "railway, $5" -> { name, usd: 5, price: null }. The dollar amount is the fact, the baht is worked out
@@ -87,7 +93,8 @@ function splitOverheads(text, today) {
     if (!it && isRd(category)) { const b = line.match(/^(.+?)\s+(\d[\d,]*(?:\.\d+)?)$/); if (b) it = { name: b[1].trim(), price: num(b[2]), repeat: false }; }
     if (!it) { problems.push(`Couldn't read "${line}". Write it like: pot 7lt, 2575thb`); continue; }
     if (!date) undated = true;
-    items.push({ date: date || today, name: it.name, price: it.price, usd: it.usd, repeat: it.repeat, shop, category, ads: isAds(category) });
+    const q = isRd(category) ? splitQty(it.name) : { name: it.name, qty: '' };
+    items.push({ date: date || today, name: q.name, qty: q.qty, price: it.price, usd: it.usd, repeat: it.repeat, shop, category, ads: isAds(category) });
   }
   return { found: true, rest: rest.join('\n'), items, problems, undated };
 }
@@ -97,6 +104,7 @@ function overheadRows(items, receiptId = '', via = 'Typed in LINE') {
     const parts = [via];
     if (it.usd) parts.push(`USD ${Number(it.usd).toFixed(2)} at ${it.rate}`); // the dollar amount stays on the row, the baht is that day's conversion
     if (it.repeat) parts.push('Repeats monthly');
+    if (it.qty) parts.push(`Qty ${it.qty}`);
     if (receiptId) parts.push(`Receipt ${receiptId}`);
     return [formatDMY(it.date), it.name, it.category, it.price, it.shop, parts.join('; ')];
   });
@@ -115,4 +123,4 @@ function overheadsFrom(rows) {
   return out;
 }
 
-module.exports = { isAds, isRd, splitOverheads, overheadItem, overheadRows, overheadsFrom, TAB, HEADERS };
+module.exports = { isAds, isRd, splitQty, splitOverheads, overheadItem, overheadRows, overheadsFrom, TAB, HEADERS };

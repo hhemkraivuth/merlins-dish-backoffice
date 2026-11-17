@@ -63,7 +63,7 @@ function createReceiptItems(getDeps) {
       } else {
         const kind = clean(b.kind).toLowerCase();
         lines.push(kind === 'r&d' ? 'r&d' : kind === 'meta ads' ? 'meta ads' : 'overhead');
-        lines.push(`${item}, ${price}thb`);
+        lines.push(`${item}${qty ? ' ' + qty : ''}, ${price}thb`);
       }
       const { processTypedReceipt } = require('../lib/cookService');
       const { bangkokToday } = require('../lib/dates');
