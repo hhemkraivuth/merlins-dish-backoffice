@@ -93,6 +93,8 @@ async function addToStock({ name, count, unit, category }) {
   if (!String(name || '').trim() || !Number.isFinite(n) || n < 0) throw new Error('Needs the item and how many you have.');
   const cat = CATEGORIES.includes(category) ? category : guessCategory(name);
   await setStockCount(String(name).trim(), n, String(unit || 'pack').trim() || 'pack', 'Needs attention', cat);
+  // Added from this box, so it is done: even if the receipt name and the Stock page name differ a little, it does not come back.
+  try { await ignoreItem(name); } catch (err) { /* the Stock page match still hides it */ }
 }
 
 module.exports = { soldWithoutCost, attentionItems, loadAttention, ignoreItem, addToStock, IGNORE_KEY, looseKey };

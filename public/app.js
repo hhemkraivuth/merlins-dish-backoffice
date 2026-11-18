@@ -888,7 +888,10 @@ async function renderStock() {
     if (Array.isArray(s.categories) && s.categories.length) STOCK_CATS = s.categories;
     // Bagged meat is counted in grams as one item, so the receipts based row for the same meat is hidden.
     const bagged = new Set(stock.filter((x) => x.bags).map((x) => plainName(x.itemName)));
-    ingredients = (ing.items || []).filter((i) => !bagged.has(plainName(i.name)));
+    // Drinks, packaging and anything else you count by hand wins over the receipts based row of the same name, so one item
+    // is never listed twice (Eden Green Apple Sparkling as 3 cans and again as 2 pieces). Ingredients keep their purchase card.
+    const handCounted = new Set(stock.filter((x) => !x.bags && (x.category || catOf(x)) !== 'Ingredients').map((x) => plainName(x.itemName)));
+    ingredients = (ing.items || []).filter((i) => !bagged.has(plainName(i.name)) && !handCounted.has(plainName(i.name)));
     // An ingredient tracked by purchases (brand, date, price, used oldest first) replaces its hand counted card.
     const byPurchase = new Set((ing.tracked || []).map((n) => plainName(n)));
     stock = stock.filter((x) => x.bags || (x.category || catOf(x)) !== 'Ingredients' || !byPurchase.has(plainName(x.itemName)));
