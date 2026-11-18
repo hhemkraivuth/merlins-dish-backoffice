@@ -98,6 +98,44 @@ async function processLeftCount(body, today, deps) {
   return [`BOH counts saved for ${formatDMY(today)}:\n${[...counts].map(([d, n]) => shown(d, n, typed.get(d))).join('\n')}${extra.length ? `\n\n${extra.join('\n')}` : ''}`];
 }
 
+// The order bot's own counts (set in its LINE group with "left" or "setstock") are never seen by BOH, so BOH's stock, alerts and
+// To Do kept using cooked minus sold. This reads the bot snapshot and saves a count for each cooked dish whose bot count
+// CHANGED since the last time it was mirrored, so a number set a week ago and left alone is never re-dated as fresh.
+// Dated the service day: a snapshot taken before 06:00 Bangkok belongs to the day that just closed. A newer count already
+// typed in BOH for that dish is left alone. snap: { takenAt, items: [{ name, left, soldOut, sizes }] }
+const normName = (n) => String(n || '').toLowerCase().replace(/[^a-z0-9&]/g, '');
+async function mirrorBotCounts(snap, deps) {
+  if (!snap || !Array.isArray(snap.items)) return { saved: [] };
+  const taken = new Date(snap.takenAt || Date.now());
+  const bkk = new Date(taken.getTime() + 7 * 3600 * 1000);
+  if (bkk.getUTCHours() < 6) bkk.setUTCDate(bkk.getUTCDate() - 1);
+  const day = new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth(), bkk.getUTCDate()));
+  const sh = await deps.loadShorthand();
+  const known = new Map(BATCH_DISHES.map(([n]) => [normName(n), n]));
+  for (const d of sh.dishes.values()) known.set(normName(d), d);
+  const last = await deps.loadMirrored();
+  const rows = await deps.readRows(TAB);
+  const have = require('./logViews').latestCounts(rows);
+  const out = []; const mirrored = { ...last };
+  for (const it of snap.items) {
+    const dish = known.get(normName(it.name));
+    if (!dish) continue; // drinks, extras, Bacon Steak: the order app only
+    const sizes = Array.isArray(it.sizes) ? it.sizes : [];
+    const n = sizes.length ? sizes.reduce((a, v) => a + v.left, 0) : (typeof it.left === 'number' ? it.left : (it.soldOut ? 0 : null));
+    if (n === null) continue;
+    if (last[dish] === n) continue; // unchanged since last time, so it is not a fresh count
+    mirrored[dish] = n;
+    const mine = have.get(dish);
+    if (mine && mine.date.getTime() > day.getTime()) continue; // a newer count was typed in BOH
+    if (mine && mine.date.getTime() === day.getTime() && mine.count === n) continue;
+    const typed = sizes.length ? sizes.map((v) => `${v.left}${/large/i.test(v.name) ? 'l' : 'r'}`).join(' ') : '';
+    out.push([dish, n, formatDMY(day), bangkokNow(), typed]);
+  }
+  if (out.length) { await deps.ensureTab(TAB, READY_HEADERS); await deps.appendRows(TAB, out, { raw: true }); }
+  await deps.saveMirrored(mirrored);
+  return { saved: out.map((r) => `${r[0]} ${r[1]}`) };
+}
+
 async function processReadyCount(text, today, deps) {
   const left = LEFT.exec(String(text || '').trim());
   if (left && left[2].trim()) return processLeftCount(left[2], today, deps);
@@ -140,4 +178,4 @@ async function processReadyCount(text, today, deps) {
   return [`Closing count saved for ${formatDMY(day)}:\n${[...counts].map(([d, n]) => shown(d, n, typed.get(d))).join('\n')}\nAnalysis, Home stock and To Do follow these. Cooking and sales after ${formatDMY(day)} are added on top.`];
 }
 
-module.exports = { processReadyCount, processLeftCount, leftLines, TAB };
+module.exports = { mirrorBotCounts, processReadyCount, processLeftCount, leftLines, TAB };
