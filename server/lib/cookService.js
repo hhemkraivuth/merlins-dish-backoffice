@@ -497,9 +497,9 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
         // Not on the Stock page yet. Drinks, packaging and dry goods bought in packs start a count with what was bought.
         // Fresh meat, vegetables and other ingredients are tracked by their lots, not here.
         const guess = guessCategory(name);
-        if (guess && guess !== 'Drinks' && guess !== 'Packaging') return;
+        if (guess === 'Meat' || (guess === 'Ingredients' && !(it.packCount || it.eachWeight))) return;
         const unit = it.eachWeight ? String(it.eachWeight.containerWord || 'pack').toLowerCase().replace(/s$/, '') : countLike ? (/^(pieces?|pcs?|p)$/.test(it.unit) ? 'piece' : String(it.unit).replace(/s$/, '')) : 'pack';
-        stockAdd.set(i, { itemName: name, qty, unit, create: true, category: guess });
+        stockAdd.set(i, { itemName: name, qty, unit, create: true, category: guess || 'Ingredients' });
       });
     } catch (err) { /* stock could not be checked, the receipt still logs */ }
   }

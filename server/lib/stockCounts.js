@@ -40,8 +40,8 @@ async function addCategory(name) {
 // Wine and stout are cooking ingredients here, not drinks for sale.
 const GUESS = [
   ['Meat', /\b(brisket|chuck|beef|pork|chicken|bacon|mince|thigh|shoulder|sausage|ham)s?\b/i],
-  ['Ingredients', /\b(wine|stout|thyme|beer|stock|sauce|flour|salt|pepper|garlic|onion|butter|cream|cheese|pasta|tomato|beef|pork|chicken|bacon|herb)s?\b/i],
-  ['Drinks', /\b(coke|pepsi|zero|root beer|a&w|soda|juice|water|lemonade|ginger|la croix|prebo|ben shaw|perrier|maison|sour hour|en ziero|ziero|juza|eden|old jamaica|fanta|sprite|tea|coffee|sparkling|cola)s?\b/i],
+  ['Ingredients', /\b(wine|stout|thyme|beer|stock|sauce|flour|salt|pepper|garlic|onion|butter|cream|cheese|pasta|tomato|beef|pork|chicken|bacon|herb|orzo|anchov(?:y|ies)|tuna|sardine|fish|tubetti|rigatoni|radiatori|lumache|linguine|linguini|spaghetti|farfalle|penne|macaroni|fusilli|noodle|rice|oil|sugar|vinegar|lentil|bean|oat|spice|paprika|oregano|basil|parsley|olive|caper|mustard|honey|milk|egg|potato|carrot|celery|mushroom|leek|msg)s?\b/i],
+  ['Drinks', /\b(coke|pepsi|zero|root beer|a&w|soda|juice|water|lemonade|ginger|la croix|prebo|ben shaw|perrier|maison|sour hour|en ziero|ziero|juza|eden|old jamaica|fanta|sprite|tea|coffee|sparkling|cola|vino|shiraz|chardonnay|sauvignon|prosecco|muscat|moscato)s?\b/i],
   ['Packaging', /\b(cup|lid|bag|box|utensil|fork|spoon|sticker|container|tape|napkin|label|bowl|straw|tissue|wrap|foil|sleeve|carton|set)s?\b/i],
 ];
 function guessCategory(name) {
