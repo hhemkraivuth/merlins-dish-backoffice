@@ -505,3 +505,16 @@ test('"500gx2 78 ea" prices each of the 2 packs, not each of the 1000 grams', ()
     assert.deepStrictEqual([r.items[0].purchaseUnit, r.items[0].price, r.items[0].costPerUnit], ['1000g', 156, 0.156], line);
   }
 });
+
+test('cans bought of a Stock page item top up that count, and undo takes them back', async () => {
+  const expense = []; const adj = [];
+  const deps = {
+    loadCatalogue: async () => ['Eden Green Apple Sparkling'], appendExpenseRows: async (x) => expense.push(...x),
+    stockItems: async () => [{ itemName: 'Eden Green Apple Sparkling', unit: 'can', currentCount: 1 }, { itemName: 'Bacon Steak', unit: 'g', currentCount: 500 }],
+    adjustPacks: async (n, d) => { adj.push([n, d]); return { found: true, now: 3 }; },
+  };
+  const out = await processTypedReceipt('15/11/2026\neden green apple sparkling 2cans 36thb', utc(2026, 10, 18), deps);
+  assert.deepStrictEqual(adj, [['Eden Green Apple Sparkling', 2]]);
+  assert.match(expense[0][6], /Stock \+2 Eden Green Apple Sparkling/);
+  assert.ok(out.join('\n').includes('now 3'));
+});

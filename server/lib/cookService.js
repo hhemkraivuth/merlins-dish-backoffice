@@ -471,8 +471,30 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
   if (!items.length) return [`Nothing was logged.\n${held.map((h) => `• ${h}`).join('\n')}`];
   if (held.length) flags.push(...held.map((h) => `Not logged, ${h}`));
 
+  // Things bought by the can or piece that are on the Stock page (drinks, packs) go onto that count too, so "1 can left" clears.
+  // Condiments on the Untracked list are handled below as packs. Grams and millilitres stay with the stock lots.
+  const stockAdd = new Map();
+  if (!deps.skipStock && deps.stockItems && deps.adjustPacks) {
+    try {
+      const stock = await deps.stockItems();
+      let untr = []; try { untr = deps.loadUntracked ? await deps.loadUntracked() : []; } catch (err) { /* treated as none */ }
+      const skipU = new Set(untr.map(looseKey));
+      items.forEach((it, i) => {
+        if (it.pricesOnly) return;
+        if (!(it.eachWeight || /^(pieces?|pcs?|p)$/.test(it.unit) || isContainerWord(it.unit))) return;
+        const name = matchIngredient(it.typedName, catalogue).name || it.typedName;
+        if (skipU.has(looseKey(name))) return;
+        const m = matchStock(name, stock);
+        if (!m.hit || /^(g|gm|grams?|kg|ml|l|ltr)$/i.test(String(m.hit.unit || '').trim())) return;
+        const qty = packsOf(it); if (!(qty > 0)) return;
+        stockAdd.set(i, { itemName: m.hit.itemName, qty, unit: m.hit.unit });
+      });
+    } catch (err) { /* stock could not be checked, the receipt still logs */ }
+  }
+
+  const packLinesEarly = [];
   const unmatched = [];
-  const rows = items.map((it) => {
+  const rows = items.map((it, idx) => {
     const date = it.date || messageDate;
     const m = matchIngredient(it.typedName, catalogue);
     const remarks = [deps.typedVia || 'Typed in LINE', `Receipt ${receiptId}`];
@@ -483,10 +505,15 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
     }
     if (it.brand) remarks.push(`Brand: ${it.brand}`);
     if (it.assumed) remarks.push(it.assumed);
+    if (stockAdd.has(idx)) remarks.push(`Stock +${stockAdd.get(idx).qty} ${stockAdd.get(idx).itemName}`);
     return [formatDMY(date), m.name || it.typedName, it.price, it.purchaseUnit, it.costPerUnit, it.shop || '', remarks.join('; ')];
   });
 
   await deps.appendExpenseRows(rows);
+  for (const sa of stockAdd.values()) {
+    try { const r = await deps.adjustPacks(sa.itemName, sa.qty); if (r && r.found) packLinesEarly.push(`Stock: ${sa.itemName} +${sa.qty}${sa.unit ? ' ' + sa.unit : ''}, now ${r.now}.`); }
+    catch (err) { flags.push(`${sa.itemName}: stock was not updated (${err.message}). Set it on the Stock page.`); }
+  }
   if (deps.refreshBestPrices) { try { await deps.refreshBestPrices(); } catch (err) { flags.push(`The Best Prices tab could not be updated (${err.message}).`); } }
 
   // Stock lots: every matched, countable ingredient becomes a lot (condiments on the Untracked list do not).
@@ -540,6 +567,7 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
   if (lotLines.length) replies.push(`Added to stock lots: ${lotLines.join(', ')}.${notTracked.length ? `\nNot stock tracked (condiments): ${notTracked.join(', ')}.` : ''}`);
   else if (notTracked.length) replies.push(`Not stock tracked (condiments): ${notTracked.join(', ')}.`);
   if (unmatched.length) replies.push(`Not matched to a known ingredient, so cost lookups will skip these until the name matches the Price Tracker:\n${unmatched.slice(0, 8).map((u) => `• ${u}`).join('\n')}`);
+  if (packLinesEarly.length) replies.push(packLinesEarly.join('\n'));
   if (packLines.length) replies.push(`Unopened packs:\n${packLines.map((l) => `• ${l}`).join('\n')}`);
   const spelled = items.filter((it) => it.spelled);
   if (spelled.length) replies.push(`I corrected the spelling:\n${spelled.map((it) => `• ${it.spelled}`).join('\n')}\nIf one is wrong, tell me and I will fix the row.`);

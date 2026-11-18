@@ -23,8 +23,8 @@ function createReceiptItems(getDeps) {
     await sheets().deleteRowAt(TABS[ref.t], ref.i);
     let keptLot = '';
     // An overhead that topped up the Stock page (foil, bags) takes it back off when deleted. An edit leaves stock alone.
-    if (ref.t === 'O' && !keepStock) {
-      const sm = String(row[5] || '').match(/Stock \+(\d+(?:\.\d+)?) ([^;]+)/);
+    if (!keepStock) {
+      const sm = String(row[ref.t === 'O' ? 5 : 6] || '').match(/Stock \+(\d+(?:\.\d+)?) ([^;]+)/);
       if (sm) { try { await getDeps().adjustPacks(sm[2].trim(), -Number(sm[1])); } catch (err) { console.error('Stock take back failed:', err); } }
     }
     if (ref.t === 'E') {

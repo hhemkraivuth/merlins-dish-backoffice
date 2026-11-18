@@ -41,7 +41,7 @@ async function processReceiptUndo(text, deps) {
       if (!String(r[t.col] || '').includes(id)) return false;
       // A lot that a batch has already used from is kept, so the cost of that batch stays right.
       if (t.lots && Number(r[6]) < Number(r[4]) - 1e-6) { kept.push(`${r[1]} (${r[6]} of ${r[4]} left)`); return false; }
-      if (t.tab === 'Overheads') { const sm = String(r[5] || '').match(/Stock \+(\d+(?:\.\d+)?) ([^;]+)/); if (sm) stockBack.push({ name: sm[2].trim(), qty: Number(sm[1]) }); }
+      if (t.tab === 'Overheads' || t.tab === 'Expense Log') { const sm = String(r[t.col] || '').match(/Stock \+(\d+(?:\.\d+)?) ([^;]+)/); if (sm) stockBack.push({ name: sm[2].trim(), qty: Number(sm[1]) }); }
       return true;
     });
     if (n) parts.push(`${n} ${t.label}`);
