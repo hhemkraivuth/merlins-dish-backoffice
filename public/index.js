@@ -203,11 +203,17 @@ function menuBox() {
   const byCat = cats.map((c) => ({ c, list: S.menu.filter((m) => m.category === c.id) })).filter((x) => x.list.length);
   return `<div class="ix"><h3>Menu and prices</h3>
     <p class="sub">What the order app sells, at the direct order price. Tap an item to change its price, name or description, or to take it off the menu. Grab prices are set in Grab.</p>
-    ${byCat.map(({ c, list }) => `<p style="margin:12px 0 2px"><b>${esc(c.label)}</b></p>${list.map((m) => `<div class="item" data-item="${esc(m.id)}"><span>${m.image ? `<img src="${esc(m.image)}" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px" />` : '<span title="No photo" style="display:inline-block;width:28px;height:28px;border-radius:6px;background:#eadfce;vertical-align:middle;margin-right:8px"></span>'}<b>${esc(m.name)}</b>${m.ageRestricted ? ' <span class="sub">20+</span>' : ''}${m.requiresPasta ? ' <span class="sub">pasta choice</span>' : m.requiresSize ? ' <span class="sub">sizes</span>' : ''}${m.available ? '' : ' <span class="pill off">sold out</span>'}</span><span class="price">${baht(m.price)}</span></div><div data-slot="${esc(m.id)}"></div>`).join('')}`).join('')}
+    ${byCat.map(({ c, list }) => `<p style="margin:12px 0 2px"><b>${esc(c.label)}</b></p>${list.map((m) => `<div class="item" data-item="${esc(m.id)}"><span>${m.image ? `<img src="${esc(m.image)}" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px" />` : '<span title="No photo" style="display:inline-block;width:28px;height:28px;border-radius:6px;background:#eadfce;vertical-align:middle;margin-right:8px"></span>'}<b>${esc(m.name)}</b>${m.ageRestricted ? ' <span class="sub">20+</span>' : ''}${m.requiresPasta ? ' <span class="sub">pasta choice</span>' : m.requiresSize ? ' <span class="sub">sizes</span>' : ''}${m.available ? '' : ' <span class="pill off">sold out</span>'}</span><span class="price"><span class="mv"><button type="button" class="mv-btn" data-move="up" data-id="${esc(m.id)}" aria-label="Move ${esc(m.name)} up" ${lock()}>▲</button><button type="button" class="mv-btn" data-move="down" data-id="${esc(m.id)}" aria-label="Move ${esc(m.name)} down" ${lock()}>▼</button></span>${baht(m.price)}</span></div><div data-slot="${esc(m.id)}"></div>`).join('')}`).join('')}
     <div id="addEdit"></div><div class="row"><button class="primary-button" id="addBtn" ${lock()}>+ Add a menu item</button></div>
     ${(S.removed || []).length ? `<p style="margin:14px 0 4px"><b>Taken off the menu</b></p>${S.removed.map((m) => `<div class="item" style="cursor:default"><span>${esc(m.name)} <span class="sub">${baht(m.price)}</span></span><button class="link" data-restore="${esc(m.id)}" ${lock()}>Put back</button></div>`).join('')}` : ''}</div>`;
 }
 function wireMenu() {
+  // ▲ ▼ move an item one place inside its category. The order app follows the same order.
+  document.querySelectorAll('[data-move]').forEach((b) => b.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (S.readOnly) return toast('Read only until the bot update is live.', true);
+    await save('menu/move', { id: b.dataset.id, direction: b.dataset.move }, 'Moved. The order app shows the new order now.');
+  }));
   document.querySelectorAll('[data-item]').forEach((row) => row.addEventListener('click', () => {
     if (S.readOnly) return toast('Read only until the bot update is live.', true);
     const m = S.menu.find((x) => x.id === row.dataset.item); const slot = document.querySelector(`[data-slot="${CSS.escape(m.id)}"]`);

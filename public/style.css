@@ -236,3 +236,5 @@ body {
 .attn-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .attn-acts input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; width: 110px; }
 .attn-acts button { font: inherit; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); cursor: pointer; }
+.mv { display: inline-flex; gap: 4px; margin-right: 10px; vertical-align: middle; }
+.mv-btn { font: inherit; font-size: 13px; line-height: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: #1c2a6b; cursor: pointer; }
