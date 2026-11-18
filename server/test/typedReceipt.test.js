@@ -497,3 +497,11 @@ test('a count with no unit is read: "packaging box (1500ml) 50, 226" is 50 piece
   assert.strictEqual(it.typedName, 'packaging box (1500ml)'); // the size stays in the name
   assert.strictEqual(it.brand, '');
 });
+
+test('"500gx2 78 ea" prices each of the 2 packs, not each of the 1000 grams', () => {
+  for (const line of ['orzo (San Remo) 500gx2 78 ea', 'orzo 2x500g 78thb each', 'orzo 500g 2 bags, 78 each']) {
+    const r = parseTypedReceipt(`15/11/2026\n${line}`, TODAY);
+    assert.strictEqual(r.problems.length, 0, line);
+    assert.deepStrictEqual([r.items[0].purchaseUnit, r.items[0].price, r.items[0].costPerUnit], ['1000g', 156, 0.156], line);
+  }
+});

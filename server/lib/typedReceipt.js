@@ -33,12 +33,12 @@ const WITH_BARE = new RegExp(`^(.+?)[,\\s]+${NUM}\\s*${UNIT}[,\\s]+${NUM}$`, 'i'
 // "minced pork 1000g 110thb" / "pelati, 2550g, 275" -> { name, qtyText, unitText, price } or null
 // Multipacks: "120gx3" and "3x120g" mean 360g in all. The price on the line is the total for the whole lot.
 const MP_UNIT = '(kg|gm|grams?|g|ml|ltr|l)';
-function expandMultipack(t) {
+function expandMultipack(t, out) {
   const fmt = (n) => String(Math.round(n * 1000) / 1000);
   let m = t.match(new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*${MP_UNIT}\\s*[x×]\\s*(\\d+)(?![\\d.,a-z])`, 'i'));
-  if (m) return t.replace(m[0], `${fmt(Number(m[1].replace(',', '.')) * Number(m[3]))}${m[2]}`);
+  if (m) { if (out) out.count = Number(m[3]); return t.replace(m[0], `${fmt(Number(m[1].replace(',', '.')) * Number(m[3]))}${m[2]}`); }
   m = t.match(new RegExp(`(?<![\\d.,])(\\d+)\\s*[x×]\\s*(\\d+(?:[.,]\\d+)?)\\s*${MP_UNIT}(?![a-z])`, 'i'));
-  if (m) return t.replace(m[0], `${fmt(Number(m[1]) * Number(m[2].replace(',', '.')))}${m[3]}`);
+  if (m) { if (out) out.count = Number(m[1]); return t.replace(m[0], `${fmt(Number(m[1]) * Number(m[2].replace(',', '.')))}${m[3]}`); }
   return t;
 }
 
@@ -54,13 +54,15 @@ function packSize(t) {
 function matchItem(line) {
   const packaging = PACK_NAME.test(String(line || ''));
   let t = packSize(String(line || '').trim());
-  t = packaging ? t : expandMultipack(t);
+  const pack = {};
+  t = packaging ? t : expandMultipack(t, pack);
   // "2 cans, 16thb ea" / "16 each": the price is for one, not for the lot
   let each = false;
   const ea = t.match(/^(.*?)[\s,]*(?:\/\s*)?(?:ea\.?|each)$/i);
   if (ea && /\d/.test(ea[1].slice(-12))) { t = ea[1].trim(); each = true; }
   const m0 = matchItemPlain(t);
-  return m0 ? { ...m0, each } : null;
+  // "500gx2 78 ea": the price is for each of the 2 packs, not for each of the 1000 grams.
+  return m0 ? { ...m0, each, packCount: pack.count || 0 } : null;
 }
 function matchItemPlain(line) {
   const t = String(line || '').trim();
@@ -188,7 +190,7 @@ function parseTypedReceipt(text, today) {
     let unit = (it.unitText || 'piece').toLowerCase();
     let price = num(it.price);
     let assumed = '';
-    if (it.each) { const n = num(qtyText); price = Number((price * n).toFixed(2)); assumed = `${it.price} each x ${qtyText} = ${price}`; }
+    if (it.each) { const n = it.packCount || num(qtyText); price = Number((price * n).toFixed(2)); assumed = `${it.price} each x ${it.packCount || qtyText} = ${price}`; }
     // A weight with a decimal point under 10 and the letter g ("0.478g", "0.9g") is a kilo weight, not a fraction of a gram.
     const GRAM = /^(g|gm|grams?)$/;
     if (GRAM.test(unit) && /\./.test(qtyText) && Number(qtyText) < 10) {
