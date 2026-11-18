@@ -114,3 +114,10 @@ test('R&D buys show a How many: from the Qty note, or read off the end of an old
   assert.deepEqual(out.map((x) => [x.item, x.qty, x.type]), [['lamb shank', '794g', 'R&D'], ['lamb shank', '794g', 'R&D']]);
   assert.equal(out[1].ref.n, 'lamb shank 794g'); // the old row is still found by what is really in the sheet
 });
+
+test('a brand typed in brackets shows in the receipts list, so Edit keeps it', () => {
+  const { receiptItems } = require('../lib/logViews');
+  const out = receiptItems([['15/11/2026', 'Orzo', 78, '500g', 0.156, 'Tops', 'Brand: San Remo; Typed via web']], []);
+  assert.strictEqual(out[0].item, 'Orzo (San Remo)');
+  assert.strictEqual(out[0].ref.n, 'Orzo');
+});

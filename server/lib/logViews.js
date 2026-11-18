@@ -46,7 +46,7 @@ function receiptItems(expenseRows = [], overheadRows = []) {
     if (isHeader(r, i)) return;
     const date = parseDate(r[0]); const price = num(r[2]);
     if (!date || price === null) return;
-    out.push({ ref: { t: 'E', i, d: String(r[0] || ''), n: String(r[1] || ''), p: String(r[2] || '') }, date, type: 'Ingredient', item: String(r[1] || '').trim(), qty: String(r[3] || '').trim(), price, perUnit: num(r[4]), shop: String(r[5] || '').trim(), remarks: String(r[6] || '').trim(), category: '' });
+    out.push({ ref: { t: 'E', i, d: String(r[0] || ''), n: String(r[1] || ''), p: String(r[2] || '') }, date, type: 'Ingredient', item: withBrand(String(r[1] || '').trim(), String(r[6] || '')), qty: String(r[3] || '').trim(), price, perUnit: num(r[4]), shop: String(r[5] || '').trim(), remarks: String(r[6] || '').trim(), category: '' });
   });
   overheadRows.forEach((r, i) => {
     if (isHeader(r, i)) return;
@@ -80,6 +80,9 @@ function buildReceiptLog({ expenseRows, overheadRows, month, today }) {
 }
 
 const RECEIPT_CSV_HEADERS = ['Date', 'Type', 'Item', 'How many (purchase unit)', 'Price paid', 'Cost per g / ml / piece', 'Shopped at', 'Category', 'Remarks'];
+// The brand typed in brackets is kept in the remarks, so the list and the Edit form show it as "Orzo (San Remo)".
+function withBrand(name, remarks) { const m = String(remarks).match(/Brand:\s*([^;]+)/i); return m && m[1].trim() ? `${name} (${m[1].trim()})` : name; }
+
 const receiptCsvRows = (log) => log.rows.map((r) => [r.date, r.type, r.item, r.qty, r.price, r.perUnit === null ? '' : r.perUnit, r.shop, r.category, r.remarks]);
 // Same columns as the Price Log tab in Merlin's numbers, ingredients only, so it can be pasted straight in.
 const PRICE_LOG_HEADERS = ['Shopping Date', 'Ingredient', 'Purchase Price', 'Purchase Unit', 'Cost per Recipe Unit', 'Shopped at', 'Remarks'];
