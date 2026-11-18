@@ -214,6 +214,7 @@ function wireMenu() {
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
     slot.innerHTML = `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:4px 0 8px">
       <div class="row"><label>Name<input id="mN" value="${esc(m.name)}" style="width:min(320px,70vw)" /></label><label>Price (฿)<input id="mP" type="number" min="0" step="1" value="${esc(m.price)}" style="width:90px" /></label></div>
+      <label>Category<select id="mC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}"${c.id === m.category ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select></label>
       <label>Description<textarea id="mD">${esc(m.description)}</textarea></label>
       ${choiceSelect('mO', choiceOf(m))}
       ${ageTick('mA', m.ageRestricted)}
@@ -221,7 +222,7 @@ function wireMenu() {
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
     $('mCancel').addEventListener('click', () => { slot.innerHTML = ''; });
     $('mSave').addEventListener('click', async () => {
-      const ok = await save('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, description: $('mD').value, options: $('mO').value, ageRestricted: $('mA').checked });
+      const ok = await save('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, ageRestricted: $('mA').checked });
       const f = $('mImg') && $('mImg').files[0];
       if (ok && f) { try { await api('menu/image', { id: m.id, data: await shrink(f) }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(err.message, true); } }
     });
