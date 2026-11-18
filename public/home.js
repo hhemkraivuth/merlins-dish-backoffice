@@ -162,7 +162,45 @@ $('leftForm').addEventListener('submit', async (e) => {
   } catch (err) { msg.textContent = err.message; }
   btn.disabled = false;
 });
-$('reload').addEventListener('click', () => { load(); loadShop(true); loadStock(true); });
+$('reload').addEventListener('click', () => { load(); loadShop(true); loadStock(true); loadAttention(); });
 load();
 loadStock(false);
 loadShop(false);
+
+// Needs attention: things bought on a receipt that the web does not have yet (not in the Price Tracker, not on the Stock page).
+async function loadAttention() {
+  const box = $('attnBox'); if (!box) return;
+  try {
+    const res = await fetch('/api/attention');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Could not check (${res.status})`);
+    const items = data.items || [];
+    box.hidden = !items.length;
+    if (!items.length) return;
+    $('attnLead').textContent = `${items.length} thing${items.length === 1 ? '' : 's'} from your receipts the web does not have yet. Add it to the Stock page, or ignore it if you do not count it (fresh food, for example).`;
+    $('attnList').innerHTML = items.map((it) => `<div class="attn-row" data-name="${esc(it.name)}">
+      <div><b>${esc(it.name)}</b> <span class="muted">bought ${esc(it.bought)}${it.shop ? ', ' + esc(it.shop) : ''}</span>
+      ${it.reasons.map((r) => `<div class="muted">${esc(r)}</div>`).join('')}</div>
+      <div class="attn-acts"><input type="number" min="0" step="any" placeholder="How many" data-count aria-label="How many ${esc(it.name)} you have"><input type="text" placeholder="unit, e.g. pack" data-unit aria-label="Unit"><button type="button" data-add>Add to Stock</button><button type="button" data-ignore>Ignore</button></div>
+      <div class="attn-msg muted" data-msg></div></div>`).join('');
+  } catch (err) { box.hidden = false; $('attnLead').textContent = `Could not check what is missing: ${err.message}`; $('attnList').innerHTML = ''; }
+}
+document.addEventListener('click', async (e) => {
+  const row = e.target.closest('.attn-row'); if (!row) return;
+  const msg = row.querySelector('[data-msg]'); const name = row.dataset.name;
+  const post = async (url, body) => {
+    const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || `Not saved (${res.status}). Nothing was changed.`);
+  };
+  if (e.target.closest('[data-add]')) {
+    const count = row.querySelector('[data-count]').value; const unit = row.querySelector('[data-unit]').value;
+    if (count === '') { msg.style.color = '#b3261e'; msg.textContent = 'Type how many you have first.'; return; }
+    msg.style.color = ''; msg.textContent = 'Saving…';
+    try { await post('/api/attention/add-stock', { name, count, unit }); await loadAttention(); loadStock(); } catch (err) { msg.style.color = '#b3261e'; msg.textContent = err.message; }
+  } else if (e.target.closest('[data-ignore]')) {
+    msg.style.color = ''; msg.textContent = 'Saving…';
+    try { await post('/api/attention/ignore', { name }); await loadAttention(); } catch (err) { msg.style.color = '#b3261e'; msg.textContent = err.message; }
+  }
+});
+loadAttention();

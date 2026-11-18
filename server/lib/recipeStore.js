@@ -8,12 +8,13 @@ const { ensureTab } = require('./cookLog');
 
 const TAB = 'Recipe Edits';
 const HEADERS = ['Dish', 'Category', 'Title', 'Text', 'Saved'];
-const CATEGORIES = ['Stews', 'Pasta', 'Soups', 'Other'];
+const CATEGORIES = ['Stews', 'Pasta', 'Noodles', 'Soups', 'Other'];
 
 const keyOf = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
 
 function guessCategory(name) {
   const n = String(name || '').toLowerCase();
+  if (/^pasta\s*-/.test(n)) return 'Noodles';
   if (/soup/.test(n)) return 'Soups';
   if (/stew|braise/.test(n)) return 'Stews';
   if (/ragu|ragù|bolognese|rosso|pasta|sauce/.test(n)) return 'Pasta';

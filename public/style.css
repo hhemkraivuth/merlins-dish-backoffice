@@ -230,3 +230,9 @@ body {
 .left-form button { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--yellow); font: inherit; font-weight: 700; cursor: pointer; }
 .left-form button:disabled { opacity: .5; }
 #leftDetail { white-space: pre-wrap; font-size: 13px; }
+#attnBox { border-top-color: #e0a100; }
+.attn-row { padding: 10px 0; border-top: 1px solid var(--line); }
+.attn-row:first-of-type { border-top: 0; }
+.attn-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.attn-acts input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; width: 110px; }
+.attn-acts button { font: inherit; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); cursor: pointer; }
