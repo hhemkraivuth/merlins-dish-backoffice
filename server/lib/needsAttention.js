@@ -4,6 +4,31 @@
 const { parseDate, bangkokToday, daysBetween, formatDMY } = require('./dates');
 const { matchStock } = require('./overheads');
 
+// Order screenshots (Grab) and LINE orders end up in the Ledger. Anything sold in the last 30 days that has no cost on record
+// (a pasta not in the Menu Summary, a new drink) makes profit look better than it is, so it is listed too.
+// ledger: ledgerObjects(). Returns the same shape as attentionItems, with kind 'sold'.
+function soldWithoutCost({ ledger = [], today = bangkokToday(), days = 30, ignored = [] } = {}) {
+  const { buildCostTable, lineItemCost } = require('./reports');
+  const skip = new Set(ignored);
+  const table = buildCostTable(ledger);
+  const found = new Map();
+  const note = (name, date, channel, qty) => {
+    const k = `sold:${looseKey(name)}`; if (skip.has(k) || skip.has(looseKey(name))) return;
+    const f = found.get(k) || { key: k, name, qty: 0, date, channels: new Set() };
+    f.qty += qty || 1; f.channels.add(channel); if (date > f.date) f.date = date;
+    found.set(k, f);
+  };
+  for (const r of ledger) {
+    if (daysBetween(today, r.date) > days) continue;
+    if (r.type === 'Recipe' && (r.cost === null || r.cost <= 0)) { note(r.desc, r.date, r.channel, r.qty); continue; }
+    if (r.type === 'Order') { const c = lineItemCost(r, table); if (c.missing) note(c.missing, r.date, r.channel, r.qty); }
+  }
+  return [...found.values()].map((f) => ({
+    key: f.key, kind: 'sold', name: f.name, bought: formatDMY(f.date), shop: [...f.channels].join(' and '),
+    reasons: [`Sold ${f.qty} time${f.qty === 1 ? '' : 's'} in recent orders with no cost on record, so profit looks higher than it is. Add its cost to the Price Tracker or Menu Summary tab.`],
+  }));
+}
+
 const IGNORE_KEY = 'attention_ignored';
 const looseKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9฀-๿]+/g, '');
 
@@ -46,12 +71,17 @@ async function loadAttention() {
   const [expenseRows, stock, ignored, untracked] = await Promise.all([
     readTab('Expense Log'), getAllStock(), st.getState(IGNORE_KEY).then(parseList).catch(() => []), loadUntracked().catch(() => []),
   ]);
-  return attentionItems({ expenseRows, stock, ignored, untracked });
+  const items = attentionItems({ expenseRows, stock, ignored, untracked });
+  try {
+    const svc = require('./ledgerService'); const { LEDGER_TAB, ledgerObjects } = require('./ledger');
+    items.unshift(...soldWithoutCost({ ledger: ledgerObjects(await svc.readOrEmpty(LEDGER_TAB)), ignored }));
+  } catch (err) { console.error('Order cost check failed:', err.message); }
+  return items;
 }
 
 async function ignoreItem(name) {
   const st = require('./appState');
-  const k = looseKey(name); if (!k) throw new Error('Which item?');
+  const k = String(name).startsWith('sold:') ? String(name) : looseKey(name); if (!k || k === 'sold:') throw new Error('Which item?');
   const list = parseList(await st.getState(IGNORE_KEY));
   if (!list.includes(k)) list.push(k);
   await st.setState(IGNORE_KEY, JSON.stringify(list));
@@ -65,4 +95,4 @@ async function addToStock({ name, count, unit, category }) {
   await setStockCount(String(name).trim(), n, String(unit || 'pack').trim() || 'pack', 'Needs attention', cat);
 }
 
-module.exports = { attentionItems, loadAttention, ignoreItem, addToStock, IGNORE_KEY, looseKey };
+module.exports = { soldWithoutCost, attentionItems, loadAttention, ignoreItem, addToStock, IGNORE_KEY, looseKey };

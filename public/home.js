@@ -177,11 +177,11 @@ async function loadAttention() {
     const items = data.items || [];
     box.hidden = !items.length;
     if (!items.length) return;
-    $('attnLead').textContent = `${items.length} thing${items.length === 1 ? '' : 's'} from your receipts the web does not have yet. Add it to the Stock page, or ignore it if you do not count it (fresh food, for example).`;
-    $('attnList').innerHTML = items.map((it) => `<div class="attn-row" data-name="${esc(it.name)}">
+    $('attnLead').textContent = `${items.length} thing${items.length === 1 ? '' : 's'} from your receipts and orders the web does not have yet. Add stock to the Stock page, or ignore what you do not count (fresh food, for example).`;
+    $('attnList').innerHTML = items.map((it) => `<div class="attn-row" data-name="${esc(it.name)}" data-key="${esc(it.key)}">
       <div><b>${esc(it.name)}</b> <span class="muted">bought ${esc(it.bought)}${it.shop ? ', ' + esc(it.shop) : ''}</span>
       ${it.reasons.map((r) => `<div class="muted">${esc(r)}</div>`).join('')}</div>
-      <div class="attn-acts"><input type="number" min="0" step="any" placeholder="How many" data-count aria-label="How many ${esc(it.name)} you have"><input type="text" placeholder="unit, e.g. pack" data-unit aria-label="Unit"><button type="button" data-add>Add to Stock</button><button type="button" data-ignore>Ignore</button></div>
+      <div class="attn-acts">${it.kind === 'sold' ? '' : `<input type="number" min="0" step="any" placeholder="How many" data-count aria-label="How many ${esc(it.name)} you have"><input type="text" placeholder="unit, e.g. pack" data-unit aria-label="Unit"><button type="button" data-add>Add to Stock</button>`}<button type="button" data-ignore>Ignore</button></div>
       <div class="attn-msg muted" data-msg></div></div>`).join('');
   } catch (err) { box.hidden = false; $('attnLead').textContent = `Could not check what is missing: ${err.message}`; $('attnList').innerHTML = ''; }
 }
@@ -200,7 +200,7 @@ document.addEventListener('click', async (e) => {
     try { await post('/api/attention/add-stock', { name, count, unit }); await loadAttention(); loadStock(); } catch (err) { msg.style.color = '#b3261e'; msg.textContent = err.message; }
   } else if (e.target.closest('[data-ignore]')) {
     msg.style.color = ''; msg.textContent = 'Saving…';
-    try { await post('/api/attention/ignore', { name }); await loadAttention(); } catch (err) { msg.style.color = '#b3261e'; msg.textContent = err.message; }
+    try { await post('/api/attention/ignore', { name: row.dataset.key && row.dataset.key.startsWith('sold:') ? row.dataset.key : name }); await loadAttention(); } catch (err) { msg.style.color = '#b3261e'; msg.textContent = err.message; }
   }
 });
 loadAttention();

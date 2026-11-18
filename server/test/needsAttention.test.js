@@ -27,3 +27,16 @@ test('an ignored item stays gone, and a stocked item is not listed', () => {
   const out = attentionItems({ expenseRows: rows, stock: [...stock, { itemName: 'Pasta - Tubetti' }], ignored: [looseKey('Orzo')], untracked: ['Soy Sauce'], today });
   assert.strictEqual(out.length, 0);
 });
+
+test('items sold with no cost on record are listed, from Grab and LINE orders', () => {
+  const { soldWithoutCost } = require('../lib/needsAttention');
+  const d = utc(2026, 10, 16);
+  const ledger = [
+    { date: d, dmy: '16/11/2026', desc: 'Red Wine Beef Stew (Tubetti)', channel: 'LINE', type: 'Order', qty: 2, cost: null },
+    { date: d, dmy: '16/11/2026', desc: 'Lemon Soda', channel: 'Grab', type: 'Recipe', qty: 1, cost: 0 },
+    { date: utc(2026, 8, 1), dmy: '01/09/2026', desc: 'Ancient', channel: 'Grab', type: 'Recipe', qty: 1, cost: 0 },
+  ];
+  const out = soldWithoutCost({ ledger, today });
+  assert.deepStrictEqual(out.map((o) => o.name).sort(), ['Lemon Soda', 'Tubetti (pasta)']);
+  assert.strictEqual(soldWithoutCost({ ledger, today, ignored: ['sold:lemonsoda'] }).length, 1);
+});
