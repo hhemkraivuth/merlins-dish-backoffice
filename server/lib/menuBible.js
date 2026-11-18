@@ -39,12 +39,20 @@ async function load(seed) {
   return merge(seed, rows);
 }
 
-async function save(seed, { name, category, fields }) {
+async function save(seed, { name, category, fields, oldName }) {
   const n = String(name || '').trim();
   if (!n) throw new Error('The item needs a name');
   const f = {}; for (const x of FIELDS) f[x] = String((fields || {})[x] ?? '').replace(/\r\n/g, '\n');
   await ensureTab(TAB, HEADERS);
-  await appendRows(TAB, [[n, String(category || 'Other').trim() || 'Other', JSON.stringify(f), new Date().toISOString(), '']], { raw: true });
+  const old = String(oldName || '').trim();
+  const rows = [];
+  // A new name: the old one is hidden with a delete row and the item continues under the new name, so no history is lost.
+  if (old && key(old) !== key(n)) {
+    if ((await load(seed)).items.some((i) => key(i.name) === key(n))) throw new Error(`There is already an item called ${n}. Pick another name.`);
+    rows.push([old, '', '', new Date().toISOString(), '1']);
+  }
+  rows.push([n, String(category || 'Other').trim() || 'Other', JSON.stringify(f), new Date().toISOString(), '']);
+  await appendRows(TAB, rows, { raw: true });
   return load(seed);
 }
 

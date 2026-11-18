@@ -255,11 +255,12 @@ function wireMenu() {
 }
 
 // ---------- menu bible names for "Add a menu item" ----------
-// Items saved in the menu bible that are not on the order menu yet (live or taken off). Pasta noodles are choices, not dishes.
+// Items saved in the menu bible that are not on the order menu yet (live or taken off). Plain pasta noodles are choices, not dishes,
+// but a pasta saved as an extra, like Risoni (Extra), is something you sell, so it is listed.
 let BIBLE = [];
 const bkey = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
 async function loadBible() {
-  try { const r = await fetch('/api/menu-bible'); const d = await r.json(); BIBLE = (d.items || []).filter((i) => i.category !== 'Pasta'); } catch (err) { BIBLE = []; }
+  try { const r = await fetch('/api/menu-bible'); const d = await r.json(); BIBLE = (d.items || []).filter((i) => i.category !== 'Pasta' || /extra|\(/i.test(String(i.name))); } catch (err) { BIBLE = []; }
 }
 function bibleToAdd() {
   const have = new Set([...(S.menu || []), ...(S.removed || [])].map((m) => bkey(m.name)));

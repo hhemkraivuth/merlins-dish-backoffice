@@ -37,7 +37,7 @@
       <div class="row" style="margin:6px 0"><button class="small-button" id="bNew">+ Add an item</button><button class="small-button" id="bAll">Download everything</button>${isNew || !it ? '' : '<button class="small-button" id="bOne">Download this item</button>'}</div>
       <div id="bForm" style="background:#f7f5ef;border-radius:10px;padding:10px;margin:6px 0">
         <h4 style="margin:0 0 6px">${isNew ? 'New item' : esc(it ? it.name : '')}</h4>
-        ${isNew ? '<label class="fld">Name<input id="bName" style="width:100%;box-sizing:border-box" /></label>' : ''}
+        <label class="fld">Name${isNew ? '' : ' (change it here to rename)'}<input id="bName" value="${esc(isNew ? '' : it.name)}" style="width:100%;box-sizing:border-box" /></label>
         <label class="fld">Category<select id="bCat">${DOC.categories.map((c) => `<option${c === it.category ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
         ${FIELDS.map(([k, l]) => `<label class="fld" style="display:block;margin-top:6px">${esc(l)}<textarea data-f="${k}" rows="3" spellcheck="true" style="width:100%;box-sizing:border-box">${esc(it[k])}</textarea></label>`).join('')}
         <p class="sub" style="margin:6px 0">${it.saved ? `Last edited ${esc(stamp(it.saved))}${it.versions > 1 ? ` (${it.versions} saves)` : ''}` : isNew ? '' : 'Starting text from the Menu Names doc. Not edited here yet.'}</p>
@@ -50,10 +50,10 @@
     if ($('bCancel')) $('bCancel').addEventListener('click', () => draw(false));
     const collect = () => { const f = {}; root.querySelectorAll('[data-f]').forEach((t) => { f[t.dataset.f] = t.value; }); return f; };
     $('bSave').addEventListener('click', async () => {
-      const name = isNew ? $('bName').value.trim() : it.name;
+      const name = $('bName').value.trim();
       if (!name) return toast('Give the item a name first.', true);
       $('bSave').disabled = true; toast('Saving…');
-      try { DOC = await post('/api/menu-bible/save', { name, category: $('bCat').value, fields: collect() }); CUR = name; draw(false); toast('Saved.'); } catch (err) { toast(`Not saved: ${err.message}`, true); $('bSave').disabled = false; }
+      try { DOC = await post('/api/menu-bible/save', { name, oldName: isNew ? '' : it.name, category: $('bCat').value, fields: collect() }); CUR = name; draw(false); toast('Saved.'); } catch (err) { toast(`Not saved: ${err.message}`, true); $('bSave').disabled = false; }
     });
     if ($('bDel')) $('bDel').addEventListener('click', async () => {
       if (!confirm(`Delete ${it.name} from the menu bible? It disappears from this list. It does not change the order app menu.`)) return;

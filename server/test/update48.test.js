@@ -80,3 +80,19 @@ test('countedToStock converts cans and bottles with a size, skips ones without',
   const kept = countedToStock(items, sizes, normName, new Map([[normName('Flour'), { left: 1, unit: 'g' }]]));
   assert.strictEqual(kept.stock.has(normName('Flour')), false);
 });
+
+test('menuBible.save renames: the old name is hidden and the item carries on under the new one', async () => {
+  const sheets = require('../lib/sheets'); const cookLog = require('../lib/cookLog');
+  const saved = { read: sheets.readTab, append: sheets.appendRows, ensure: cookLog.ensureTab };
+  const tab = [['Item', 'Category', 'Fields', 'Saved', 'Deleted']];
+  sheets.readTab = async () => tab.map((r) => r.slice()); sheets.appendRows = async (t, rows) => tab.push(...rows); cookLog.ensureTab = async () => {};
+  delete require.cache[require.resolve('../lib/menuBible')];
+  try {
+    const mb = require('../lib/menuBible');
+    const seed = { categories: ['Pasta'], items: [{ name: 'Chiferri', category: 'Pasta', th: 'a', en: 'b' }, { name: 'Tubetti', category: 'Pasta' }] };
+    const out = await mb.save(seed, { name: 'Chefferi', oldName: 'Chiferri', category: 'Pasta', fields: { en: 'b2' } });
+    assert.deepStrictEqual(out.items.map((i) => i.name).sort(), ['Chefferi', 'Tubetti']);
+    assert.strictEqual(out.items.find((i) => i.name === 'Chefferi').en, 'b2');
+    await assert.rejects(() => mb.save(seed, { name: 'Tubetti', oldName: 'Chefferi', category: 'Pasta', fields: {} }), /already an item/);
+  } finally { sheets.readTab = saved.read; sheets.appendRows = saved.append; cookLog.ensureTab = saved.ensure; delete require.cache[require.resolve('../lib/menuBible')]; }
+});
