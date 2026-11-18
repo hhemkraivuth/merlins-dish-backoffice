@@ -6,6 +6,7 @@ const { costBatch } = require('./costBatch');
 const { parseDate, formatDMY, bangkokToday, bangkokNow } = require('./dates');
 const { parsePurchaseUnit, normName, looseKey } = require('./priceBook');
 const { parseTypedReceipt, looksLikeTypedReceipt, matchIngredient } = require('./typedReceipt');
+const { guessCategory } = require('./stockCounts');
 const { splitOverheads, overheadRows, isRd, stockQty, matchStock } = require('./overheads');
 const { toBaseQty } = require('./ingredientLots');
 const { applyPackSize, isContainerWord } = require('./packSizes');
@@ -481,13 +482,24 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
       const skipU = new Set(untr.map(looseKey));
       items.forEach((it, i) => {
         if (it.pricesOnly) return;
-        if (!(it.eachWeight || /^(pieces?|pcs?|p)$/.test(it.unit) || isContainerWord(it.unit))) return;
+        const countLike = it.eachWeight || /^(pieces?|pcs?|p)$/.test(it.unit) || isContainerWord(it.unit);
+        if (!countLike && !it.packCount) return;
         const name = matchIngredient(it.typedName, catalogue).name || it.typedName;
         if (skipU.has(looseKey(name))) return;
+        const qty = countLike ? packsOf(it) : it.packCount; if (!(qty > 0)) return;
         const m = matchStock(name, stock);
-        if (!m.hit || /^(g|gm|grams?|kg|ml|l|ltr)$/i.test(String(m.hit.unit || '').trim())) return;
-        const qty = packsOf(it); if (!(qty > 0)) return;
-        stockAdd.set(i, { itemName: m.hit.itemName, qty, unit: m.hit.unit });
+        if (m.hit) {
+          if (/^(g|gm|grams?|kg|ml|l|ltr)$/i.test(String(m.hit.unit || '').trim())) return;
+          stockAdd.set(i, { itemName: m.hit.itemName, qty, unit: m.hit.unit });
+          return;
+        }
+        if (m.ambiguous.length || !deps.createStock) return;
+        // Not on the Stock page yet. Drinks, packaging and dry goods bought in packs start a count with what was bought.
+        // Fresh meat, vegetables and other ingredients are tracked by their lots, not here.
+        const guess = guessCategory(name);
+        if (guess && guess !== 'Drinks' && guess !== 'Packaging') return;
+        const unit = it.eachWeight ? String(it.eachWeight.containerWord || 'pack').toLowerCase().replace(/s$/, '') : countLike ? (/^(pieces?|pcs?|p)$/.test(it.unit) ? 'piece' : String(it.unit).replace(/s$/, '')) : 'pack';
+        stockAdd.set(i, { itemName: name, qty, unit, create: true, category: guess });
       });
     } catch (err) { /* stock could not be checked, the receipt still logs */ }
   }
@@ -511,6 +523,11 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
 
   await deps.appendExpenseRows(rows);
   for (const sa of stockAdd.values()) {
+    if (sa.create) {
+      try { await deps.createStock(sa.itemName, sa.qty, sa.unit, sa.category); packLinesEarly.push(`Added to the Stock page: ${sa.itemName}, ${sa.qty} ${sa.unit}. That is what you just bought, so correct it there if you had some already.`); }
+      catch (err) { flags.push(`${sa.itemName}: could not be added to the Stock page (${err.message}).`); }
+      continue;
+    }
     try { const r = await deps.adjustPacks(sa.itemName, sa.qty); if (r && r.found) packLinesEarly.push(`Stock: ${sa.itemName} +${sa.qty}${sa.unit ? ' ' + sa.unit : ''}, now ${r.now}.`); }
     catch (err) { flags.push(`${sa.itemName}: stock was not updated (${err.message}). Set it on the Stock page.`); }
   }

@@ -17,6 +17,7 @@ function buildReceiptDeps() {
     loadUnits: live.loadUnits,
     loadAliases: async () => receiptAliases(await cookLog.readShorthandRows()),
     stockItems: async () => getAllStock(),
+    createStock: async (name, qty, unit, category) => { await setStockCount(name, qty, unit, 'Receipt', category || ''); },
     adjustPacks: async (name, delta) => {
       const all = await getAllStock();
       const norm = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();

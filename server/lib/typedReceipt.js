@@ -235,6 +235,7 @@ function parseTypedReceipt(text, today) {
       brand,
       kiloGuess: Boolean(assumed) && !eachWeight && !it.each,
       eachWeight,
+      packCount: it.packCount || 0,
       pricesOnly,
       price,
       costPerUnit: Number((price / pu.qty).toFixed(5)),

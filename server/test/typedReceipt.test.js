@@ -518,3 +518,18 @@ test('cans bought of a Stock page item top up that count, and undo takes them ba
   assert.match(expense[0][6], /Stock \+2 Eden Green Apple Sparkling/);
   assert.ok(out.join('\n').includes('now 3'));
 });
+
+test('drinks, packaging and bagged dry goods not on the Stock page yet are added with what was bought', async () => {
+  const created = []; const expense = [];
+  const deps = {
+    loadCatalogue: async () => ['Orzo', 'Packaging Box (plastic 1500ml)', 'Eden Green Apple Sparkling', 'Pork - minced'], appendExpenseRows: async (x) => expense.push(...x),
+    stockItems: async () => [], adjustPacks: async () => ({ found: false }),
+    createStock: async (n, q, u, c) => created.push([n, q, u, c]),
+  };
+  await processTypedReceipt('16/11/2026\norzo 500gx2 78 ea\npackaging box (plastic 1500ml) 50pcs, 226\neden green apple sparkling 2cans 36\nminced pork 3pcs 110', utc(2026, 10, 18), deps);
+  const by = Object.fromEntries(created.map((c) => [c[0], c]));
+  assert.deepStrictEqual(by.Orzo.slice(1, 3), [2, 'pack']);
+  assert.deepStrictEqual(by['Packaging Box (plastic 1500ml)'].slice(1, 4), [50, 'piece', 'Packaging']);
+  assert.deepStrictEqual(by['Eden Green Apple Sparkling'].slice(1, 4), [2, 'can', 'Drinks']);
+  assert.ok(!by['Pork - minced'], 'fresh meat stays with its lots');
+});
