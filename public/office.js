@@ -205,7 +205,16 @@
   // What a theme adds on its own, before anything Lily places.
   const WALL = [14, 42, 70, 98, 126, 154, 182];
   const PRESETS = {
-    christmas: [...WALL.map((x) => ['lights', x, 12]), ['wreath', 48, 11], ['tree', 22, 116], ['gift', 34, 117], ['gift', 41, 116], ['snowman', 176, 117]],
+    christmas: [
+      ...WALL.map((x) => ['lights', x, 12]),
+      ...[28, 70, 118, 140, 182].map((x) => ['wreath', x, 11]), ['wreath', 48, 11],
+      ['tree', 8, 116], ['tree', 22, 116], ['tree', 184, 116], ['tree', 170, 117], ['tree', 96, 119],
+      ...[34, 41, 48, 56].map((x, i) => ['gift', x, 116 + (i % 2)]),
+      ...[148, 156, 162, 178].map((x, i) => ['gift', x, 116 + (i % 2)]),
+      ['gift', 86, 118], ['gift', 106, 118], ['gift', 100, 119],
+      ['snowman', 62, 117], ['snowman', 128, 117], ['snowman', 176, 117], ['snowman', 14, 90],
+      ...[76, 112, 8, 186, 64, 120, 40, 152].map((x, i) => ['candycane', x, i < 4 ? 118 : 100]),
+    ],
     festive: [...WALL.map((x) => ['fairy', x, 12]), ['glow', 22, 116], ['glow', 172, 116], ['candles', 36, 117], ['candles', 150, 116], ['goldstars', 96, 110], ['goldballoons', 60, 116]],
     valentines: [...WALL.map((x) => ['garland', x, 12]), ['heart', 96, 113], ['hballoons', 22, 116], ['hballoons', 172, 116], ['roses', 34, 117]],
     lunar: [...WALL.map((x) => ['lanterns', x, 12]), ['lantern', 48, 24], ['orangetree', 22, 116], ['orangetree', 172, 116], ['envelope', 36, 117], ['envelope', 42, 117], ['ingot', 100, 113]],

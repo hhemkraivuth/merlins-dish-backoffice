@@ -43,4 +43,12 @@ async function readOrdersWithLink() {
   return res.data.values || [];
 }
 
-module.exports = { readOrders, readMenuTaps, readOrdersWithLink };
+// The Customers tab (CRM), read only. Row 1 is the header row.
+async function readCustomers() {
+  const id = process.env.ORDERS_SHEET_ID;
+  if (!id) throw new Error('ORDERS_SHEET_ID is not set in Railway. Use the same value as GOOGLE_SHEET_ID in merlins-dish-bot.');
+  const res = await getClient().spreadsheets.values.get({ spreadsheetId: id, range: 'Customers!A1:Z' });
+  return res.data.values || [];
+}
+
+module.exports = { readOrders, readMenuTaps, readOrdersWithLink, readCustomers };

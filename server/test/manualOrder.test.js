@@ -46,3 +46,12 @@ test('ig after the date marks the order as Instagram', () => {
   assert.strictEqual(r.orders[0].rows[0][2], 'LINE');
   assert.strictEqual(r.orders[0].rows[0][3], 'Instagram');
 });
+
+test('phone and address lines are read and kept out of the dish lines', () => {
+  const { orders, problems } = parseManualOrders('19/11 16:24 Jong\nBraised Lamb Shank 480\nphone 081 565 6584\naddress The Address Asoke, 40th floor\ntotal 480', today);
+  assert.deepStrictEqual(problems, []);
+  assert.strictEqual(orders[0].rows.length, 1);
+  assert.strictEqual(orders[0].phone, '081 565 6584');
+  assert.strictEqual(orders[0].address, 'The Address Asoke, 40th floor');
+  assert.match(orders[0].rows[0][13], /Phone 081 565 6584\. Address The Address Asoke/);
+});

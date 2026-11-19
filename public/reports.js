@@ -340,7 +340,8 @@ $('refresh').addEventListener('click', async () => {
 $('manGo').addEventListener('click', async () => {
   try {
     const r = await call('/api/ledger/manual-orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: $('manText').value }) });
-    const lines = r.added.map((o) => `Added ${o.date} ${o.name}, ฿${baht(o.total)} (${o.ref})`).concat(r.skipped.map((o) => `Already there: ${o.date} ${o.name}, ฿${baht(o.total)}`), r.problems);
+    const crmNote = (c) => (!c ? '' : c.saved ? `. Customer saved, now ${c.count} ${c.count === 1 ? 'order' : 'orders'}` : `. Customer NOT saved to the CRM (${c.why})`);
+    const lines = r.added.map((o) => `Added ${o.date} ${o.name}, ฿${baht(o.total)} (${o.ref})${crmNote(o.crm)}`).concat(r.skipped.map((o) => `Already there: ${o.date} ${o.name}, ฿${baht(o.total)}`), r.problems);
     say(lines.join('\n'), r.problems.length > 0 && !r.added.length);
     if (r.added.length) { $('manText').value = ''; load(); }
   } catch (err) { say(err.message, true); }

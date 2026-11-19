@@ -48,7 +48,7 @@ function parseManualOrders(text, today) {
     const rows = items.map((it, i) => [dmy, it.name, 'LINE', from, 'Order', it.qty, it.price, '', money(it.qty * it.price), name, ref, time, `L|M${sig}|${i}`, i === 0 ? ['Typed in by hand (bot was down)', phone && `Phone ${phone}`, address && `Address ${address}`].filter(Boolean).join('. ') : '']);
     if (delivery) rows.push([dmy, 'Delivery fee charged', 'LINE', from, 'Delivery', 1, money(delivery), '', money(delivery), name, ref, time, `L|M${sig}|f`, '']);
     if (discount) rows.push([dmy, 'Promo discount', 'LINE', from, 'Discount', 1, '', money(discount), money(-discount), name, ref, time, `L|M${sig}|d`, '']);
-    orders.push({ dmy, name, ref, total, rows });
+    orders.push({ dmy, name, ref, total, rows, phone, address });
   }
   return { orders, problems };
 }

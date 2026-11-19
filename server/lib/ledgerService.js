@@ -73,7 +73,13 @@ async function addManualOrders(text) {
   }
   const rows = added.flatMap((o) => o.rows.filter((r) => !have.has(r[COL.key])));
   if (rows.length) await appendChunks(LEDGER_TAB, rows, { raw: true });
-  return { added: added.map((o) => ({ date: o.dmy, name: o.name, ref: o.ref, total: o.total })), skipped: skipped.map((o) => ({ date: o.dmy, name: o.name, total: o.total })), problems };
+  // Customer details go to the CRM (Customers tab) once per newly added order, so typing an order twice never double counts.
+  const crmOf = new Map();
+  for (const o of added) {
+    if (!o.phone && !o.address) continue;
+    crmOf.set(o.ref, await require('./customers').recordManualCustomer({ phone: o.phone, name: o.name, address: o.address, dmy: o.dmy }));
+  }
+  return { added: added.map((o) => ({ date: o.dmy, name: o.name, ref: o.ref, total: o.total, crm: crmOf.get(o.ref) || null })), skipped: skipped.map((o) => ({ date: o.dmy, name: o.name, total: o.total })), problems };
 }
 
 // ---- rider fees ------------------------------------------------------------------------------
