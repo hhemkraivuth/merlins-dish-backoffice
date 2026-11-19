@@ -199,12 +199,18 @@ const choiceOf = (m) => (m.requiresPasta ? 'pasta' : m.requiresSize ? 'size' : '
 const choiceSelect = (id, cur) => `<label>Customer chooses<select id="${id}"><option value="none"${cur === 'none' ? ' selected' : ''}>Nothing, straight into the cart</option><option value="pasta"${cur === 'pasta' ? ' selected' : ''}>A pasta (like Noir Ragu and Bolognese)</option><option value="size"${cur === 'size' ? ' selected' : ''}>A size, Regular or Large (like the stews)</option></select></label>`;
 const rowTick = (id, on, text) => `<label style="display:flex;flex-direction:row;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} style="width:18px;height:18px;padding:0;margin:0;flex:none" /><span>${text}</span></label>`;
 const noodleTick = (id, on) => rowTick(id, on, 'Offer an optional noodle pairing (the customer can skip it)');
-// Which noodles a dish offers and which carry the Recommended tag. Ticking Recommend also ticks Offer.
-const noodleRows = (m) => (S.noodles || []).map((n) => {
-  const off = !(m.noodleSkip || []).includes(n.id); const rec = (m.noodleRecommend || []).includes(n.id);
-  const tick = (attr, on, text) => `<label style="display:flex;flex-direction:row;gap:5px;align-items:center;min-height:32px;padding:0 4px"><input type="checkbox" ${attr}="${esc(n.id)}" ${on ? 'checked' : ''} style="width:20px;height:20px;padding:0;margin:0" /><span>${text}</span></label>`;
-  return `<div class="item" style="cursor:default;gap:2px;flex-wrap:nowrap;padding:1px 0"><span style="flex:1 1 auto;min-width:0"><b>${esc(n.name)}</b> <span class="sub" style="margin:0">${baht(n.extraPrice)}</span></span>${tick('data-nd-offer', off, 'Offer')}${tick('data-nd-rec', rec && off, '★ Recommend')}</div>`;
-}).join('');
+// Which noodles a dish offers, which carry the Recommended tag, and the order it lists them in. Ticking Recommend also ticks Offer.
+const noodleRows = (m) => {
+  const arranged = m.noodleOrder || [];
+  const rank = (id) => { const i = arranged.indexOf(id); return i < 0 ? 1e6 : i; };
+  const sorted = (S.noodles || []).map((n, i) => ({ n, i })).sort((a, b) => rank(a.n.id) - rank(b.n.id) || a.i - b.i).map((x) => x.n);
+  return sorted.map((n) => {
+    const off = !(m.noodleSkip || []).includes(n.id); const rec = (m.noodleRecommend || []).includes(n.id);
+    const tick = (attr, on, text) => `<label style="display:flex;flex-direction:row;gap:5px;align-items:center;min-height:32px;padding:0 4px"><input type="checkbox" ${attr}="${esc(n.id)}" ${on ? 'checked' : ''} style="width:20px;height:20px;padding:0;margin:0" /><span>${text}</span></label>`;
+    const mv = (dir, sym) => `<button type="button" class="mv-btn" data-nd-move="${dir}" aria-label="Move ${esc(n.name)} ${dir}">${sym}</button>`;
+    return `<div class="item" data-nd-row="${esc(n.id)}" style="cursor:default;gap:2px;flex-wrap:nowrap;padding:1px 0"><span style="flex:1 1 auto;min-width:0"><b>${esc(n.name)}</b> <span class="sub" style="margin:0">${baht(n.extraPrice)}</span></span>${tick('data-nd-offer', off, 'Offer')}${tick('data-nd-rec', rec && off, '★ Recommend')}<span class="mv" style="margin-left:4px">${mv('up', '▲')}${mv('down', '▼')}</span></div>`;
+  }).join('');
+};
 const ageTick = (id, on) => rowTick(id, on, 'Wine or alcohol: 20+ only (customers give a date of birth at checkout)');
 function menuBox() {
   const cats = S.categories || [];
@@ -231,19 +237,26 @@ function wireMenu() {
       <label>Category<select id="mC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}"${c.id === m.category ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select></label>
       <label>Description<textarea id="mD">${esc(m.description)}</textarea></label>
       ${choiceSelect('mO', choiceOf(m))}
-      ${noodleTick('mNd', m.offersNoodles)}
-      <div id="mNdList" style="display:${m.offersNoodles ? 'block' : 'none'};margin:2px 0 8px"><p class="sub" style="margin:0 0 2px">Noodles for this dish. Recommended ones show first with a gold tag.</p>${noodleRows(m)}</div>
+      <div id="mNdRow" style="display:${choiceOf(m) === 'pasta' ? 'none' : 'block'}">${noodleTick('mNd', m.offersNoodles)}</div>
+      <div id="mNdList" style="display:${choiceOf(m) === 'pasta' || m.offersNoodles ? 'block' : 'none'};margin:2px 0 8px"><p class="sub" style="margin:0 0 2px">Noodles for this dish. Use ▲ ▼ to set the order customers see. Recommended ones show first with a gold tag.</p>${noodleRows(m)}</div>
       ${ageTick('mA', m.ageRestricted)}
       <div class="row" style="align-items:center">${m.image ? `<img src="${esc(m.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${m.image ? 'Change photo' : 'Add a photo'}<input type="file" id="mImg" accept="image/*" /></label></div>
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
     $('mCancel').addEventListener('click', () => { slot.innerHTML = ''; });
-    $('mNd').addEventListener('change', () => { $('mNdList').style.display = $('mNd').checked ? 'block' : 'none'; });
+    const syncNd = () => { const pasta = $('mO').value === 'pasta'; $('mNdRow').style.display = pasta ? 'none' : 'block'; $('mNdList').style.display = pasta || $('mNd').checked ? 'block' : 'none'; };
+    $('mNd').addEventListener('change', syncNd); $('mO').addEventListener('change', syncNd);
+    slot.querySelectorAll('[data-nd-move]').forEach((b) => b.addEventListener('click', () => {
+      const row = b.closest('[data-nd-row]');
+      if (b.dataset.ndMove === 'up' && row.previousElementSibling && row.previousElementSibling.dataset.ndRow) row.parentNode.insertBefore(row, row.previousElementSibling);
+      if (b.dataset.ndMove === 'down' && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+    }));
     slot.querySelectorAll('[data-nd-rec]').forEach((c) => c.addEventListener('change', () => { if (c.checked) slot.querySelector(`[data-nd-offer="${CSS.escape(c.dataset.ndRec)}"]`).checked = true; }));
     slot.querySelectorAll('[data-nd-offer]').forEach((c) => c.addEventListener('change', () => { if (!c.checked) slot.querySelector(`[data-nd-rec="${CSS.escape(c.dataset.ndOffer)}"]`).checked = false; }));
     $('mSave').addEventListener('click', async () => {
       const skip = [...slot.querySelectorAll('[data-nd-offer]')].filter((c) => !c.checked).map((c) => c.dataset.ndOffer);
       const recommend = [...slot.querySelectorAll('[data-nd-rec]')].filter((c) => c.checked).map((c) => c.dataset.ndRec);
-      const ok = await save('menu/item', { id: m.id, ...((S.noodles || []).length ? { noodleSkip: skip, noodleRecommend: recommend } : {}), name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
+      const order = [...slot.querySelectorAll('[data-nd-row]')].map((r) => r.dataset.ndRow);
+      const ok = await save('menu/item', { id: m.id, ...((S.noodles || []).length ? { noodleSkip: skip, noodleRecommend: recommend, noodleOrder: order } : {}), name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
       const f = $('mImg') && $('mImg').files[0];
       if (ok && f) { try { await api('menu/image', { id: m.id, data: await shrink(f) }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(err.message, true); } }
     });
