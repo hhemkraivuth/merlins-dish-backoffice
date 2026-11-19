@@ -65,7 +65,8 @@ async function addManualOrders(text) {
   const { parseManualOrders } = require('./manualOrder');
   const { orders, problems } = parseManualOrders(text, bangkokToday());
   await ensureTab(LEDGER_TAB, LEDGER_HEADERS);
-  const have = new Set((await readTab(LEDGER_TAB)).filter((r) => String(r[COL.channel]).trim() === 'LINE').map((r) => String(r[COL.key]).trim()));
+  const sheet = await readTab(LEDGER_TAB);
+  const have = new Set(sheet.filter((r) => String(r[COL.channel]).trim() === 'LINE').map((r) => String(r[COL.key]).trim()));
   const added = []; const skipped = [];
   for (const o of orders) {
     if (o.rows.every((r) => have.has(r[COL.key]))) { skipped.push(o); continue; }
@@ -75,11 +76,32 @@ async function addManualOrders(text) {
   if (rows.length) await appendChunks(LEDGER_TAB, rows, { raw: true });
   // Customer details go to the CRM (Customers tab) once per newly added order, so typing an order twice never double counts.
   const crmOf = new Map();
+  const hasCrm = (o) => o.phone || o.address || o.redeem || o.pin || o.riderNote;
   for (const o of added) {
-    if (!o.phone && !o.address && !o.redeem && !o.pin && !o.riderNote) continue;
+    if (!hasCrm(o)) continue;
     crmOf.set(o.ref, await require('./customers').recordManualCustomer({ phone: o.phone, name: o.name, address: o.address, dmy: o.dmy, redeem: o.redeem, pin: o.pin, note: o.riderNote }));
   }
-  return { added: added.map((o) => ({ date: o.dmy, name: o.name, ref: o.ref, total: o.total, crm: crmOf.get(o.ref) || null })), skipped: skipped.map((o) => ({ date: o.dmy, name: o.name, total: o.total })), problems };
+  // An order that is already in the books but was typed without a phone: typing it again WITH the details sends them to the
+  // CRM once, then stamps the order's first row so a third typing cannot count it again.
+  const lateCrm = [];
+  for (const o of skipped) {
+    if (!o.phone) continue;
+    const at = sheet.findIndex((r, i) => i > 0 && String(r[COL.key] || '').trim() === o.rows[0][COL.key]);
+    if (at < 0 || /\bPhone\b/.test(String(sheet[at][COL.flags] || ''))) continue;
+    const crm = await require('./customers').recordManualCustomer({ phone: o.phone, name: o.name, address: o.address, dmy: o.dmy, redeem: o.redeem, pin: o.pin, note: o.riderNote });
+    crmOf.set(o.ref, crm);
+    if (crm.saved) await updateCells(LEDGER_TAB, at + 1, [{ col: COL.flags, value: o.rows[0][COL.flags] }]);
+    lateCrm.push(o.ref);
+  }
+  // Rider fee typed in the block. Same Rider row as the Index page, and typing a different fee later replaces it.
+  const riderOf = new Map();
+  for (const o of [...added, ...skipped]) {
+    if (!o.riderRow) continue;
+    await saveRider([o.riderRow], [o.riderRow[COL.key]]);
+    riderOf.set(o.ref, o.riderFee);
+  }
+  const brief = (o) => ({ date: o.dmy, name: o.name, ref: o.ref, total: o.total, crm: crmOf.get(o.ref) || null, rider: riderOf.has(o.ref) ? riderOf.get(o.ref) : null, noPhone: !o.phone });
+  return { added: added.map(brief), skipped: skipped.map((o) => ({ ...brief(o), crmLate: lateCrm.includes(o.ref) })), problems };
 }
 
 // ---- rider fees ------------------------------------------------------------------------------

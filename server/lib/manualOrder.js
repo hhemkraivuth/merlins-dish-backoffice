@@ -7,6 +7,7 @@
 //
 // A blank line starts the next order. First line: date, an optional time (19:30), then the customer's name(s).
 // Item lines end in the price of ONE portion; start with "2x " for more than one. "delivery 50" and "discount 30" are also read.
+// "rider 55" is what you paid the rider (separate from "delivery 50", which is what the customer was charged).
 // "total 330" is optional, and when it is there it has to match or the order is refused, so a typo cannot reach the books.
 // Rows look exactly like the ones the bot's own orders make, so every report treats them the same way.
 
@@ -26,12 +27,13 @@ function parseManualOrders(text, today) {
     const date = parseDate(head[1], today);
     if (!date) { problems.push(`"${head[1]}" is not a valid date`); continue; }
     const dmy = formatDMY(date); const time = head[2] || ''; const name = head[4].trim(); const from = head[3] ? 'Instagram' : 'LINE';
-    const items = []; let delivery = 0; let discount = 0; let stated = null; let bad = null; let phone = ''; let address = ''; let redeem = null; let pin = null; let riderNote = ''; let pinBad = null;
+    const items = []; let delivery = 0; let discount = 0; let stated = null; let bad = null; let phone = ''; let address = ''; let redeem = null; let pin = null; let riderNote = ''; let pinBad = null; let riderFee = null;
     for (const line of lines.slice(1)) {
       let m;
       if ((m = line.match(/^(?:phone|tel|contact(?:\s+number)?)\s*[:\-]?\s*(.+)$/i))) { phone = m[1].trim(); continue; }
       if ((m = line.match(/^(?:redeem|reward)\s*[:\-]?\s*(5|10)\s*(?:pts?|points?)?$/i))) { redeem = Number(m[1]); continue; }
       if ((m = line.match(/^(?:pin|map(?:\s+pin)?)\s*[:\-]?\s*(.+)$/i))) { try { pin = require('./pin').parsePin(m[1]); } catch (e) { pinBad = e.message; } continue; }
+      if ((m = line.match(/^rider(?:\s+fee)?\s*[:\-]?\s*(?:฿\s*)?(\d+(?:\.\d+)?)\s*(?:thb|baht|฿)?$/i))) { riderFee = Number(m[1]); continue; }
       if ((m = line.match(/^(?:rider\s+note|note(?:\s+for\s+(?:the\s+)?rider)?)\s*[:\-]?\s*(.+)$/i))) { riderNote = m[1].trim(); continue; }
       if ((m = line.match(/^address\s*[:\-]?\s*(.+)$/i))) { address = m[1].trim(); continue; }
       if ((m = line.match(/^total\s*[:\-]?\s*(?:฿\s*)?(\d+(?:\.\d+)?)\s*(?:thb|baht|฿)?$/i))) { stated = Number(m[1]); continue; }
@@ -52,7 +54,9 @@ function parseManualOrders(text, today) {
     const rows = items.map((it, i) => [dmy, it.name, 'LINE', from, 'Order', it.qty, it.price, '', money(it.qty * it.price), name, ref, time, `L|M${sig}|${i}`, i === 0 ? ['Typed in by hand (bot was down)', phone && `Phone ${phone}`, address && `Address ${address}`, pin && `Pin ${pin.lat}, ${pin.lng}`, riderNote && `Rider note ${riderNote}`, redeem && `Redeemed the ${redeem} point reward`].filter(Boolean).join('. ') : '']);
     if (delivery) rows.push([dmy, 'Delivery fee charged', 'LINE', from, 'Delivery', 1, money(delivery), '', money(delivery), name, ref, time, `L|M${sig}|f`, '']);
     if (discount) rows.push([dmy, 'Promo discount', 'LINE', from, 'Discount', 1, '', money(discount), money(-discount), name, ref, time, `L|M${sig}|d`, '']);
-    orders.push({ dmy, name, ref, total, rows, phone, address, redeem, pin, riderNote });
+    // What Lily pays the rider (not what the customer was charged). Same Rider row the Index page and "rider 001 55" make.
+    const riderRow = riderFee === null ? null : require('./ledger').riderRow({ dmy, orderNo: ref, customer: name, fee: riderFee });
+    orders.push({ dmy, name, ref, total, rows, phone, address, redeem, pin, riderNote, riderFee, riderRow });
   }
   return { orders, problems };
 }

@@ -72,3 +72,20 @@ test('pin and rider note lines are read, and a bad pin refuses only that order',
   assert.strictEqual(bad.orders.length, 0);
   assert.match(bad.problems[0], /outside Thailand/);
 });
+
+test('a rider line is read as the fee Lily paid, apart from delivery charged', () => {
+  const { orders, problems } = parseManualOrders('19/11 Robin P\nBraised Lamb Shank 480\ndelivery 50\nrider 55\nphone 081 234 5678', new Date(Date.UTC(2026, 10, 19)));
+  assert.deepStrictEqual(problems, []);
+  assert.strictEqual(orders[0].riderFee, 55);
+  assert.strictEqual(orders[0].total, 530);
+  assert.strictEqual(orders[0].rows.length, 2);
+  const r = orders[0].riderRow;
+  assert.strictEqual(r[4], 'Rider');
+  assert.strictEqual(r[10], orders[0].ref);
+  assert.strictEqual(r[8], -55);
+});
+test('the rider line does not change the order ref, so adding it later finds the same order', () => {
+  const base = '19/11 Robin P\nBraised Lamb Shank 480\ndelivery 50';
+  const day = new Date(Date.UTC(2026, 10, 19));
+  assert.strictEqual(parseManualOrders(base, day).orders[0].ref, parseManualOrders(base + '\nrider 55', day).orders[0].ref);
+});

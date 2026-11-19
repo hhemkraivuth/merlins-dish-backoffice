@@ -341,9 +341,13 @@ $('manGo').addEventListener('click', async () => {
   try {
     const r = await call('/api/ledger/manual-orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: $('manText').value }) });
     const crmNote = (c) => (!c ? '' : c.saved ? (c.redeemed ? `. Reward redeemed, points reset to 0` : `. Customer saved, now ${c.count} ${c.count === 1 ? 'order' : 'orders'}`) + (c.pinCleared ? ' (the address changed, so the old map pin was cleared. Add a pin line to set a new one)' : '') : `. Customer NOT saved to the CRM (${c.why})`);
-    const lines = r.added.map((o) => `Added ${o.date} ${o.name}, ฿${baht(o.total)} (${o.ref})${crmNote(o.crm)}`).concat(r.skipped.map((o) => `Already there: ${o.date} ${o.name}, ฿${baht(o.total)}`), r.problems);
-    say(lines.join('\n'), r.problems.length > 0 && !r.added.length);
-    if (r.added.length) { $('manText').value = ''; load(); }
+    const riderNote = (o) => (o.rider === null || o.rider === undefined ? '' : `. Rider fee ฿${baht(o.rider)} logged`);
+    const phoneNote = (o) => (o.noPhone && !o.crm ? `. No phone line, so this customer was NOT saved to the Customers page. Type the order again with a phone line to add them` : '');
+    const lines = r.added.map((o) => `Added ${o.date} ${o.name}, ฿${baht(o.total)} (${o.ref})${crmNote(o.crm)}${phoneNote(o)}${riderNote(o)}`)
+      .concat(r.skipped.map((o) => `Already there: ${o.date} ${o.name}, ฿${baht(o.total)} (${o.ref})${o.crmLate ? crmNote(o.crm) : ''}${riderNote(o)}`), r.problems);
+    const changed = r.added.length || r.skipped.some((o) => o.crmLate || (o.rider !== null && o.rider !== undefined));
+    say(lines.join('\n'), r.problems.length > 0 && !changed);
+    if (changed) { $('manText').value = ''; load(); }
   } catch (err) { say(err.message, true); }
 });
 

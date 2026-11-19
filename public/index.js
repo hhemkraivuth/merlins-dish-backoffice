@@ -197,13 +197,14 @@ function wirePromo() {
 // What the customer has to pick before the dish goes in the cart: nothing, a pasta (Noir Ragu, Bolognese) or a size (the stews).
 const choiceOf = (m) => (m.requiresPasta ? 'pasta' : m.requiresSize ? 'size' : 'none');
 const choiceSelect = (id, cur) => `<label>Customer chooses<select id="${id}"><option value="none"${cur === 'none' ? ' selected' : ''}>Nothing, straight into the cart</option><option value="pasta"${cur === 'pasta' ? ' selected' : ''}>A pasta (like Noir Ragu and Bolognese)</option><option value="size"${cur === 'size' ? ' selected' : ''}>A size, Regular or Large (like the stews)</option></select></label>`;
+const noodleTick = (id, on) => `<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} /><span>Offer an optional noodle pairing (a list of noodles on the dish sheet, the customer can skip it)</span></label>`;
 const ageTick = (id, on) => `<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} /><span>Wine or alcohol: 20+ only (customers give a date of birth at checkout)</span></label>`;
 function menuBox() {
   const cats = S.categories || [];
   const byCat = cats.map((c) => ({ c, list: S.menu.filter((m) => m.category === c.id) })).filter((x) => x.list.length);
   return `<div class="ix"><h3>Menu and prices</h3>
     <p class="sub">What the order app sells, at the direct order price. Tap an item to change its price, name or description, or to take it off the menu. Grab prices are set in Grab.</p>
-    ${byCat.map(({ c, list }) => `<p style="margin:12px 0 2px"><b>${esc(c.label)}</b></p>${list.map((m) => `<div class="item" data-item="${esc(m.id)}"><span>${m.image ? `<img src="${esc(m.image)}" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px" />` : '<span title="No photo" style="display:inline-block;width:28px;height:28px;border-radius:6px;background:#eadfce;vertical-align:middle;margin-right:8px"></span>'}<b>${esc(m.name)}</b>${m.ageRestricted ? ' <span class="sub">20+</span>' : ''}${m.requiresPasta ? ' <span class="sub">pasta choice</span>' : m.requiresSize ? ' <span class="sub">sizes</span>' : ''}${m.available ? '' : ' <span class="pill off">sold out</span>'}</span><span class="price"><span class="mv"><button type="button" class="mv-btn" data-move="up" data-id="${esc(m.id)}" aria-label="Move ${esc(m.name)} up" ${lock()}>▲</button><button type="button" class="mv-btn" data-move="down" data-id="${esc(m.id)}" aria-label="Move ${esc(m.name)} down" ${lock()}>▼</button></span>${baht(m.price)}</span></div><div data-slot="${esc(m.id)}"></div>`).join('')}`).join('')}
+    ${byCat.map(({ c, list }) => `<p style="margin:12px 0 2px"><b>${esc(c.label)}</b></p>${list.map((m) => `<div class="item" data-item="${esc(m.id)}"><span>${m.image ? `<img src="${esc(m.image)}" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px" />` : '<span title="No photo" style="display:inline-block;width:28px;height:28px;border-radius:6px;background:#eadfce;vertical-align:middle;margin-right:8px"></span>'}<b>${esc(m.name)}</b>${m.ageRestricted ? ' <span class="sub">20+</span>' : ''}${m.requiresPasta ? ' <span class="sub">pasta choice</span>' : m.requiresSize ? ' <span class="sub">sizes</span>' : ''}${m.offersNoodles ? ' <span class="sub">+ noodle pairing</span>' : ''}${m.available ? '' : ' <span class="pill off">sold out</span>'}</span><span class="price"><span class="mv"><button type="button" class="mv-btn" data-move="up" data-id="${esc(m.id)}" aria-label="Move ${esc(m.name)} up" ${lock()}>▲</button><button type="button" class="mv-btn" data-move="down" data-id="${esc(m.id)}" aria-label="Move ${esc(m.name)} down" ${lock()}>▼</button></span>${baht(m.price)}</span></div><div data-slot="${esc(m.id)}"></div>`).join('')}`).join('')}
     <div id="addEdit"></div><div class="row"><button class="primary-button" id="addBtn" ${lock()}>+ Add a menu item</button></div>
     ${(S.removed || []).length ? `<p style="margin:14px 0 4px"><b>Taken off the menu</b></p>${S.removed.map((m) => `<div class="item" style="cursor:default"><span>${esc(m.name)} <span class="sub">${baht(m.price)}</span></span><button class="link" data-restore="${esc(m.id)}" ${lock()}>Put back</button></div>`).join('')}` : ''}</div>`;
 }
@@ -223,12 +224,13 @@ function wireMenu() {
       <label>Category<select id="mC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}"${c.id === m.category ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select></label>
       <label>Description<textarea id="mD">${esc(m.description)}</textarea></label>
       ${choiceSelect('mO', choiceOf(m))}
+      ${noodleTick('mNd', m.offersNoodles)}
       ${ageTick('mA', m.ageRestricted)}
       <div class="row" style="align-items:center">${m.image ? `<img src="${esc(m.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${m.image ? 'Change photo' : 'Add a photo'}<input type="file" id="mImg" accept="image/*" /></label></div>
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
     $('mCancel').addEventListener('click', () => { slot.innerHTML = ''; });
     $('mSave').addEventListener('click', async () => {
-      const ok = await save('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, ageRestricted: $('mA').checked });
+      const ok = await save('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
       const f = $('mImg') && $('mImg').files[0];
       if (ok && f) { try { await api('menu/image', { id: m.id, data: await shrink(f) }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(err.message, true); } }
     });
@@ -240,6 +242,7 @@ function wireMenu() {
       <div class="row"><label>Name<select id="nB" style="width:min(320px,70vw)">${bibleToAdd().length ? '<option value="">Pick from the menu bible</option>' : ''}${bibleToAdd().map((i, n) => `<option value="${n}">${esc(i.name)}</option>`).join('')}<option value="other">Other, type a name</option></select><input id="nN" placeholder="Item name" style="width:min(320px,70vw);margin-top:6px;display:${bibleToAdd().length ? 'none' : 'block'}" /></label><label>Price (฿)<input id="nP" type="number" min="0" step="1" style="width:90px" /></label><label>Category<select id="nC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('')}</select></label></div>
       <label>Description (optional)<textarea id="nD"></textarea></label>
       ${choiceSelect('nO', 'none')}
+      ${noodleTick('nNd', true)}
       ${ageTick('nA', false)}
       <p class="sub">Pasta: the customer picks a pasta type, a few cost +฿5, the dish price already includes the pasta. Size: Regular is the price above, Large adds ฿100. Stews and noodle dishes use these.</p>
       <label>Photo (the order app needs one)<input type="file" id="nImg" accept="image/*" /></label>
@@ -256,7 +259,7 @@ function wireMenu() {
       let imageData = null;
       try { if (f) imageData = await shrink(f); } catch (err) { return toast(err.message, true); }
       if (!f && !confirm('No photo picked. The item will show without a picture. Add it anyway?')) return;
-      save('menu/add', { name: $('nN').value, price: $('nP').value, category: $('nC').value, description: $('nD').value, options: $('nO').value, ageRestricted: $('nA').checked, imageData }, 'Added. Customers can order it now.');
+      save('menu/add', { name: $('nN').value, price: $('nP').value, category: $('nC').value, description: $('nD').value, options: $('nO').value, noodles: ['mains', 'soup'].includes($('nC').value) && $('nNd').checked, ageRestricted: $('nA').checked, imageData }, 'Added. Customers can order it now.');
     });
   });
 }
