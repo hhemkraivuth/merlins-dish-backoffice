@@ -198,6 +198,12 @@ function wirePromo() {
 const choiceOf = (m) => (m.requiresPasta ? 'pasta' : m.requiresSize ? 'size' : 'none');
 const choiceSelect = (id, cur) => `<label>Customer chooses<select id="${id}"><option value="none"${cur === 'none' ? ' selected' : ''}>Nothing, straight into the cart</option><option value="pasta"${cur === 'pasta' ? ' selected' : ''}>A pasta (like Noir Ragu and Bolognese)</option><option value="size"${cur === 'size' ? ' selected' : ''}>A size, Regular or Large (like the stews)</option></select></label>`;
 const noodleTick = (id, on) => `<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} /><span>Offer an optional noodle pairing (a list of noodles on the dish sheet, the customer can skip it)</span></label>`;
+// Which noodles a dish offers and which carry the Recommended tag. Ticking Recommend also ticks Offer.
+const noodleRows = (m) => (S.noodles || []).map((n) => {
+  const off = !(m.noodleSkip || []).includes(n.id); const rec = (m.noodleRecommend || []).includes(n.id);
+  const tick = (attr, on, text) => `<label style="display:flex;gap:6px;align-items:center;min-height:40px;padding:0 6px"><input type="checkbox" ${attr}="${esc(n.id)}" ${on ? 'checked' : ''} style="width:20px;height:20px" /><span>${text}</span></label>`;
+  return `<div class="item" style="cursor:default;gap:6px;flex-wrap:wrap"><span style="flex:1 1 110px"><b>${esc(n.name)}</b> <span class="sub">${baht(n.extraPrice)}</span></span>${tick('data-nd-offer', off, 'Offer')}${tick('data-nd-rec', rec && off, '★ Recommend')}</div>`;
+}).join('');
 const ageTick = (id, on) => `<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} /><span>Wine or alcohol: 20+ only (customers give a date of birth at checkout)</span></label>`;
 function menuBox() {
   const cats = S.categories || [];
@@ -225,12 +231,18 @@ function wireMenu() {
       <label>Description<textarea id="mD">${esc(m.description)}</textarea></label>
       ${choiceSelect('mO', choiceOf(m))}
       ${noodleTick('mNd', m.offersNoodles)}
+      <div id="mNdList" style="display:${m.offersNoodles ? 'block' : 'none'};margin:2px 0 8px"><p class="sub" style="margin:0 0 4px">Noodles for this dish. Recommended ones show first with a gold tag.</p>${noodleRows(m)}</div>
       ${ageTick('mA', m.ageRestricted)}
       <div class="row" style="align-items:center">${m.image ? `<img src="${esc(m.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${m.image ? 'Change photo' : 'Add a photo'}<input type="file" id="mImg" accept="image/*" /></label></div>
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
     $('mCancel').addEventListener('click', () => { slot.innerHTML = ''; });
+    $('mNd').addEventListener('change', () => { $('mNdList').style.display = $('mNd').checked ? 'block' : 'none'; });
+    slot.querySelectorAll('[data-nd-rec]').forEach((c) => c.addEventListener('change', () => { if (c.checked) slot.querySelector(`[data-nd-offer="${CSS.escape(c.dataset.ndRec)}"]`).checked = true; }));
+    slot.querySelectorAll('[data-nd-offer]').forEach((c) => c.addEventListener('change', () => { if (!c.checked) slot.querySelector(`[data-nd-rec="${CSS.escape(c.dataset.ndOffer)}"]`).checked = false; }));
     $('mSave').addEventListener('click', async () => {
-      const ok = await save('menu/item', { id: m.id, name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
+      const skip = [...slot.querySelectorAll('[data-nd-offer]')].filter((c) => !c.checked).map((c) => c.dataset.ndOffer);
+      const recommend = [...slot.querySelectorAll('[data-nd-rec]')].filter((c) => c.checked).map((c) => c.dataset.ndRec);
+      const ok = await save('menu/item', { id: m.id, ...((S.noodles || []).length ? { noodleSkip: skip, noodleRecommend: recommend } : {}), name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
       const f = $('mImg') && $('mImg').files[0];
       if (ok && f) { try { await api('menu/image', { id: m.id, data: await shrink(f) }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(err.message, true); } }
     });
@@ -352,11 +364,57 @@ async function loadRider(sync) {
   catch (err) { const b = $('riderBody'); if (b) b.innerHTML = `<p class="sub" style="color:#b3261e">Could not load the orders: ${esc(err.message)}</p>`; }
 }
 
+// ---------- noodles ----------
+// The pasta list used on pasta dishes and as the optional pairing on mains and soups. Each noodle has two prices: the upcharge when
+// it comes with a pasta dish, and what it costs as an extra.
+function noodlesBox() {
+  const list = S.noodles || [];
+  if (!list.length) return '';
+  const row = (n) => `<div class="item" data-noodle="${esc(n.id)}"><span>${n.image ? `<img src="${esc(n.image)}" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px" />` : '<span title="No photo" style="display:inline-block;width:28px;height:28px;border-radius:6px;background:#eadfce;vertical-align:middle;margin-right:8px"></span>'}<b>${esc(n.name)}</b> <span class="sub">${n.mandatorySurcharge ? `+${baht(n.mandatorySurcharge)} on pasta dishes` : 'no upcharge'}, ${baht(n.extraPrice)} as an extra</span>${n.hideInPasta ? ' <span class="pill off">hidden on pasta</span>' : ''}${n.hideInPairing ? ' <span class="pill off">hidden as pairing</span>' : ''}</span><span class="price"><span class="mv"><button type="button" class="mv-btn" data-nmove="up" data-id="${esc(n.id)}" aria-label="Move ${esc(n.name)} up" ${lock()}>▲</button><button type="button" class="mv-btn" data-nmove="down" data-id="${esc(n.id)}" aria-label="Move ${esc(n.name)} down" ${lock()}>▼</button></span></span></div><div data-nslot="${esc(n.id)}"></div>`;
+  return `<div class="ix"><h3>Noodles</h3>
+    <p class="sub">The noodle list for pasta dishes and the optional pairing on mains and soups. Tap a noodle to change its prices, photo or name, or to hide it. The order of this list is the order customers see. Which noodles each dish offers and recommends is set inside that dish, in Menu and prices.</p>
+    ${list.map(row).join('')}
+    <div id="noodleAdd"></div><div class="row"><button class="primary-button" id="noodleAddBtn" ${lock()}>+ Add a noodle</button></div></div>`;
+}
+const noodleForm = (n, withPhoto) => `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:4px 0 8px">
+  <div class="row"><label>Name<input id="ndN" value="${esc(n.name)}" style="width:min(240px,60vw)" /></label><label>Upcharge on pasta dishes (฿)<input id="ndS" type="number" min="0" step="1" value="${esc(n.mandatorySurcharge)}" style="width:90px" /></label><label>Price as an extra (฿)<input id="ndE" type="number" min="0" step="1" value="${esc(n.extraPrice)}" style="width:90px" /></label></div>
+  ${n.id ? `<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="ndHP" ${n.hideInPasta ? 'checked' : ''} /><span>Hide on pasta dishes (Ragu, Bolognese and the like)</span></label>
+  <label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="ndHR" ${n.hideInPairing ? 'checked' : ''} /><span>Hide from the optional noodle pairing</span></label>` : ''}
+  <div class="row" style="align-items:center">${n.image ? `<img src="${esc(n.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${n.image ? 'Change photo' : 'Add a photo'}<input type="file" id="ndImg" accept="image/*" /></label></div>
+  <div class="row"><button class="primary-button" id="ndSave">${n.id ? 'Save' : 'Add the noodle'}</button><button class="small-button" id="ndCancel">Cancel</button></div></div>`;
+async function noodleBody() {
+  const f = $('ndImg') && $('ndImg').files[0];
+  const body = { name: $('ndN').value, mandatorySurcharge: $('ndS').value, extraPrice: $('ndE').value };
+  if ($('ndHP')) { body.hideInPasta = $('ndHP').checked; body.hideInPairing = $('ndHR').checked; }
+  if (f) body.imageData = await shrink(f);
+  return body;
+}
+function wireNoodles() {
+  document.querySelectorAll('[data-nmove]').forEach((b) => b.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await save('noodles/move', { id: b.dataset.id, direction: b.dataset.nmove }, 'Moved. The order app shows the new order now.');
+  }));
+  document.querySelectorAll('[data-noodle]').forEach((row) => row.addEventListener('click', () => {
+    if (S.readOnly) return toast('Read only until the bot update is live.', true);
+    const n = S.noodles.find((x) => x.id === row.dataset.noodle); const slot = document.querySelector(`[data-nslot="${CSS.escape(n.id)}"]`);
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = noodleForm(n);
+    $('ndCancel').addEventListener('click', () => { slot.innerHTML = ''; });
+    $('ndSave').addEventListener('click', async () => { try { await save('noodles/save', { id: n.id, ...(await noodleBody()) }); } catch (err) { toast(err.message, true); } });
+  }));
+  const add = $('noodleAddBtn'); if (!add) return;
+  add.addEventListener('click', () => {
+    $('noodleAdd').innerHTML = noodleForm({ id: '', name: '', mandatorySurcharge: 0, extraPrice: 40, image: null });
+    $('ndCancel').addEventListener('click', () => { $('noodleAdd').innerHTML = ''; });
+    $('ndSave').addEventListener('click', async () => { try { await save('noodles/add', await noodleBody(), 'Noodle added. It also shows in Extras, so customers can order it on its own.'); } catch (err) { toast(err.message, true); } });
+  });
+}
+
 function draw() {
   const note = S.readOnly ? `<div class="warn">${esc(S.note || 'Read only.')} You can see exactly what customers see, but editing switches on once the order app update is live.</div>` : '';
   $('idx').innerHTML = `<h2 id="orderApp">Order app</h2>${note}${annBox()}${hoursBox()}${promoBox()}${feeBox()}${riderBox()}`;
-  const menu = $('idxMenu'); if (menu) menu.innerHTML = menuBox();
-  wireAnn(); wireHours(); wirePromo(); if (menu) wireMenu(); wireFees();
+  const menu = $('idxMenu'); if (menu) menu.innerHTML = menuBox() + noodlesBox();
+  wireAnn(); wireHours(); wirePromo(); if (menu) { wireMenu(); wireNoodles(); } wireFees();
   drawRider(); if (!RIDER) loadRider(false);
 }
 
