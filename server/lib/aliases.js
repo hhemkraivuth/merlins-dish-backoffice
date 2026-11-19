@@ -15,7 +15,7 @@ const DEFAULT_DISH_ALIASES = {
   'Dark beer Stew': ['dbs', 'darkbeerstew'],
   'Creamy Chicken Soup': ['chix', 'cs', 'chicsoup', 'chics'],
   'Pecorino & Broccoli Cream Soup': ['brocs', 'bs'],
-  'Spicy Rosso': ['rosso', 'sr', 'spicyrosso', 'baconpomodoro', 'pomodoro'],
+  'Spicy Rosso': ['rosso', 'sr', 'spicyrosso', 'baconpomodoro', 'pomodoro', 'bp'],
   'Braised Lamb shank': ['lamb', 'lambshank', 'lambshanks', 'shank', 'shanks', 'lsh', 'ls'],
 };
 
