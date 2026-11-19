@@ -9,7 +9,7 @@ const BATCH_DISHES = [
   ['Dark beer Stew', /^dark beer stew/i],
   ['Creamy Chicken Soup', /^creamy chicken soup/i],
   ['Pecorino & Broccoli Cream Soup', /^pecorino/i],
-  ['Spicy Rosso', /^spicy rosso/i],
+  ['Spicy Rosso', /^(spicy rosso|bacon pomodoro)/i], // renamed to Bacon Pomodoro on the menu 19/11/2026; the sheet tab is still Spicy Rosso
   ['Braised Lamb shank', /^((slow.?)?braised )?lamb shank/i],
 ];
 

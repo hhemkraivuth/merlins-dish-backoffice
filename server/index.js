@@ -155,6 +155,27 @@ app.post('/api/ingredient-swaps', async (req, res) => { try { res.json(await swa
 app.post('/api/ingredient-swaps/delete', async (req, res) => { try { res.json(await swapLib.removeSwap(req.body || {}, swapDeps())); } catch (err) { res.status(500).json({ error: err.message }); } });
 const botAdmin = require('./lib/botAdmin');
 app.get('/api/index/state', async (req, res) => { try { res.json(await botAdmin.loadState()); } catch (err) { res.status(502).json({ error: err.message }); } });
+// A dish was renamed in Menu and prices and Lily typed the shorthand she will use. The order app learns it (and checks it is not
+// taken), and for a cooked batch dish BOH's own Shorthand tab learns it too, so the stock box and cook notes understand it.
+app.post('/api/index/aliases/add', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const { batchDishOf } = require('./lib/dishes');
+    const tab = batchDishOf(b.oldName) || batchDishOf(b.name);
+    const word = String(b.word || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (tab) {
+      const cookLog = require('./lib/cookLog'); const sheets = require('./lib/sheets'); const aliases = require('./lib/aliases');
+      const rows = await cookLog.readShorthandRows();
+      const sh = aliases.applyShorthandRows(aliases.defaultShorthand(), rows);
+      const taken = sh.dishes.get(word);
+      if (taken && taken !== tab) return res.status(400).json({ error: `"${word}" already means ${taken}. Pick a different shorthand.` });
+      const out = await botAdmin.act('aliases/add', { id: b.id, word });
+      if (!taken) await sheets.appendRows(cookLog.SHORTHAND, [['Dish', word, tab]], { raw: true });
+      return res.json({ ...out, boh: true });
+    }
+    res.json(await botAdmin.act('aliases/add', { id: b.id, word }));
+  } catch (err) { res.status(err.status || 500).json({ error: err.message }); }
+});
 app.post(/^\/api\/index\/(.+)$/, async (req, res) => { try { res.json(await botAdmin.act(req.params[0], req.body)); } catch (err) { res.status(err.status || 500).json({ error: err.message }); } });
 app.post('/api/ledger/manual-orders', ledgerRoute.manualOrders);
 app.post('/api/ledger/row/delete', ledgerRoute.deleteRow);

@@ -92,6 +92,7 @@ async function processLeftCount(body, today, deps) {
   await deps.ensureTab(TAB, READY_HEADERS);
   const stamp = bangkokNow();
   await deps.appendRows(TAB, [...counts].map(([dish, n]) => [dish, n, formatDMY(today), stamp, typed.get(dish) || '']), { raw: true });
+  if (deps.afterCount) deps.afterCount(); // clears stale low stock notes and to dos right away
   const extra = [];
   if (skipped.length) extra.push(`Not a batch dish, left to the order app: ${skipped.join(', ')}`);
   if (bad.length) extra.push(...bad);
@@ -131,7 +132,7 @@ async function mirrorBotCounts(snap, deps) {
     const typed = sizes.length ? sizes.map((v) => `${v.left}${/large/i.test(v.name) ? 'l' : 'r'}`).join(' ') : '';
     out.push([dish, n, formatDMY(day), bangkokNow(), typed]);
   }
-  if (out.length) { await deps.ensureTab(TAB, READY_HEADERS); await deps.appendRows(TAB, out, { raw: true }); }
+  if (out.length) { await deps.ensureTab(TAB, READY_HEADERS); await deps.appendRows(TAB, out, { raw: true }); if (deps.afterCount) deps.afterCount(); }
   await deps.saveMirrored(mirrored);
   return { saved: out.map((r) => `${r[0]} ${r[1]}`) };
 }
@@ -175,6 +176,7 @@ async function processReadyCount(text, today, deps) {
   await deps.ensureTab(TAB, READY_HEADERS);
   const stamp = bangkokNow();
   await deps.appendRows(TAB, [...counts].map(([dish, n]) => [dish, n, formatDMY(day), stamp, typed.get(dish) || '']), { raw: true });
+  if (deps.afterCount) deps.afterCount();
   return [`Closing count saved for ${formatDMY(day)}:\n${[...counts].map(([d, n]) => shown(d, n, typed.get(d))).join('\n')}\nAnalysis, Home stock and To Do follow these. Cooking and sales after ${formatDMY(day)} are added on top.`];
 }
 

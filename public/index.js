@@ -234,6 +234,7 @@ function wireMenu() {
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
     slot.innerHTML = `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:4px 0 8px">
       <div class="row"><label>Name<input id="mN" value="${esc(m.name)}" style="width:min(320px,70vw)" /></label><label>Price (฿)<input id="mP" type="number" min="0" step="1" value="${esc(m.price)}" style="width:90px" /></label></div>
+      <div id="mShRow" style="display:none;margin:2px 0 8px"><label>New shorthand for the stock box and LINE group<input id="mSh" placeholder="for example bp" maxlength="20" style="width:140px" autocapitalize="none" /></label><p class="sub" style="margin:2px 0 0">You changed the name, so tell me what you will type for it. The old shorthand keeps working.</p></div>
       <label>Category<select id="mC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}"${c.id === m.category ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select></label>
       <label>Description<textarea id="mD">${esc(m.description)}</textarea></label>
       ${choiceSelect('mO', choiceOf(m))}
@@ -243,6 +244,11 @@ function wireMenu() {
       <div class="row" style="align-items:center">${m.image ? `<img src="${esc(m.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${m.image ? 'Change photo' : 'Add a photo'}<input type="file" id="mImg" accept="image/*" /></label></div>
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
     $('mCancel').addEventListener('click', () => { slot.innerHTML = ''; });
+    const nameChanged = () => $('mN').value.trim() !== '' && $('mN').value.trim() !== m.name;
+    $('mN').addEventListener('input', () => {
+      $('mShRow').style.display = nameChanged() ? 'block' : 'none';
+      if (nameChanged() && !$('mSh').value) $('mSh').value = $('mN').value.trim().split(/\s+/).map((w) => w[0] || '').join('').toLowerCase().replace(/[^a-z0-9]/g, '');
+    });
     const syncNd = () => { const pasta = $('mO').value === 'pasta'; $('mNdRow').style.display = pasta ? 'none' : 'block'; $('mNdList').style.display = pasta || $('mNd').checked ? 'block' : 'none'; };
     $('mNd').addEventListener('change', syncNd); $('mO').addEventListener('change', syncNd);
     slot.querySelectorAll('[data-nd-move]').forEach((b) => b.addEventListener('click', () => {
@@ -253,10 +259,16 @@ function wireMenu() {
     slot.querySelectorAll('[data-nd-rec]').forEach((c) => c.addEventListener('change', () => { if (c.checked) slot.querySelector(`[data-nd-offer="${CSS.escape(c.dataset.ndRec)}"]`).checked = true; }));
     slot.querySelectorAll('[data-nd-offer]').forEach((c) => c.addEventListener('change', () => { if (!c.checked) slot.querySelector(`[data-nd-rec="${CSS.escape(c.dataset.ndOffer)}"]`).checked = false; }));
     $('mSave').addEventListener('click', async () => {
+      const renamed = nameChanged(); const word = renamed ? $('mSh').value.trim() : ''; const newName = $('mN').value.trim();
+      if (renamed && !word) { toast('You changed the name. Type the shorthand for the stock box, for example bp.', true); $('mSh').focus(); return; }
       const skip = [...slot.querySelectorAll('[data-nd-offer]')].filter((c) => !c.checked).map((c) => c.dataset.ndOffer);
       const recommend = [...slot.querySelectorAll('[data-nd-rec]')].filter((c) => c.checked).map((c) => c.dataset.ndRec);
       const order = [...slot.querySelectorAll('[data-nd-row]')].map((r) => r.dataset.ndRow);
       const ok = await save('menu/item', { id: m.id, ...((S.noodles || []).length ? { noodleSkip: skip, noodleRecommend: recommend, noodleOrder: order } : {}), name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
+      if (ok && renamed) {
+        try { const r = await api('aliases/add', { id: m.id, word, name: newName, oldName: m.name }); toast(`Saved. "${r.word || word}" now works in the stock box and LINE group.`); }
+        catch (err) { toast(`The new name is saved, but the shorthand was not: ${err.message}`, true); }
+      }
       const f = $('mImg') && $('mImg').files[0];
       if (ok && f) { try { await api('menu/image', { id: m.id, data: await shrink(f) }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(err.message, true); } }
     });

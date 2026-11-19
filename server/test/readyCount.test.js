@@ -102,3 +102,18 @@ test('closing count also shows sizes as typed', async () => {
   assert.match(out[0], /Dark beer Stew 4l 9r \(13 in total\)/);
   assert.strictEqual(rows.find((r) => r[0] === 'Dark beer Stew')[1], 13);
 });
+
+test('a saved count asks for the handoffs to be refreshed, so stale low stock notes close', async () => {
+  const { processReadyCount } = require('../lib/readyCount');
+  const { defaultShorthand } = require('../lib/aliases');
+  let refreshed = 0;
+  const deps = { loadShorthand: async () => defaultShorthand(), ensureTab: async () => {}, appendRows: async () => {}, afterCount: () => { refreshed += 1; } };
+  await processReadyCount('left rws 0', new Date(Date.UTC(2026, 10, 19)), deps);
+  assert.strictEqual(refreshed, 1);
+});
+
+test('the renamed Spicy Rosso is still the Spicy Rosso batch dish', () => {
+  const { batchDishOf } = require('../lib/dishes');
+  assert.strictEqual(batchDishOf('Bacon Pomodoro'), 'Spicy Rosso');
+  assert.strictEqual(batchDishOf('Spicy Rosso'), 'Spicy Rosso');
+});

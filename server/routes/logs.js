@@ -80,6 +80,7 @@ async function readyCount(req, res) {
     }
     await ensureTab('Ready Counts', v.READY_HEADERS);
     await appendRows('Ready Counts', [[dish, count, formatDMY(day), bangkokNow()]], { raw: true });
+    require('../lib/ledgerService').refreshHandoffs().catch((err) => console.error('Handoffs were not refreshed after a count:', err.message));
     res.json({ dish, count });
   } catch (err) { fail(res, err); }
 }

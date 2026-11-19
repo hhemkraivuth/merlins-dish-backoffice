@@ -75,6 +75,8 @@ function defaultDeps() {
       },
       ensureTab: cookLog.ensureTab,
       appendRows,
+      // After a stock count, close the low stock and aged notes that no longer apply, so the Pit and To Do clear at once.
+      afterCount: () => { require('../lib/ledgerService').refreshHandoffs().catch((err) => console.error('Handoffs were not refreshed after a count:', err.message)); },
       deleteRowsWhere: (tab, pred) => require('../lib/sheets').deleteRowsWhere(tab, pred),
     },
     swap: {
