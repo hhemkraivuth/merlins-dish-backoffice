@@ -54,7 +54,7 @@ function draw() {
   const list = rows();
   const th = (k, l, num) => `<th class="${num ? 'num' : ''}" data-s="${k}">${l}${sortKey === k ? (sortDir === 1 ? ' ▲' : ' ▼') : ''}</th>`;
   $('tbl').innerHTML = `<thead><tr>${th('name', 'Name')}<th>Phone</th>${th('orders', 'Orders', true)}<th>Points</th><th>Reward</th>${th('lastOrder', 'Last order')}${th('daysSince', 'Days ago', true)}<th>Address</th><th>LINE</th><th></th></tr></thead><tbody>${
-    list.length ? list.map((c) => `<tr><td>${esc(c.name) || '<span class="tag">no name</span>'}</td><td>${esc(c.phone)}</td><td class="num">${c.orders}</td><td class="dots">${dots(c.orders)}</td><td><span class="tag ${c.canLow || c.canHigh ? 'ready' : ''}">${esc(c.status)}</span></td><td>${esc(c.lastOrder)}</td><td class="num">${c.daysSince === null ? '' : c.daysSince}</td><td class="addr">${esc(c.address) || '<span class="tag warn">none</span>'}</td><td>${c.hasLine ? 'Yes' : ''}</td><td><button class="editbtn" type="button" data-edit="${c.row}">Edit</button></td></tr>`).join('') : '<tr><td colspan="10">Nobody matches.</td></tr>'
+    list.length ? list.map((c) => `<tr><td>${esc(c.name) || '<span class="tag">no name</span>'}</td><td>${esc(c.phone)}</td><td class="num">${c.orders}</td><td class="dots">${dots(c.orders)}</td><td><span class="tag ${c.canLow || c.canHigh ? 'ready' : ''}">${esc(c.status)}</span></td><td>${esc(c.lastOrder)}</td><td class="num">${c.daysSince === null ? '' : c.daysSince}</td><td class="addr">${esc(c.address) || '<span class="tag warn">none</span>'}${c.hasPin ? '' : ' <span class="tag warn">no pin</span>'}${c.note ? `<br><span class="why" style="margin:0">Note: ${esc(c.note)}</span>` : ''}</td><td>${c.hasLine ? 'Yes' : ''}</td><td><button class="editbtn" type="button" data-edit="${c.row}">Edit</button></td></tr>`).join('') : '<tr><td colspan="10">Nobody matches.</td></tr>'
   }</tbody>`;
   $('status').textContent = `Showing ${list.length} of ${DATA.list.length} customers.`;
 }
@@ -89,9 +89,10 @@ function openEditor(row) {
       <div><label>Orders (points)</label><input id="edOrders" type="number" min="0" max="99" value="${c ? c.orders : 0}" /></div>
       <div><label>Last order date (D/M/YYYY)</label><input id="edDate" value="${v('lastOrder')}" placeholder="19/11/2026" /></div>
       <div style="grid-column:1/-1"><label>Address</label><input id="edAddr" value="${v('address')}" /></div>
-      <div style="grid-column:1/-1"><label>Rider note</label><input id="edNote" value="${v('note')}" /></div>
+      <div style="grid-column:1/-1"><label>Rider note (shown to the customer's rider on their next order)</label><input id="edNote" value="${v('note')}" /></div>
+      <div style="grid-column:1/-1"><label>Map pin: latitude, longitude (where their next order's map starts)</label><input id="edPin" value="${c && c.hasPin ? esc(c.lat + ', ' + c.lng) : ''}" placeholder="13.7368, 100.5603 or a Google Maps link" /></div>
     </div>
-    <p class="why" style="margin:8px 0 0">Points reset to 0 after a reward is redeemed. Change the address and the saved map pin is cleared, so the customer sets it again on their next order.</p>
+    <p class="why" style="margin:8px 0 0">Points reset to 0 after a reward is redeemed. The order app opens the map at this pin and fills in the address and rider note for returning customers, and they can still move it. Changing the address does not move the pin, so update both together.</p>
     <div class="row"><button id="edSave" type="button">${c ? 'Save changes' : 'Add customer'}</button><button id="edCancel" type="button">Cancel</button></div>
     ${c && others.length ? `<div class="merge"><b>Merge another customer into this one</b>
       <p class="why" style="margin:4px 0 8px">Use this for the same person listed twice. The other row is emptied and its orders are added here (change the total if they should not be added).</p>
@@ -104,9 +105,11 @@ function openEditor(row) {
   if ($('mgWho')) { total(); $('mgWho').addEventListener('change', total); }
   $('edCancel').addEventListener('click', () => { $('editor').hidden = true; });
   $('edSave').addEventListener('click', async () => {
+    if (c && $('edAddr').value.trim() !== (c.address || '').trim() && $('edPin').value.trim() === (c.hasPin ? c.lat + ', ' + c.lng : '') && c.hasPin
+      && !confirm('You changed the address but not the map pin, so their next order will still open the map at the old spot. Save anyway?')) return;
     note('Saving…');
     try {
-      await post('/api/customers/save', { row: c ? c.row : undefined, expectPhone: c ? c.phone : undefined, name: $('edName').value, phone: $('edPhone').value, orders: $('edOrders').value, lastOrder: $('edDate').value, address: $('edAddr').value, note: $('edNote').value });
+      await post('/api/customers/save', { pin: $('edPin').value, row: c ? c.row : undefined, expectPhone: c ? c.phone : undefined, name: $('edName').value, phone: $('edPhone').value, orders: $('edOrders').value, lastOrder: $('edDate').value, address: $('edAddr').value, note: $('edNote').value });
       $('editor').hidden = true; await load();
     } catch (err) { note(err.message, true); }
   });

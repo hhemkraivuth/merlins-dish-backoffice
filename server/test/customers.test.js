@@ -67,9 +67,9 @@ test('redeeming resets the count to 0 only when the customer is eligible', () =>
   assert.strictEqual(planCustomerWrite(rows, { phone: '0833333333', dmy: '19/11/2026', redeem: 10 }).count, 0);
 });
 
-test('editing a customer checks the row, validates, and clears the pin on a new address', () => {
+test('editing a customer checks the row and validates', () => {
   const rows = [HEAD, ['0815656584', 'Jong', '4', '10/11/2026', 'Uabc', '13.7', '100.5', 'Old', '']];
-  const edit = planCustomerEdit(rows, { row: 2, expectPhone: '0815656584', name: 'Robin P', phone: '081-565-6584', orders: '1', lastOrder: '19/11/2026', address: 'New place', note: '' });
+  const edit = planCustomerEdit(rows, { row: 2, expectPhone: '0815656584', name: 'Robin P', phone: '081-565-6584', orders: '1', lastOrder: '19/11/2026', address: 'New place', note: '', pin: '' });
   const by = Object.fromEntries(edit.cells.map((c) => [c.range, c.values[0][0]]));
   assert.strictEqual(by['Customers!A2'], "'0815656584");
   assert.strictEqual(by['Customers!B2'], 'Robin P');
@@ -96,4 +96,30 @@ test('merging adds the orders, keeps the newest date and LINE id, and blanks the
   assert.ok(blank.values[0].every((v) => v === ''));
   assert.strictEqual(planMerge(rows, { keepRow: 2, dropRow: 3, expectKeepPhone: '0959539401', expectDropPhone: '0959539401', orders: 3 }).total, 3);
   assert.throws(() => planMerge(rows, { keepRow: 2, dropRow: 2 }), /two different/);
+});
+
+const { parsePin } = require('../lib/pin');
+test('map pins are read from numbers or links and kept inside Thailand', () => {
+  assert.deepStrictEqual(parsePin('13.736836906228989, 100.56032257493932'), { lat: 13.736837, lng: 100.560323 });
+  assert.deepStrictEqual(parsePin('https://www.google.com/maps/place/x/@13.7368,100.5603,17z'), { lat: 13.7368, lng: 100.5603 });
+  assert.deepStrictEqual(parsePin('https://maps.google.com/?q=13.7368,100.5603'), { lat: 13.7368, lng: 100.5603 });
+  assert.strictEqual(parsePin('  '), null);
+  assert.throws(() => parsePin('100.5603, 13.7368'), /outside Thailand/);
+  assert.throws(() => parsePin('https://maps.app.goo.gl/abc'), /no coordinates/);
+  assert.throws(() => parsePin('near the lift'), /latitude, longitude/);
+});
+
+test('hand typed pin and rider note are saved, an address change without a pin clears the old pin, and editing the address alone keeps the pin', () => {
+  const rows = [HEAD, ['0815656584', 'Jong', '2', '10/11/2026', '', '13.7', '100.5', 'Old', 'Lift B']];
+  const withPin = planCustomerWrite(rows, { phone: '0815656584', name: 'Jong', dmy: '19/11/2026', address: 'New', pin: { lat: 13.74, lng: 100.56 }, note: 'Call at lobby' });
+  const by = Object.fromEntries(withPin.cells.map((c) => [c.range, c.values[0][0]]));
+  assert.strictEqual(by['Customers!F2'], 13.74); assert.strictEqual(by['Customers!G2'], 100.56); assert.strictEqual(by['Customers!I2'], 'Call at lobby');
+  assert.strictEqual(withPin.pinCleared, false);
+  const noPin = planCustomerWrite(rows, { phone: '0815656584', dmy: '19/11/2026', address: 'New' });
+  assert.strictEqual(noPin.pinCleared, true);
+  const edit = planCustomerEdit(rows, { row: 2, expectPhone: '0815656584', name: 'Jong', phone: '0815656584', orders: 2, lastOrder: '10/11/2026', address: 'Changed', note: 'Lift B' });
+  assert.ok(!edit.cells.some((c) => /!(F|G)2$/.test(c.range)), 'an address edit with no pin field never touches the pin');
+  const edit2 = planCustomerEdit(rows, { row: 2, expectPhone: '0815656584', name: 'Jong', phone: '0815656584', orders: 2, lastOrder: '10/11/2026', address: 'Changed', note: 'Lift B', pin: '13.75, 100.57' });
+  assert.strictEqual(edit2.cells.find((c) => c.range === 'Customers!F2').values[0][0], 13.75);
+  assert.strictEqual(planCustomerEdit(rows, { row: 2, expectPhone: '0815656584', phone: '0815656584', orders: 2, pin: '' }).cells.find((c) => c.range === 'Customers!G2').values[0][0], '');
 });

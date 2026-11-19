@@ -76,8 +76,8 @@ async function addManualOrders(text) {
   // Customer details go to the CRM (Customers tab) once per newly added order, so typing an order twice never double counts.
   const crmOf = new Map();
   for (const o of added) {
-    if (!o.phone && !o.address && !o.redeem) continue;
-    crmOf.set(o.ref, await require('./customers').recordManualCustomer({ phone: o.phone, name: o.name, address: o.address, dmy: o.dmy, redeem: o.redeem }));
+    if (!o.phone && !o.address && !o.redeem && !o.pin && !o.riderNote) continue;
+    crmOf.set(o.ref, await require('./customers').recordManualCustomer({ phone: o.phone, name: o.name, address: o.address, dmy: o.dmy, redeem: o.redeem, pin: o.pin, note: o.riderNote }));
   }
   return { added: added.map((o) => ({ date: o.dmy, name: o.name, ref: o.ref, total: o.total, crm: crmOf.get(o.ref) || null })), skipped: skipped.map((o) => ({ date: o.dmy, name: o.name, total: o.total })), problems };
 }

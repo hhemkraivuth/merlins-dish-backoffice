@@ -6,6 +6,7 @@
 
 const { google } = require('googleapis');
 const { readCustomers } = require('./ordersSheet');
+const { parsePin } = require('./pin');
 
 const TIER_LOW = 5;
 const TIER_HIGH = 10;
@@ -73,6 +74,7 @@ function buildCustomerList(values, todayMs) {
       row: ri + 2, phone: phone || cell(row, L.phone), name, orders, lastOrder: last,
       daysSince: t === null || todayMs === undefined ? null : Math.max(0, Math.round((todayMs - t) / 86400000)),
       address: cell(row, L.address), note: cell(row, L.note), hasLine: !!cell(row, L.lineId),
+      lat: cell(row, L.lat), lng: cell(row, L.lng), hasPin: cell(row, L.lat) !== '' && cell(row, L.lng) !== '' && !Number.isNaN(Number(cell(row, L.lat))) && !Number.isNaN(Number(cell(row, L.lng))),
       ...tierInfo(orders),
     });
   }
@@ -113,7 +115,7 @@ function getWriteClient() {
 
 // What to write for one hand typed order. Pure, so it can be tested without Google.
 // values = whole tab. Returns { action: 'append'|'update'|'skip', ... }.
-function planCustomerWrite(values, { phone: rawPhone, name, address, dmy, redeem }) {
+function planCustomerWrite(values, { phone: rawPhone, name, address, dmy, redeem, pin, note }) {
   const phone = normalisePhone(rawPhone);
   if (!phone) return { action: 'skip', why: rawPhone ? `phone "${rawPhone}" is not a valid number` : 'no phone number typed' };
   const L = layoutOf(values[0]);
@@ -128,6 +130,8 @@ function planCustomerWrite(values, { phone: rawPhone, name, address, dmy, redeem
     row[L.count] = 1;
     row[L.date] = dmy;
     if (L.address >= 0) row[L.address] = address || '';
+    if (pin) { if (L.lat >= 0) row[L.lat] = pin.lat; if (L.lng >= 0) row[L.lng] = pin.lng; }
+    if (note && L.note >= 0) row[L.note] = note;
     return { action: 'append', phone, row, count: 1 };
   }
   const row = values[idx + 1];
@@ -143,11 +147,12 @@ function planCustomerWrite(values, { phone: rawPhone, name, address, dmy, redeem
   put('count', count);
   const lastT = dmyToTime(cell(row, L.date));
   if (lastT === null || (orderTime !== null && orderTime >= lastT)) put('date', dmy);
-  if (address && address !== cell(row, L.address)) {
-    put('address', address);
-    put('lat', ''); put('lng', ''); // the old map pin no longer matches the new address
-  }
-  return { action: 'update', phone, cells, count, prior, redeemed: tier };
+  let pinCleared = false;
+  if (address && address !== cell(row, L.address)) put('address', address);
+  if (pin) { put('lat', pin.lat); put('lng', pin.lng); }
+  else if (address && address !== cell(row, L.address) && (cell(row, L.lat) !== '' || cell(row, L.lng) !== '')) { put('lat', ''); put('lng', ''); pinCleared = true; } // the old pin no longer matches the new address
+  if (note) put('note', note);
+  return { action: 'update', phone, cells, count, prior, redeemed: tier, pinCleared };
 }
 
 // Saves one order's customer details. Never throws: the order is already in the books.
@@ -164,7 +169,7 @@ async function recordManualCustomer(info) {
     } else {
       await client.spreadsheets.values.batchUpdate({ spreadsheetId: id, requestBody: { valueInputOption: 'USER_ENTERED', data: plan.cells } });
     }
-    return { saved: true, phone: plan.phone, count: plan.count, isNew: plan.action === 'append', redeemed: plan.redeemed || null };
+    return { saved: true, phone: plan.phone, count: plan.count, isNew: plan.action === 'append', redeemed: plan.redeemed || null, pinCleared: !!plan.pinCleared };
   } catch (err) {
     return { saved: false, why: String((err && err.message) || err) };
   }
@@ -206,6 +211,8 @@ function planCustomerEdit(values, input) {
     row[L.phone] = "'" + phone; row[L.name] = name; row[L.count] = orders; row[L.date] = last;
     if (L.address >= 0) row[L.address] = address;
     if (L.note >= 0) row[L.note] = note;
+    const pin = parsePin(input.pin);
+    if (pin) { if (L.lat >= 0) row[L.lat] = pin.lat; if (L.lng >= 0) row[L.lng] = pin.lng; }
     return { action: 'append', row };
   }
   const rowNum = Number(input.row);
@@ -214,9 +221,10 @@ function planCustomerEdit(values, input) {
   const cells = [];
   const put = (key, v) => { if (L[key] >= 0) cells.push({ range: `Customers!${colLetter(L[key])}${rowNum}`, values: [[v]] }); };
   put('phone', "'" + phone); put('name', name); put('count', orders); put('date', last); put('note', note);
-  if (L.address >= 0) {
-    put('address', address);
-    if (address !== cell(old, L.address)) { put('lat', ''); put('lng', ''); }
+  if (L.address >= 0) put('address', address);
+  if (input.pin !== undefined) { // the page always sends the pin; blank clears it, the address alone never touches it
+    const pin = parsePin(input.pin);
+    put('lat', pin ? pin.lat : ''); put('lng', pin ? pin.lng : '');
   }
   return { action: 'update', cells };
 }

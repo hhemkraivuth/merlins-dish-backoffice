@@ -62,3 +62,13 @@ test('a redeem line is read and kept out of the dish lines', () => {
   assert.strictEqual(orders[0].redeem, 5);
   assert.strictEqual(orders[0].total, 480);
 });
+
+test('pin and rider note lines are read, and a bad pin refuses only that order', () => {
+  const ok = parseManualOrders('19/11 Jong\nBraised Lamb Shank 480\nphone 0815656584\npin 13.7368, 100.5603\nnote Call at the lobby', today);
+  assert.deepStrictEqual(ok.problems, []);
+  assert.deepStrictEqual(ok.orders[0].pin, { lat: 13.7368, lng: 100.5603 });
+  assert.strictEqual(ok.orders[0].riderNote, 'Call at the lobby');
+  const bad = parseManualOrders('19/11 Jong\nBraised Lamb Shank 480\npin 100.5, 13.7', today);
+  assert.strictEqual(bad.orders.length, 0);
+  assert.match(bad.problems[0], /outside Thailand/);
+});
