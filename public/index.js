@@ -232,6 +232,9 @@ function wireMenu() {
     if (S.readOnly) return toast('Read only until the bot update is live.', true);
     const m = S.menu.find((x) => x.id === row.dataset.item); const slot = document.querySelector(`[data-slot="${CSS.escape(m.id)}"]`);
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    // Only one editor open at a time. Two open at once share the same field ids, and a save could pick up the other dish's name.
+    document.querySelectorAll('[data-slot]').forEach((x) => { if (x !== slot) x.innerHTML = ''; });
+    const ae = $('addEdit'); if (ae) ae.innerHTML = '';
     slot.innerHTML = `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:4px 0 8px">
       <div class="row"><label>Name<input id="mN" value="${esc(m.name)}" style="width:min(320px,70vw)" /></label><label>Price (฿)<input id="mP" type="number" min="0" step="1" value="${esc(m.price)}" style="width:90px" /></label></div>
       <div id="mShRow" style="display:none;margin:2px 0 8px"><label>New shorthand for the stock box and LINE group<input id="mSh" placeholder="for example bp" maxlength="20" style="width:140px" autocapitalize="none" /></label><p class="sub" style="margin:2px 0 0">You changed the name, so tell me what you will type for it. The old shorthand keeps working.</p></div>
@@ -276,6 +279,7 @@ function wireMenu() {
   }));
   document.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', () => save('menu/restore', { id: b.dataset.restore }, 'Put back on the menu.')));
   $('addBtn').addEventListener('click', () => {
+    document.querySelectorAll('[data-slot]').forEach((x) => { x.innerHTML = ''; });
     $('addEdit').innerHTML = `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:8px 0">
       <div class="row"><label>Name<select id="nB" style="width:min(320px,70vw)">${bibleToAdd().length ? '<option value="">Pick from the menu bible</option>' : ''}${bibleToAdd().map((i, n) => `<option value="${n}">${esc(i.name)}</option>`).join('')}<option value="other">Other, type a name</option></select><input id="nN" placeholder="Item name" style="width:min(320px,70vw);margin-top:6px;display:${bibleToAdd().length ? 'none' : 'block'}" /></label><label>Price (฿)<input id="nP" type="number" min="0" step="1" style="width:90px" /></label><label>Category<select id="nC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('')}</select></label></div>
       <label>Description (optional)<textarea id="nD"></textarea></label>
