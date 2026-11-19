@@ -55,6 +55,8 @@ app.post('/api/shopping/retire', shoppingRoute.retire);
 app.post('/api/shopping/link', shoppingRoute.linkStockItem);
 app.get('/api/analysis', analysisRoute.analysisJson);
 app.get('/api/customers', require('./routes/customers').customersJson);
+app.post('/api/customers/save', require('./routes/customers').customerSave);
+app.post('/api/customers/merge', require('./routes/customers').customerMerge);
 app.get('/api/stock/ready', logsRoute.readyJson);
 app.post('/api/stock/ready-count', logsRoute.readyCount);
 

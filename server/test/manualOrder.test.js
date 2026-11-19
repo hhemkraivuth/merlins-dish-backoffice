@@ -55,3 +55,10 @@ test('phone and address lines are read and kept out of the dish lines', () => {
   assert.strictEqual(orders[0].address, 'The Address Asoke, 40th floor');
   assert.match(orders[0].rows[0][13], /Phone 081 565 6584\. Address The Address Asoke/);
 });
+
+test('a redeem line is read and kept out of the dish lines', () => {
+  const { orders, problems } = parseManualOrders('19/11 Jong\nBacon Steak 0\nBraised Lamb Shank 480\nphone 0815656584\nredeem 5', today);
+  assert.deepStrictEqual(problems, []);
+  assert.strictEqual(orders[0].redeem, 5);
+  assert.strictEqual(orders[0].total, 480);
+});

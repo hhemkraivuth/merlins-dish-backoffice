@@ -62,7 +62,7 @@ function tierInfo(count) {
 function buildCustomerList(values, todayMs) {
   const L = layoutOf(values[0]);
   const list = [];
-  for (const row of values.slice(1)) {
+  for (const [ri, row] of values.slice(1).entries()) {
     const phone = normalisePhone(cell(row, L.phone));
     const name = cell(row, L.name);
     if (!phone && !name) continue;
@@ -70,7 +70,7 @@ function buildCustomerList(values, todayMs) {
     const last = cell(row, L.date);
     const t = dmyToTime(last);
     list.push({
-      phone: phone || cell(row, L.phone), name, orders, lastOrder: last,
+      row: ri + 2, phone: phone || cell(row, L.phone), name, orders, lastOrder: last,
       daysSince: t === null || todayMs === undefined ? null : Math.max(0, Math.round((todayMs - t) / 86400000)),
       address: cell(row, L.address), note: cell(row, L.note), hasLine: !!cell(row, L.lineId),
       ...tierInfo(orders),
@@ -113,13 +113,15 @@ function getWriteClient() {
 
 // What to write for one hand typed order. Pure, so it can be tested without Google.
 // values = whole tab. Returns { action: 'append'|'update'|'skip', ... }.
-function planCustomerWrite(values, { phone: rawPhone, name, address, dmy }) {
+function planCustomerWrite(values, { phone: rawPhone, name, address, dmy, redeem }) {
   const phone = normalisePhone(rawPhone);
   if (!phone) return { action: 'skip', why: rawPhone ? `phone "${rawPhone}" is not a valid number` : 'no phone number typed' };
   const L = layoutOf(values[0]);
   const idx = values.slice(1).findIndex((r) => normalisePhone(cell(r, L.phone)) === phone);
   const orderTime = dmyToTime(dmy);
+  const tier = redeem === TIER_LOW || redeem === TIER_HIGH ? redeem : null;
   if (idx === -1) {
+    if (tier) return { action: 'skip', why: `cannot redeem the ${tier} point reward, this customer is new with no orders yet` };
     const row = new Array(L.width).fill('');
     row[L.phone] = "'" + phone;
     row[L.name] = name || '';
@@ -130,7 +132,10 @@ function planCustomerWrite(values, { phone: rawPhone, name, address, dmy }) {
   }
   const row = values[idx + 1];
   const prior = Number(cell(row, L.count)) || 0;
-  const count = prior + 1;
+  // Same rules as the order app: tier 5 works from 5 to 9 orders, tier 10 from 10, and a redemption resets the count to 0.
+  if (tier === TIER_LOW && !(prior >= TIER_LOW && prior < TIER_HIGH)) return { action: 'skip', why: `cannot redeem the 5 point reward at ${prior} orders (it works from 5 to 9)` };
+  if (tier === TIER_HIGH && prior < TIER_HIGH) return { action: 'skip', why: `cannot redeem the 10 point reward at ${prior} orders (it needs 10)` };
+  const count = tier ? 0 : prior + 1;
   const sheetRow = idx + 2;
   const cells = [];
   const put = (key, v) => { if (L[key] >= 0) cells.push({ range: `Customers!${colLetter(L[key])}${sheetRow}`, values: [[v]] }); };
@@ -142,7 +147,7 @@ function planCustomerWrite(values, { phone: rawPhone, name, address, dmy }) {
     put('address', address);
     put('lat', ''); put('lng', ''); // the old map pin no longer matches the new address
   }
-  return { action: 'update', phone, cells, count, prior };
+  return { action: 'update', phone, cells, count, prior, redeemed: tier };
 }
 
 // Saves one order's customer details. Never throws: the order is already in the books.
@@ -159,10 +164,96 @@ async function recordManualCustomer(info) {
     } else {
       await client.spreadsheets.values.batchUpdate({ spreadsheetId: id, requestBody: { valueInputOption: 'USER_ENTERED', data: plan.cells } });
     }
-    return { saved: true, phone: plan.phone, count: plan.count, isNew: plan.action === 'append' };
+    return { saved: true, phone: plan.phone, count: plan.count, isNew: plan.action === 'append', redeemed: plan.redeemed || null };
   } catch (err) {
     return { saved: false, why: String((err && err.message) || err) };
   }
 }
 
-module.exports = { normalisePhone, layoutOf, buildCustomerList, summarise, loadCustomers, planCustomerWrite, recordManualCustomer, tierInfo, TIER_LOW, TIER_HIGH };
+// ---- editing from the Customers page ----------------------------------------------------------
+const fail = (msg) => { const e = new Error(msg); e.status = 400; return e; };
+const rowAt = (values, rowNum) => (Number.isInteger(rowNum) && rowNum >= 2 ? values[rowNum - 1] : undefined);
+const dmyOk = (v) => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(v || '').trim());
+
+// Guards against the sheet having shifted since the page loaded: the row must still hold the phone the page showed.
+function checkRow(values, L, rowNum, expectPhone, what) {
+  const r = rowAt(values, rowNum);
+  if (!r) throw fail(`${what} row ${rowNum} is not in the Customers tab any more. Refresh the page.`);
+  const have = normalisePhone(cell(r, L.phone));
+  const want = normalisePhone(expectPhone);
+  if ((have || '') !== (want || '')) throw fail(`${what} row has changed since the page loaded. Refresh the page and try again.`);
+  return r;
+}
+
+// input: { row?, expectPhone?, name, phone, orders, lastOrder, address, note }. No row means add a new customer.
+function planCustomerEdit(values, input) {
+  const L = layoutOf(values[0]);
+  const phone = normalisePhone(input.phone);
+  if (!phone) throw fail('Type a phone number the order app can use, like 081 234 5678.');
+  const orders = Number(input.orders);
+  if (!Number.isInteger(orders) || orders < 0 || orders > 99) throw fail('Orders (points) must be a whole number from 0 to 99.');
+  const last = String(input.lastOrder || '').trim();
+  if (last && !dmyOk(last)) throw fail('Last order date should look like 19/11/2026.');
+  const name = String(input.name || '').trim();
+  const address = String(input.address || '').trim();
+  const note = String(input.note || '').trim();
+  const other = (rowNum) => values.slice(1).findIndex((r, i) => i + 2 !== rowNum && normalisePhone(cell(r, L.phone)) === phone);
+
+  if (!input.row) {
+    const dup = other(0);
+    if (dup !== -1) throw fail(`${phone} is already on the list as ${cell(values[dup + 1], L.name) || 'another customer'}. Edit that customer instead.`);
+    const row = new Array(L.width).fill('');
+    row[L.phone] = "'" + phone; row[L.name] = name; row[L.count] = orders; row[L.date] = last;
+    if (L.address >= 0) row[L.address] = address;
+    if (L.note >= 0) row[L.note] = note;
+    return { action: 'append', row };
+  }
+  const rowNum = Number(input.row);
+  const old = checkRow(values, L, rowNum, input.expectPhone, 'That customer');
+  if (phone !== normalisePhone(cell(old, L.phone)) && other(rowNum) !== -1) throw fail(`${phone} already belongs to another customer. Use Merge to combine them.`);
+  const cells = [];
+  const put = (key, v) => { if (L[key] >= 0) cells.push({ range: `Customers!${colLetter(L[key])}${rowNum}`, values: [[v]] }); };
+  put('phone', "'" + phone); put('name', name); put('count', orders); put('date', last); put('note', note);
+  if (L.address >= 0) {
+    put('address', address);
+    if (address !== cell(old, L.address)) { put('lat', ''); put('lng', ''); }
+  }
+  return { action: 'update', cells };
+}
+
+// Folds the drop row into the keep row, then blanks the drop row (rows are never deleted, so the order app's row numbers stay right).
+function planMerge(values, { keepRow, dropRow, expectKeepPhone, expectDropPhone, orders }) {
+  const L = layoutOf(values[0]);
+  const keepN = Number(keepRow); const dropN = Number(dropRow);
+  if (!keepN || !dropN || keepN === dropN) throw fail('Pick two different customers to merge.');
+  const keep = checkRow(values, L, keepN, expectKeepPhone, 'The customer you keep');
+  const drop = checkRow(values, L, dropN, expectDropPhone, 'The customer you merge in');
+  const total = orders === undefined || orders === '' || orders === null ? (Number(cell(keep, L.count)) || 0) + (Number(cell(drop, L.count)) || 0) : Number(orders);
+  if (!Number.isInteger(total) || total < 0 || total > 99) throw fail('Merged orders must be a whole number from 0 to 99.');
+  const kt = dmyToTime(cell(keep, L.date)); const dt = dmyToTime(cell(drop, L.date));
+  const latest = dt !== null && (kt === null || dt > kt) ? cell(drop, L.date) : cell(keep, L.date);
+  const useDropAddr = !cell(keep, L.address) && !!cell(drop, L.address);
+  const cells = [];
+  const put = (key, v) => { if (L[key] >= 0) cells.push({ range: `Customers!${colLetter(L[key])}${keepN}`, values: [[v]] }); };
+  if (!cell(keep, L.phone)) put('phone', "'" + (normalisePhone(cell(drop, L.phone)) || ''));
+  put('name', cell(keep, L.name) || cell(drop, L.name));
+  put('count', total);
+  put('date', latest);
+  put('lineId', cell(keep, L.lineId) || cell(drop, L.lineId));
+  if (useDropAddr) { put('address', cell(drop, L.address)); put('lat', cell(drop, L.lat)); put('lng', cell(drop, L.lng)); }
+  if (!cell(keep, L.note) && cell(drop, L.note)) put('note', cell(drop, L.note));
+  cells.push({ range: `Customers!A${dropN}:${colLetter(Math.max(L.width, 9) - 1)}${dropN}`, values: [new Array(Math.max(L.width, 9)).fill('')] });
+  return { action: 'update', cells, total };
+}
+
+async function runPlan(plan) {
+  const id = process.env.ORDERS_SHEET_ID;
+  if (!id) throw new Error('ORDERS_SHEET_ID is not set in Railway.');
+  const client = getWriteClient();
+  if (plan.action === 'append') await client.spreadsheets.values.append({ spreadsheetId: id, range: 'Customers!A:A', valueInputOption: 'USER_ENTERED', requestBody: { values: [plan.row] } });
+  else await client.spreadsheets.values.batchUpdate({ spreadsheetId: id, requestBody: { valueInputOption: 'USER_ENTERED', data: plan.cells } });
+}
+async function saveCustomer(input) { const plan = planCustomerEdit(await readCustomers(), input); await runPlan(plan); return { ok: true, added: plan.action === 'append' }; }
+async function mergeCustomers(input) { const plan = planMerge(await readCustomers(), input); await runPlan(plan); return { ok: true, orders: plan.total }; }
+
+module.exports = { normalisePhone, layoutOf, buildCustomerList, summarise, loadCustomers, planCustomerWrite, recordManualCustomer, tierInfo, TIER_LOW, TIER_HIGH, planCustomerEdit, planMerge, saveCustomer, mergeCustomers };

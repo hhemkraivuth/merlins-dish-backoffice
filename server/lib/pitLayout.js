@@ -5,7 +5,7 @@ const KEY = 'pit_layout';
 const THEMES = ['auto', 'normal', 'christmas', 'festive', 'valentines', 'lunar', 'easter', 'songkran', 'unicorn', 'pride', 'bd_lily', 'bd_kay', 'bd_merlin'];
 const TYPES = [
   'plant', 'flowers', 'lamp', 'rug', 'balloons',
-  'tree', 'gift', 'wreath', 'snowman', 'lights', 'candycane',
+  'tree', 'gift', 'wreath', 'snowman', 'lights', 'candycane', 'nutcracker', 'gingerbread', 'reindeer',
   'fairy', 'candles', 'glow', 'goldstars', 'goldballoons',
   'heart', 'hballoons', 'roses', 'garland', 'hgift',
   'lantern', 'lanterns', 'orangetree', 'envelope', 'ingot',

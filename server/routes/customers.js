@@ -9,4 +9,7 @@ async function customersJson(req, res) {
     res.json(out);
   } catch (err) { console.error(err); res.status(500).json({ error: String((err && err.message) || err) }); }
 }
-module.exports = { customersJson };
+const send = (res, err) => { if (!err.status) console.error(err); res.status(err.status || 500).json({ error: String((err && err.message) || err) }); };
+async function customerSave(req, res) { try { res.json(await require('../lib/customers').saveCustomer(req.body || {})); } catch (err) { send(res, err); } }
+async function customerMerge(req, res) { try { res.json(await require('../lib/customers').mergeCustomers(req.body || {})); } catch (err) { send(res, err); } }
+module.exports = { customersJson, customerSave, customerMerge };

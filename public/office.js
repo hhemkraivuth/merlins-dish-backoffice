@@ -134,6 +134,9 @@
     snowman: { label: 'Snowman', group: 'christmas', draw: () => `<circle cx="0" cy="-3" r="3" fill="#fff" stroke="#c8d2e0" stroke-width=".3"/><circle cx="0" cy="-8" r="2.3" fill="#fff" stroke="#c8d2e0" stroke-width=".3"/><circle cx="0" cy="-11.6" r="1.8" fill="#fff" stroke="#c8d2e0" stroke-width=".3"/><circle cx="-.7" cy="-12" r=".25" fill="#2b1b1b"/><circle cx=".7" cy="-12" r=".25" fill="#2b1b1b"/><path d="M0 -11.4 L1.8 -11.1 L0 -10.8 Z" fill="#f08a2b"/><rect x="-2" y="-10" width="4" height=".9" fill="${RED}"/>` },
     lights: { label: 'String lights', group: 'christmas', draw: () => { const c = ['#e63d23', GOLD, '#63cbc6', '#294bd4']; return STRING + sag(8, (x, y, i) => `<circle cx="${x.toFixed(1)}" cy="${(y + 1).toFixed(1)}" r=".9" fill="${c[i % 4]}"/>`); } },
     candycane: { label: 'Candy cane', group: 'christmas', draw: () => `<path d="M0 0 L0 -8 Q0 -11 -2.6 -10.4" stroke="${RED}" stroke-width="1.6" fill="none"/><path d="M0 0 L0 -8 Q0 -11 -2.6 -10.4" stroke="#fff" stroke-width="1.6" fill="none" stroke-dasharray="1 1.2"/>` },
+    nutcracker: { label: 'Nutcracker', group: 'christmas', draw: () => `<rect x="-2.6" y="-6" width="2.2" height="6" fill="#1f2a5c"/><rect x=".4" y="-6" width="2.2" height="6" fill="#1f2a5c"/><rect x="-3" y="-1.2" width="2.8" height="1.2" rx=".4" fill="#222"/><rect x=".2" y="-1.2" width="2.8" height="1.2" rx=".4" fill="#222"/><rect x="-3.4" y="-15" width="6.8" height="9.4" rx="1" fill="${RED}"/><rect x="-3.4" y="-9" width="6.8" height="1" fill="#222"/><rect x="-.7" y="-9.1" width="1.4" height="1.2" fill="${GOLD}"/><circle cx="0" cy="-13.4" r=".5" fill="${GOLD}"/><circle cx="0" cy="-11.4" r=".5" fill="${GOLD}"/><rect x="-5.2" y="-14.4" width="1.9" height="6" rx=".9" fill="${RED}"/><rect x="3.3" y="-14.4" width="1.9" height="6" rx=".9" fill="${RED}"/><circle cx="-4.3" cy="-8.2" r="1" fill="#fff"/><circle cx="4.3" cy="-8.2" r="1" fill="#fff"/><circle cx="0" cy="-17.6" r="2.5" fill="#f2c9a0"/><path d="M-2.3 -16.6 Q0 -12.8 2.3 -16.6 Z" fill="#fff"/><circle cx="-1" cy="-18.2" r=".3" fill="#2b1b1b"/><circle cx="1" cy="-18.2" r=".3" fill="#2b1b1b"/><rect x="-2.7" y="-25.6" width="5.4" height="6.6" rx=".6" fill="#1b1b24"/><rect x="-2.7" y="-20.8" width="5.4" height="1" fill="${GOLD}"/><circle cx="0" cy="-26" r="1" fill="${RED}"/>` },
+    gingerbread: { label: 'Gingerbread man', group: 'christmas', draw: () => `<rect x="-3" y="-4.4" width="2.4" height="4.4" rx="1.1" fill="#b5733a"/><rect x=".6" y="-4.4" width="2.4" height="4.4" rx="1.1" fill="#b5733a"/><rect x="-5.2" y="-9.6" width="10.4" height="2.2" rx="1.1" fill="#b5733a"/><rect x="-2.5" y="-10.2" width="5" height="6.6" rx="1.8" fill="#b5733a"/><circle cx="0" cy="-12.6" r="2.8" fill="#b5733a"/><circle cx="-1" cy="-13" r=".35" fill="#fff"/><circle cx="1" cy="-13" r=".35" fill="#fff"/><path d="M-1.1 -11.8 Q0 -10.8 1.1 -11.8" stroke="#fff" stroke-width=".4" fill="none"/><circle cx="0" cy="-8.2" r=".55" fill="${RED}"/><circle cx="0" cy="-6.4" r=".55" fill="${GREEN}"/><path d="M-4.9 -8 L-3.9 -8 M3.9 -8 L4.9 -8 M-2.8 -.6 L-1.2 -.6 M1.2 -.6 L2.8 -.6" stroke="#fff" stroke-width=".4" stroke-linecap="round"/>` },
+    reindeer: { label: 'Reindeer', group: 'christmas', draw: () => `<rect x="-3.6" y="-4.4" width="1.1" height="4.4" fill="#7d542f"/><rect x="-1.8" y="-4.4" width="1.1" height="4.4" fill="#7d542f"/><rect x="1.2" y="-4.4" width="1.1" height="4.4" fill="#7d542f"/><rect x="3" y="-4.4" width="1.1" height="4.4" fill="#7d542f"/><ellipse cx="0" cy="-6" rx="4.8" ry="2.8" fill="#9a6a3f"/><circle cx="-5" cy="-7" r="1" fill="#fff"/><path d="M3 -7.4 L5.2 -11.4 L6.8 -10.4 L4.6 -6Z" fill="#9a6a3f"/><ellipse cx="6.6" cy="-11" rx="2" ry="1.6" fill="#9a6a3f"/><circle cx="8.4" cy="-10.6" r=".9" fill="#e63d23"/><circle cx="6.2" cy="-11.6" r=".3" fill="#2b1b1b"/><path d="M5.8 -12.4 L5 -15.6 M5 -15.6 L3.8 -15 M5 -15.6 L5.6 -17 M7.2 -12.4 L8 -15.6 M8 -15.6 L9.2 -15 M8 -15.6 L7.4 -17" stroke="#6b4423" stroke-width=".5" fill="none" stroke-linecap="round"/><path d="M3.6 -8.4 L5.4 -9.8" stroke="${RED}" stroke-width=".9"/><circle cx="4.5" cy="-8.9" r=".6" fill="${GOLD}"/>` },
     // Festive glow (New Year)
     fairy: { label: 'Fairy lights', group: 'festive', draw: () => STRING + sag(10, (x, y) => `<circle cx="${x.toFixed(1)}" cy="${(y + 1).toFixed(1)}" r="1.9" fill="#ffd98a" opacity=".3"/><circle cx="${x.toFixed(1)}" cy="${(y + 1).toFixed(1)}" r=".7" fill="#fff4c4"/>`) },
     candles: { label: 'Candles', group: 'festive', draw: () => [[-2.6, 5], [0, 7], [2.6, 4.4]].map(([x, h]) => `<circle cx="${x}" cy="${-h - 1.6}" r="2.2" fill="#ffd98a" opacity=".3"/><rect x="${x - 0.8}" y="${-h}" width="1.6" height="${h}" rx=".3" fill="#fff4dc"/><path d="M${x} ${-h - 2.6} Q${x + 0.9} ${-h - 1.2} ${x} ${-h - 0.2} Q${x - 0.9} ${-h - 1.2} ${x} ${-h - 2.6}Z" fill="#ffb347"/>`).join('') },
@@ -208,12 +211,12 @@
     christmas: [
       ...WALL.map((x) => ['lights', x, 12]),
       ...[28, 70, 118, 140, 182].map((x) => ['wreath', x, 11]), ['wreath', 48, 11],
-      ['tree', 8, 116], ['tree', 22, 116], ['tree', 184, 116], ['tree', 170, 117], ['tree', 96, 119],
-      ...[34, 41, 48, 56].map((x, i) => ['gift', x, 116 + (i % 2)]),
-      ...[148, 156, 162, 178].map((x, i) => ['gift', x, 116 + (i % 2)]),
-      ['gift', 86, 118], ['gift', 106, 118], ['gift', 100, 119],
-      ['snowman', 62, 117], ['snowman', 128, 117], ['snowman', 176, 117], ['snowman', 14, 90],
-      ...[76, 112, 8, 186, 64, 120, 40, 152].map((x, i) => ['candycane', x, i < 4 ? 118 : 100]),
+      ['nutcracker', 7, 118], ['tree', 24, 117], ['gift', 36, 117], ['gift', 42, 116], ['gift', 39, 119],
+      ['gingerbread', 54, 118], ['candycane', 62, 118], ['snowman', 70, 117], ['reindeer', 86, 118],
+      ['gift', 100, 119], ['gift', 106, 117], ['gingerbread', 114, 118], ['reindeer', 128, 118],
+      ['snowman', 142, 117], ['gift', 152, 117], ['gift', 158, 116], ['candycane', 164, 118],
+      ['tree', 178, 117], ['nutcracker', 187, 118],
+      ['snowman', 14, 92], ['gingerbread', 178, 94], ['candycane', 8, 70], ['candycane', 186, 70], ['reindeer', 20, 52],
     ],
     festive: [...WALL.map((x) => ['fairy', x, 12]), ['glow', 22, 116], ['glow', 172, 116], ['candles', 36, 117], ['candles', 150, 116], ['goldstars', 96, 110], ['goldballoons', 60, 116]],
     valentines: [...WALL.map((x) => ['garland', x, 12]), ['heart', 96, 113], ['hballoons', 22, 116], ['hballoons', 172, 116], ['roses', 34, 117]],
@@ -227,6 +230,15 @@
     const k = BD[id].key;
     PRESETS[id] = [...WALL.map((x) => [`${k}_banner`, x, 12]), [`${k}_cake`, 96, 113], [`${k}_balloons`, 22, 116], [`${k}_balloons`, 172, 116], [`${k}_gifts`, 40, 117], [`${k}_gifts`, 150, 116]];
   });
+
+  // Snow for the Christmas look: slow falling flakes, drawn over the room. Skipped for people who ask their phone for less motion.
+  function snow() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return '';
+    return Array.from({ length: 44 }, (_, i) => {
+      const x = (i * 43 + 11) % W, r = 0.45 + (i % 4) * 0.2, dur = 7 + (i % 6) * 1.3, off = (i * 1.7) % dur, sway = 2 + (i % 3);
+      return `<circle cx="${x}" cy="-3" r="${r.toFixed(2)}" fill="#ffffff" stroke="#9fb4d6" stroke-width=".12" opacity=".9"><animate attributeName="cy" from="-3" to="${H + 3}" dur="${dur.toFixed(1)}s" begin="-${off.toFixed(1)}s" repeatCount="indefinite"/><animate attributeName="cx" values="${x};${x + sway};${x}" dur="${(3 + (i % 4)).toFixed(0)}s" begin="-${off.toFixed(1)}s" repeatCount="indefinite"/></circle>`;
+    }).join('');
+  }
   const at = (x, y, body) => `<g transform="translate(${x} ${y})">${body}</g>`;
   const visible = (it, theme, bday) => { const d = DECOR[it.t]; return d && (d.group === 'general' || d.group === theme || (bday || []).includes(d.group)); };
 
@@ -333,7 +345,7 @@
         return `<g data-di="${i}" transform="translate(${it.x} ${it.y})"${dim}>${hit}${DECOR[it.t].draw()}${ring}</g>`;
       }).join('');
       const chars = PIGS.map((p, n) => `<g class="ch" data-n="${n}"><g transform="scale(1.1)">${p.giraffe ? giraffe() : pig(p.shirt)}${costume(costumeOf, Boolean(p.giraffe))}</g></g>`).join('');
-      svg.innerHTML = `${PRIDE_DEFS}${room()}<text x="98" y="104.2" text-anchor="middle" font-size="3" font-weight="700" letter-spacing=".5" fill="#294bd4" opacity=".55">MARKETING TEAM</text>${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}${floorText(state.theme, state.bday)}<g>${preset}</g><g>${placed}</g>${chars}`;
+      svg.innerHTML = `${PRIDE_DEFS}${room()}<text x="98" y="104.2" text-anchor="middle" font-size="3" font-weight="700" letter-spacing=".5" fill="#294bd4" opacity=".55">MARKETING TEAM</text>${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}${floorText(state.theme, state.bday)}<g>${preset}</g><g>${placed}</g>${chars}${state.theme === 'christmas' ? `<g pointer-events="none">${snow()}</g>` : ''}`;
       const els = [...svg.querySelectorAll('.ch')];
       pigs.forEach((p, n) => { p.el = els[n]; });
       paint();

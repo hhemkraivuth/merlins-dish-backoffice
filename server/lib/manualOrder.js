@@ -26,10 +26,11 @@ function parseManualOrders(text, today) {
     const date = parseDate(head[1], today);
     if (!date) { problems.push(`"${head[1]}" is not a valid date`); continue; }
     const dmy = formatDMY(date); const time = head[2] || ''; const name = head[4].trim(); const from = head[3] ? 'Instagram' : 'LINE';
-    const items = []; let delivery = 0; let discount = 0; let stated = null; let bad = null; let phone = ''; let address = '';
+    const items = []; let delivery = 0; let discount = 0; let stated = null; let bad = null; let phone = ''; let address = ''; let redeem = null;
     for (const line of lines.slice(1)) {
       let m;
       if ((m = line.match(/^(?:phone|tel|contact(?:\s+number)?)\s*[:\-]?\s*(.+)$/i))) { phone = m[1].trim(); continue; }
+      if ((m = line.match(/^(?:redeem|reward)\s*[:\-]?\s*(5|10)\s*(?:pts?|points?)?$/i))) { redeem = Number(m[1]); continue; }
       if ((m = line.match(/^address\s*[:\-]?\s*(.+)$/i))) { address = m[1].trim(); continue; }
       if ((m = line.match(/^total\s*[:\-]?\s*(?:฿\s*)?(\d+(?:\.\d+)?)\s*(?:thb|baht|฿)?$/i))) { stated = Number(m[1]); continue; }
       if ((m = line.match(/^delivery(?:\s+fee)?\s*[:\-]?\s*(?:฿\s*)?(\d+(?:\.\d+)?)\s*(?:thb|baht|฿)?$/i))) { delivery += Number(m[1]); continue; }
@@ -45,10 +46,10 @@ function parseManualOrders(text, today) {
 
     const sig = crypto.createHash('sha1').update([dmy, time, name, JSON.stringify(items), delivery, discount, from].join('|')).digest('hex').slice(0, 10);
     const ref = `#M${sig.slice(0, 4).toUpperCase()}`;
-    const rows = items.map((it, i) => [dmy, it.name, 'LINE', from, 'Order', it.qty, it.price, '', money(it.qty * it.price), name, ref, time, `L|M${sig}|${i}`, i === 0 ? ['Typed in by hand (bot was down)', phone && `Phone ${phone}`, address && `Address ${address}`].filter(Boolean).join('. ') : '']);
+    const rows = items.map((it, i) => [dmy, it.name, 'LINE', from, 'Order', it.qty, it.price, '', money(it.qty * it.price), name, ref, time, `L|M${sig}|${i}`, i === 0 ? ['Typed in by hand (bot was down)', phone && `Phone ${phone}`, address && `Address ${address}`, redeem && `Redeemed the ${redeem} point reward`].filter(Boolean).join('. ') : '']);
     if (delivery) rows.push([dmy, 'Delivery fee charged', 'LINE', from, 'Delivery', 1, money(delivery), '', money(delivery), name, ref, time, `L|M${sig}|f`, '']);
     if (discount) rows.push([dmy, 'Promo discount', 'LINE', from, 'Discount', 1, '', money(discount), money(-discount), name, ref, time, `L|M${sig}|d`, '']);
-    orders.push({ dmy, name, ref, total, rows, phone, address });
+    orders.push({ dmy, name, ref, total, rows, phone, address, redeem });
   }
   return { orders, problems };
 }

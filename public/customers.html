@@ -31,6 +31,16 @@
     .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #fbf3e8; color: var(--muted); white-space: nowrap; }
     .tag.ready { background: #e3f5ec; color: var(--ok); font-weight: 600; }
     .tag.warn { background: #fdeae6; color: var(--flag); }
+    .editor { background: var(--card); border: 1.5px solid var(--blue); border-radius: 12px; padding: 12px 14px; margin: 0 0 14px; }
+    .editor h3 { margin: 0 0 8px; font-size: 16px; }
+    .editor .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 12px; }
+    .editor label { font-size: 12px; color: var(--muted); display: block; }
+    .editor input, .editor select { font: inherit; width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
+    .editor .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+    .editor .merge { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+    .editor .msg { font-size: 13px; min-height: 18px; margin-top: 6px; }
+    .editor .msg.err { color: var(--flag); }
+    .editbtn { font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--blue); cursor: pointer; }
     .why { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
     @media (max-width: 600px) { .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } .tab-bar .tab-button { flex: 0 0 auto; white-space: nowrap; } }
   </style>
@@ -58,9 +68,10 @@
       <a class="tab-button tab-link" href="analysis.html">Analysis</a>
     </nav>
     <main class="main wide">
-      <div class="topline"><h2>Customers</h2><span style="display:flex;gap:8px"><button id="csv" type="button">Download CSV</button><button id="reload" type="button">Refresh</button></span></div>
+      <div class="topline"><h2>Customers</h2><span style="display:flex;gap:8px"><button id="add" type="button">Add customer</button><button id="csv" type="button">Download CSV</button><button id="reload" type="button">Refresh</button></span></div>
       <div id="status" class="status">Loading…</div>
       <div id="cards" class="cards"></div>
+      <div id="editor" class="editor" hidden></div>
       <div class="bar"><input id="q" type="search" placeholder="Search name, phone or address" /><div class="chips" id="chips"></div></div>
       <p class="why">This page only reads the Customers tab. Orders typed by hand on the Numbers page (with phone and address lines) are added to it automatically. Points are the order count: a free Bacon Steak from order 5, a free meal at order 10.</p>
       <div class="tablewrap"><table id="tbl"></table></div>

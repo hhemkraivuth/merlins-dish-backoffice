@@ -192,6 +192,7 @@ function draw(d) {
   $('top').innerHTML = reportBar(d)
     + planCard(d)
     + linkClicksBox(d.links)
+    + customersBox(d.crm)
     + insightTop(d)
     + betStrip(d)
     + numbers(d)
@@ -207,6 +208,14 @@ function draw(d) {
   $('sections').innerHTML = '';
 }
 
+function customersBox(c) {
+  if (!c || !c.summary) return '';
+  const m = c.summary;
+  if (!m.customers) return '<div class="box"><h3>Customers</h3><p class="sub">No direct customers saved yet. <a href="customers.html">Open Customers</a></p></div>';
+  const bits = [`${m.repeatPct}% ordered again (${m.repeat} of ${m.customers})`, `${m.lapsed} repeat ${m.lapsed === 1 ? 'customer' : 'customers'} quiet for 30+ days`, `${m.rewardReady} ${m.rewardReady === 1 ? 'reward' : 'rewards'} ready, ${m.nearReward} one order away`];
+  return `<div class="box"><h3>Customers</h3><p class="sub" style="margin:0 0 6px">${bits.map(esc).join('. ')}.</p><a href="customers.html">Open Customers</a></div>`;
+}
+
 function linkClicksBox(c) {
   if (!c || c.error) return `<div class="box"><h3>Link clicks</h3><p class="sub">${esc((c && c.error) || 'Could not read the tap log.')}</p></div>`;
   if (!c.sources.length) return '<div class="box"><h3>Link clicks</h3><p class="sub">No tagged opens in the last 30 days yet.</p></div>';
@@ -220,12 +229,13 @@ function linkClicksBox(c) {
 async function load() {
   const s = $('status');
   try {
-    const [res, rep, plan, links] = await Promise.all([fetch('/api/marketing'), fetch('/api/marketing/reports').then((r) => r.json()).catch(() => ({})), fetch('/api/content-plan').then((r) => r.json()).catch(() => null), fetch('/api/link-clicks').then((r) => r.json()).catch(() => null)]);
+    const [res, rep, plan, links, crm] = await Promise.all([fetch('/api/marketing'), fetch('/api/marketing/reports').then((r) => r.json()).catch(() => ({})), fetch('/api/content-plan').then((r) => r.json()).catch(() => null), fetch('/api/link-clicks').then((r) => r.json()).catch(() => null), fetch('/api/customers').then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
     d.reports = rep.reports || [];
     d.plan = plan;
     d.links = links;
+    d.crm = crm;
     draw(d);
     $('dlNotes').textContent = `Download all notes (CSV, ${HISTORY.length} rows)`;
     if (!$('kind').options.length) $('kind').innerHTML = d.kinds.map((k) => `<option>${esc(k)}</option>`).join('');
