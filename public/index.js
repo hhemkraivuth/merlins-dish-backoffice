@@ -197,14 +197,15 @@ function wirePromo() {
 // What the customer has to pick before the dish goes in the cart: nothing, a pasta (Noir Ragu, Bolognese) or a size (the stews).
 const choiceOf = (m) => (m.requiresPasta ? 'pasta' : m.requiresSize ? 'size' : 'none');
 const choiceSelect = (id, cur) => `<label>Customer chooses<select id="${id}"><option value="none"${cur === 'none' ? ' selected' : ''}>Nothing, straight into the cart</option><option value="pasta"${cur === 'pasta' ? ' selected' : ''}>A pasta (like Noir Ragu and Bolognese)</option><option value="size"${cur === 'size' ? ' selected' : ''}>A size, Regular or Large (like the stews)</option></select></label>`;
-const noodleTick = (id, on) => `<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} /><span>Offer an optional noodle pairing (a list of noodles on the dish sheet, the customer can skip it)</span></label>`;
+const rowTick = (id, on, text) => `<label style="display:flex;flex-direction:row;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} style="width:18px;height:18px;padding:0;margin:0;flex:none" /><span>${text}</span></label>`;
+const noodleTick = (id, on) => rowTick(id, on, 'Offer an optional noodle pairing (the customer can skip it)');
 // Which noodles a dish offers and which carry the Recommended tag. Ticking Recommend also ticks Offer.
 const noodleRows = (m) => (S.noodles || []).map((n) => {
   const off = !(m.noodleSkip || []).includes(n.id); const rec = (m.noodleRecommend || []).includes(n.id);
-  const tick = (attr, on, text) => `<label style="display:flex;gap:6px;align-items:center;min-height:40px;padding:0 6px"><input type="checkbox" ${attr}="${esc(n.id)}" ${on ? 'checked' : ''} style="width:20px;height:20px" /><span>${text}</span></label>`;
-  return `<div class="item" style="cursor:default;gap:6px;flex-wrap:wrap"><span style="flex:1 1 110px"><b>${esc(n.name)}</b> <span class="sub">${baht(n.extraPrice)}</span></span>${tick('data-nd-offer', off, 'Offer')}${tick('data-nd-rec', rec && off, '★ Recommend')}</div>`;
+  const tick = (attr, on, text) => `<label style="display:flex;flex-direction:row;gap:5px;align-items:center;min-height:32px;padding:0 4px"><input type="checkbox" ${attr}="${esc(n.id)}" ${on ? 'checked' : ''} style="width:20px;height:20px;padding:0;margin:0" /><span>${text}</span></label>`;
+  return `<div class="item" style="cursor:default;gap:2px;flex-wrap:nowrap;padding:1px 0"><span style="flex:1 1 auto;min-width:0"><b>${esc(n.name)}</b> <span class="sub" style="margin:0">${baht(n.extraPrice)}</span></span>${tick('data-nd-offer', off, 'Offer')}${tick('data-nd-rec', rec && off, '★ Recommend')}</div>`;
 }).join('');
-const ageTick = (id, on) => `<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} /><span>Wine or alcohol: 20+ only (customers give a date of birth at checkout)</span></label>`;
+const ageTick = (id, on) => rowTick(id, on, 'Wine or alcohol: 20+ only (customers give a date of birth at checkout)');
 function menuBox() {
   const cats = S.categories || [];
   const byCat = cats.map((c) => ({ c, list: S.menu.filter((m) => m.category === c.id) })).filter((x) => x.list.length);
@@ -231,7 +232,7 @@ function wireMenu() {
       <label>Description<textarea id="mD">${esc(m.description)}</textarea></label>
       ${choiceSelect('mO', choiceOf(m))}
       ${noodleTick('mNd', m.offersNoodles)}
-      <div id="mNdList" style="display:${m.offersNoodles ? 'block' : 'none'};margin:2px 0 8px"><p class="sub" style="margin:0 0 4px">Noodles for this dish. Recommended ones show first with a gold tag.</p>${noodleRows(m)}</div>
+      <div id="mNdList" style="display:${m.offersNoodles ? 'block' : 'none'};margin:2px 0 8px"><p class="sub" style="margin:0 0 2px">Noodles for this dish. Recommended ones show first with a gold tag.</p>${noodleRows(m)}</div>
       ${ageTick('mA', m.ageRestricted)}
       <div class="row" style="align-items:center">${m.image ? `<img src="${esc(m.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${m.image ? 'Change photo' : 'Add a photo'}<input type="file" id="mImg" accept="image/*" /></label></div>
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
@@ -378,8 +379,8 @@ function noodlesBox() {
 }
 const noodleForm = (n, withPhoto) => `<div style="background:#f7f5ef;border-radius:10px;padding:10px;margin:4px 0 8px">
   <div class="row"><label>Name<input id="ndN" value="${esc(n.name)}" style="width:min(240px,60vw)" /></label><label>Upcharge on pasta dishes (฿)<input id="ndS" type="number" min="0" step="1" value="${esc(n.mandatorySurcharge)}" style="width:90px" /></label><label>Price as an extra (฿)<input id="ndE" type="number" min="0" step="1" value="${esc(n.extraPrice)}" style="width:90px" /></label></div>
-  ${n.id ? `<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="ndHP" ${n.hideInPasta ? 'checked' : ''} /><span>Hide on pasta dishes (Ragu, Bolognese and the like)</span></label>
-  <label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="ndHR" ${n.hideInPairing ? 'checked' : ''} /><span>Hide from the optional noodle pairing</span></label>` : ''}
+  ${n.id ? `${rowTick('ndHP', n.hideInPasta, 'Hide on pasta dishes (Ragu, Bolognese and the like)')}
+  ${rowTick('ndHR', n.hideInPairing, 'Hide from the optional noodle pairing')}` : ''}
   <div class="row" style="align-items:center">${n.image ? `<img src="${esc(n.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${n.image ? 'Change photo' : 'Add a photo'}<input type="file" id="ndImg" accept="image/*" /></label></div>
   <div class="row"><button class="primary-button" id="ndSave">${n.id ? 'Save' : 'Add the noodle'}</button><button class="small-button" id="ndCancel">Cancel</button></div></div>`;
 async function noodleBody() {
