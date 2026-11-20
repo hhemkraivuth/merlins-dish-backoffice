@@ -175,6 +175,13 @@ test('merged date cells: a blank date takes the date of the row above (Price Log
   assert.strictEqual(exp.skipped.noDate, 1);
 });
 
+test('ms in a cook note means the mushroom line of the recipe', () => {
+  const { findRecipeIngredient } = require('../lib/costBatch');
+  const { defaultShorthand } = require('../lib/aliases');
+  const recipe = { dish: 'Red Wine Beef Stew', ingredients: [{ name: 'Beef - chuck roll' }, { name: 'Onion' }, { name: 'Mushroom - white' }] };
+  assert.strictEqual(findRecipeIngredient('Ms', recipe, defaultShorthand()).line.name, 'Mushroom - white');
+});
+
 test('a stew yield can be typed with the word yield, commas, or words for the sizes', () => {
   const { parseNote } = require('../lib/noteParser');
   const { defaultShorthand } = require('../lib/aliases');

@@ -25,6 +25,7 @@ const DEFAULT_INGREDIENT_ALIASES = {
   g: 'Garlic',
   cl: 'Celery',
   c: 'Carrot',
+  ms: 'Mushroom',
 };
 
 const { normName: norm } = require('./priceBook');
