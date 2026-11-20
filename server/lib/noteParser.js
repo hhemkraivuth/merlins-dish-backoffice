@@ -25,14 +25,17 @@ const NUM = '\\d+(?:[.,]\\d+)?';
 const ING_LINE = new RegExp(`^(.+?)\\s*[:=]?\\s+(${NUM}(?:\\s*\\+\\s*${NUM})*)\\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?|p)?$`, 'i');
 const sumOf = (txt) => String(txt).split('+').reduce((a, n) => a + Number(n.trim().replace(',', '.')), 0);
 // Stew pack-out shorthand: "7r 4l portions", "R6 l5 portions" = 7 regular and 4 large. Weights come from the recipe tab.
-const SIZE_SHORT_WORD = /\s*(?:portions?|servings?)$/i;
+const SIZE_SHORT_WORD = /\s*(?:yielded|yields?|portions?|servings?)$/i;
 const SIZE_SHORT_BODY = /^(?:(?:\d+\s*[rl]|[rl]\s*\d+)(?:\s+|$)){1,2}$/i;
 const SIZE_SHORT_ITEM = /(\d+)\s*([rl])\b|\b([rl])\s*(\d+)/gi;
-// The word can come before or after the counts: "9r 4l portions", "portions r9 l4", "portions 9r 4l".
-const SIZE_SHORT_LEAD = /^(?:portions?|servings?)\s*[:=]?\s*/i;
+// The word can come before or after the counts: "9r 4l portions", "portions r9 l4", "portions 9r 4l", "yield 6l 4r".
+const SIZE_SHORT_LEAD = /^(?:yielded|yields?|y|portions?|servings?)\s*[:=]?\s*/i;
 function parseSizeShort(line) {
   const hadWord = SIZE_SHORT_WORD.test(line) || SIZE_SHORT_LEAD.test(line);
-  const body = line.replace(SIZE_SHORT_WORD, '').replace(SIZE_SHORT_LEAD, '').trim();
+  // However she types it: "6l, 4r", "6 large and 4 regular", "yield 6L 4R".
+  const body = line.replace(SIZE_SHORT_WORD, '').replace(SIZE_SHORT_LEAD, '')
+    .replace(/\b(large|lg)\b/gi, 'l').replace(/\b(regular|reg)\b/gi, 'r')
+    .replace(/[,&]|\band\b/gi, ' ').replace(/\s+/g, ' ').trim();
   if (!SIZE_SHORT_BODY.test(`${body} `)) return null;
   const out = [];
   for (const m of body.matchAll(SIZE_SHORT_ITEM)) {

@@ -175,6 +175,20 @@ test('merged date cells: a blank date takes the date of the row above (Price Log
   assert.strictEqual(exp.skipped.noDate, 1);
 });
 
+test('a stew yield can be typed with the word yield, commas, or words for the sizes', () => {
+  const { parseNote } = require('../lib/noteParser');
+  const { defaultShorthand } = require('../lib/aliases');
+  const sh = defaultShorthand();
+  for (const tail of ['Yield 6l 4r', 'yield 6L, 4R', 'yield: 4r 6l', 'yielded 6 large and 4 regular', '6l 4r yield', 'y 6l 4r']) {
+    const r = parseNote(`20/11\nRws\nMeat 1000\n${tail}`, sh);
+    assert.deepStrictEqual(r.problems, [], tail);
+    const got = Object.fromEntries(r.batches[0].sizeCounts.map((z) => [z.name, z.count]));
+    assert.deepStrictEqual(got, { Large: 6, Regular: 4 }, tail);
+  }
+  const done = parseNote('Rws 20/11 yield 6l 4r', sh);
+  assert.deepStrictEqual(done.problems, []);
+});
+
 test('a note accepts the pack-out words before or after the counts, and a single letter finds the one matching ingredient', () => {
   const { parseNote } = require('../lib/noteParser');
   const { findRecipeIngredient } = require('../lib/costBatch');
