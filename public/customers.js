@@ -29,8 +29,7 @@ const SORTS = {
 
 function dots(n) {
   // The ladder resets at a redemption, so this shows where the person is now: out of 5 first, then out of 10.
-  const on = Math.min(n, 10);
-  return '●'.repeat(on) + '○'.repeat(Math.max(0, (n < 5 ? 5 : 10) - on));
+  return `${Math.min(n, 10)}/${n < 5 ? 5 : 10}`;
 }
 
 function rows() {
