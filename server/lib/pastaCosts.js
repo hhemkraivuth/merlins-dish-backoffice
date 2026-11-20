@@ -134,11 +134,8 @@ async function loadCards(seed) {
 
 async function save(seed, input) {
   const card = clean(input);
-  // Anything she typed in a field is no longer a guess.
-  const prev = (await loadCards(seed)).find((c) => key(c.card.name) === key(card.name));
-  const old = prev ? prev.card : null;
-  const changed = (k) => !old || String(old[k]) !== String(card[k]);
-  card.unconfirmed = (card.unconfirmed || (old && old.unconfirmed) || []).filter((k) => !changed(k));
+  // Pressing Save on the card confirms every number on it, changed or not.
+  card.unconfirmed = [];
   await ensureTab(TAB, HEADERS);
   const { name, ...rest } = card;
   await appendRows(TAB, [[name, new Date().toISOString(), JSON.stringify(rest)]], { raw: true });

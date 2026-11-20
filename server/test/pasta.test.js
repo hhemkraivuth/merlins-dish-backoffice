@@ -38,3 +38,8 @@ test('ledger recipe rows with no cost get the pasta cost', () => {
   assert.ok(ledger[0].cost > 0);
   assert.ok(ledger.pastaCosts.has('risoni'));
 });
+
+test('saving a card confirms every number on it', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../lib/pastaCosts.js'), 'utf8');
+  assert.match(src, /card\.unconfirmed = \[\];/);
+});

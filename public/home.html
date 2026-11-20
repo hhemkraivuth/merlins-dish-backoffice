@@ -38,6 +38,11 @@
     .office.editing .plate { pointer-events: none; opacity: .6; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (min-width: 760px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    .auditcard { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; margin: 0 0 16px; color: var(--ink); text-decoration: none; }
+    .auditcard .dot { width: 16px; height: 16px; border-radius: 50%; flex: none; background: #2e8b6e; }
+    .auditcard.amber .dot { background: #f0a020; } .auditcard.red .dot { background: #d9392b; }
+    .auditcard b { display: block; font-size: 16px; } .auditcard small { color: var(--muted); font-size: 12px; }
+    .auditcard .go { margin-left: auto; font-weight: 600; color: var(--blue); font-size: 14px; }
     .team { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--red); border-radius: 12px; padding: 12px 14px 12px; }
     .team:nth-child(even) { border-top-color: var(--blue); }
     .team.flash { box-shadow: 0 0 0 3px var(--yellow); }
@@ -100,6 +105,7 @@
       </div>
       <div class="status" id="status">Loading…</div>
       <p class="week">This week, Sunday to Saturday. Tap a card for the detail.</p>
+      <a class="auditcard" id="auditCard" href="audit.html" hidden><span class="dot"></span><span><b id="auditText"></b><small id="auditSub"></small></span><span class="go">Review ›</span></a>
       <section class="shop-box" id="attnBox" hidden><h2>Needs attention</h2><p class="muted" id="attnLead"></p><div id="attnList"></div></section>
       <section class="shop-box" id="todoBox"><h2>To do</h2><div data-card></div></section>
       <section class="shop-box" id="stockBox"><h2>Stock left</h2><div id="stockLeft"></div>

@@ -3,7 +3,7 @@ const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const slug = (n) => String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 // Where each team's card leads. Top line only here, the detail lives on the team's own page.
-const PAGE = { 'Grab sales': 'reports.html', 'Direct sales': 'reports.html', Operations: '/#batchcook', Purchasing: '/#receipts', Marketing: 'marketing.html', Strategy: 'marketing.html', Content: 'content-plan.html', 'Paid Media': 'marketing.html' };
+const PAGE = { 'Grab sales': 'reports.html', 'Direct sales': 'reports.html', Audit: 'audit.html', Operations: '/#batchcook', Purchasing: '/#receipts', Marketing: 'marketing.html', Strategy: 'marketing.html', Content: 'content-plan.html', 'Paid Media': 'marketing.html' };
 
 // One short line per team message: first sentence only, names shortened, year dropped.
 const TEAM = (v) => esc(String(v).replace('App sales, Direct sales', 'Sales').replace('App sales', 'Grab sales'));
@@ -204,3 +204,15 @@ document.addEventListener('click', async (e) => {
   }
 });
 loadAttention();
+
+// Audit card: one traffic light line, the detail is on the Audit page.
+(async function loadAudit() {
+  const box = $('auditCard'); if (!box) return;
+  try {
+    const res = await fetch('/api/audit'); const v = await res.json().catch(() => ({}));
+    if (!res.ok) return;
+    box.className = `auditcard ${v.light || ''}`; box.hidden = false;
+    $('auditText').textContent = v.never ? 'Audit: not run yet' : v.text;
+    $('auditSub').textContent = v.never ? 'Runs every night at 5:00am' : (v.baht >= 1 ? `${'฿' + Math.round(v.baht).toLocaleString('en-AU')} at risk` : (v.count ? 'Tap to review' : 'Books look right'));
+  } catch (err) { /* the card stays hidden */ }
+})();

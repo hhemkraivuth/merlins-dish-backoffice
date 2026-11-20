@@ -190,4 +190,33 @@ function startIndexExpiryTimer(run, { every = 3600000, log = console } = {}) {
   return setInterval(tick, every);
 }
 
-module.exports = { startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer };
+// Nightly audit at AUDIT_TIME (Bangkok, default 05:00), once a day, after the 03:00 imports. "Already done" lives in `store`.
+// On Sundays it also sends one line to the BOH group through send(text). Off with AUDIT_AUTO=off.
+const AUDIT_KEY = 'audit_last_run';
+function startAuditTimer(run, send, { now = () => Date.now(), every = 60000, log = console, store = memoryStore() } = {}) {
+  if (String(process.env.AUDIT_AUTO || '').toLowerCase() === 'off') return null;
+  const at = /^\d{1,2}:\d{2}$/.test(process.env.AUDIT_TIME || '') ? process.env.AUDIT_TIME : '05:00';
+  const [h, m] = at.split(':').map(Number);
+  let doneDay = null; let busy = false; let lastTry = 0;
+  const tick = async () => {
+    if (busy) return;
+    const b = new Date(now() + 7 * 3600 * 1000);
+    if (b.getUTCHours() * 60 + b.getUTCMinutes() < h * 60 + m) return;
+    const day = b.toISOString().slice(0, 10);
+    if (doneDay === day || now() - lastTry < RETRY_GAP_MS) return;
+    busy = true;
+    try {
+      let last; try { last = await store.get(AUDIT_KEY); } catch (err) { log.error('Audit: could not check the last run.', err.message); return; }
+      if (last === day) { doneDay = day; return; }
+      lastTry = now();
+      try {
+        const v = await run();
+        await store.set(AUDIT_KEY, day); doneDay = day; log.log(`Audit ran for ${day}`);
+        if (b.getUTCDay() === 0 && send) { try { await send(v); } catch (err) { log.error('Audit Sunday line failed:', err.message); } }
+      } catch (err) { log.error('Audit failed:', err.message); }
+    } finally { busy = false; }
+  };
+  return setInterval(tick, every);
+}
+
+module.exports = { startAuditTimer, startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer };

@@ -3,7 +3,7 @@
 // Plain SVG. Desk name plates are HTML on top so they stay sharp and tappable.
 (function () {
   const W = 192, H = 120, LANE = 54;
-  const DESKS = [[10, 16], [48, 16], [148, 16], [86, 16], [36, 72], [68, 72], [100, 72], [132, 72]]; // top-left of each desk, 28 x 12. Top row: Grab, Direct, Operations (kitchen), Purchasing. Bottom row: the marketing island (Marketing, Strategy, Creative, Paid Media) pushed together, clear of the plants
+  const DESKS = [[10, 16], [48, 16], [148, 16], [86, 16], [16, 72], [48, 72], [80, 72], [112, 72], [144, 72]]; // top-left of each desk, 28 x 12. Top row: Grab, Direct, Operations (kitchen), Purchasing. Bottom row: the marketing island (Marketing, Strategy, Creative, Paid Media) pushed together, clear of the plants
   const TOP_ROW = 4;
   const KITCHEN = 2; // Operations
   const SPOTS = [[14, 108], [170, 108], [8, 40]]; // standing spots on the floor, so every character can always move
@@ -17,6 +17,7 @@
     { name: 'Teal', shirt: '#63cbc6' },
     { name: 'Navy', shirt: '#253f90' },
     { name: 'Orange', shirt: '#f08a24' },
+    { name: 'Audit', shirt: '#6b4fa0', glasses: true },
   ];
   const P = { pink: '#f4a6b8', ear: '#e07a95', snout: '#d9607f', ink: '#2b1b1b', boot: '#5a3b2e', collar: '#8a5a3b' };
 
@@ -47,6 +48,8 @@
       <circle cx="2.8" cy="3.6" r=".9" fill="#f08aa0" opacity=".7"/><circle cx="9.2" cy="3.6" r=".9" fill="#f08aa0" opacity=".7"/>
       <circle cx="4.2" cy="2.6" r=".5" fill="${P.ink}"/><circle cx="7.8" cy="2.6" r=".5" fill="${P.ink}"/>`;
   }
+  // The auditor's round glasses, drawn over the eyes of a pig.
+  const glasses = () => `<circle cx="4.2" cy="2.6" r="1.35" fill="#ffffff" fill-opacity=".55" stroke="${P.ink}" stroke-width=".4"/><circle cx="7.8" cy="2.6" r="1.35" fill="#ffffff" fill-opacity=".55" stroke="${P.ink}" stroke-width=".4"/><path d="M5.55 2.6 L6.45 2.6" stroke="${P.ink}" stroke-width=".4"/><path d="M2.85 2.5 L1.6 2.1 M9.15 2.5 L10.4 2.1" stroke="${P.ink}" stroke-width=".35"/>`;
   function giraffe() {
     // Same overall height as before. The neck is 3.6 shorter, the chef's hat 3.6 taller (a tall toque, not a turban),
     // and the body is the same size as a pig's.
@@ -329,7 +332,7 @@
     const state = { theme: 'normal', bday: [], items: [], editing: false, palette: null, sel: null };
     let listener = null;
     const notify = () => { if (listener) listener({ editing: state.editing, palette: state.palette, selected: state.sel, count: state.items.length }); };
-    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="An office with eight team desks, seven pigs in t shirts and a giraffe chef walking between them" xmlns="http://www.w3.org/2000/svg"></svg>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="An office with nine team desks, eight pigs in t shirts, one with glasses who is the auditor, and a giraffe chef walking between them" xmlns="http://www.w3.org/2000/svg"></svg>`;
     const svg = box.querySelector('svg');
     const pigs = PIGS.map((p, n) => { const at0 = n % STATIONS.length; return { at: at0, x: SEATS[at0].seat[0], y: SEATS[at0].seat[1], path: [], wait: 1 + n * 1.3, step: 0, t: 0, el: null }; });
     const paint = () => [...pigs].sort((a, b) => a.y - b.y).forEach((p) => { p.el.setAttribute('transform', `translate(${p.x.toFixed(2)} ${(p.y + (p.step ? -0.8 : 0)).toFixed(2)})`); p.el.parentNode.appendChild(p.el); });
@@ -344,8 +347,8 @@
         const dim = state.editing && !visible(it, state.theme, state.bday) ? ' opacity=".5"' : '';
         return `<g data-di="${i}" transform="translate(${it.x} ${it.y})"${dim}>${hit}${DECOR[it.t].draw()}${ring}</g>`;
       }).join('');
-      const chars = PIGS.map((p, n) => `<g class="ch" data-n="${n}"><g transform="scale(1.1)">${p.giraffe ? giraffe() : pig(p.shirt)}${costume(costumeOf, Boolean(p.giraffe))}</g></g>`).join('');
-      svg.innerHTML = `${PRIDE_DEFS}${room()}<text x="98" y="104.2" text-anchor="middle" font-size="3" font-weight="700" letter-spacing=".5" fill="#294bd4" opacity=".55">MARKETING TEAM</text>${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}${floorText(state.theme, state.bday)}<g>${preset}</g><g>${placed}</g>${chars}${state.theme === 'christmas' ? `<g pointer-events="none">${snow()}</g>` : ''}`;
+      const chars = PIGS.map((p, n) => `<g class="ch" data-n="${n}"><g transform="scale(1.1)">${p.giraffe ? giraffe() : pig(p.shirt)}${costume(costumeOf, Boolean(p.giraffe))}${p.glasses ? glasses() : ''}</g></g>`).join('');
+      svg.innerHTML = `${PRIDE_DEFS}${room()}<text x="78" y="104.2" text-anchor="middle" font-size="3" font-weight="700" letter-spacing=".5" fill="#294bd4" opacity=".55">MARKETING TEAM</text>${DESKS.map(desk).join('')}${state.theme === 'festive' ? `<rect width="${W}" height="${H}" fill="#ffb347" opacity=".10"/>` : ''}${floorText(state.theme, state.bday)}<g>${preset}</g><g>${placed}</g>${chars}${state.theme === 'christmas' ? `<g pointer-events="none">${snow()}</g>` : ''}`;
       const els = [...svg.querySelectorAll('.ch')];
       pigs.forEach((p, n) => { p.el = els[n]; });
       paint();

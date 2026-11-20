@@ -292,19 +292,37 @@ async function huddle({ sync = true } = {}) {
 }
 
 // The home page: one card per team. Read only, it never writes a tab.
-async function pit() {
-  const today = bangkokToday();
-  const d = await loadAll();
+async function pitStock(d, today) {
   const estimated = sellThrough(d.ledger, d.cookBatches, today, d.waste);
   // A count Lily typed beats the cooked minus sold estimate, for the dishes she counted.
   const countRows = await readOrEmpty('Ready Counts');
   const counted = new Map(buildReadyStock({ today, ledger: d.ledger, cookBatches: d.cookBatches, countRows }).items.filter((i) => i.basis === 'counted').map((i) => [i.dish.toLowerCase(), i]));
   const stock = estimated.map((e) => { const c = counted.get(String(e.dish).toLowerCase()); return c ? { ...e, remaining: c.left, oldestAgeDays: c.ageDays } : e; });
   counted.forEach((c, key) => { if (!estimated.some((e) => String(e.dish).toLowerCase() === key)) stock.push({ dish: c.dish, remaining: c.left, oldestAgeDays: c.ageDays, live: [] }); });
+  return stock;
+}
+
+async function pit() {
+  const today = bangkokToday();
+  const d = await loadAll();
+  const stock = await pitStock(d, today);
   const noteRows = await readOrEmpty(marketingLib.TAB);
   const built = buildPit({ noteRows, today, ledger: d.ledger, cookBatches: d.cookBatches, purchases: d.purchases, expense: d.expense, stock, handoffRows: d.handoffRows, lowIngredients: d.lowIngredients, lowPacks: d.lowPacks });
   let plan = null; try { plan = await require('./contentPlan').load(); } catch (e) { /* the card keeps its default text */ }
-  return applyContent(built, plan);
+  const out = applyContent(built, plan);
+  // The Audit desk reads the stored result of the nightly check. It never runs the check here, so the Pit stays quick.
+  try {
+    const a = await require('./audit').view();
+    out.teams.push({
+      name: 'Audit', key: 'Audit', channel: null, open: [], openShort: [],
+      top: a.never ? 'Not run' : a.count ? `${a.count} to review` : 'All clear',
+      line: a.never ? 'checks every night at 5:00am' : a.baht >= 1 ? `฿${Math.round(a.baht).toLocaleString('en-AU')} at risk` : a.count ? 'nothing costing money' : 'the books look right',
+      headline: a.text, light: a.light,
+      note: a.ranAt ? `Last checked ${new Date(a.ranAt).toLocaleString('en-AU', { timeZone: 'Asia/Bangkok', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}` : 'No check yet',
+      updates: a.findings.slice(0, 5).map((f) => f.line),
+    });
+  } catch (e) { /* the pit shows without the desk */ }
+  return out;
 }
 
 // The order bot's public menu feed (read only), for Merlin's own price range. Never blocks the page if the bot is slow or away.
@@ -357,4 +375,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { withPastaCosts, cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { pitStock, withPastaCosts, cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };

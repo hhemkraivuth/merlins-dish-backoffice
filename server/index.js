@@ -14,7 +14,7 @@ const logsRoute = require('./routes/logs');
 const shoppingRoute = require('./routes/shopping');
 const analysisRoute = require('./routes/analysis');
 const marketingReportsRoute = require('./routes/marketingReports');
-const { startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer } = require('./lib/scheduler');
+const { startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer, startAuditTimer } = require('./lib/scheduler');
 const monthlyRoute = require('./routes/monthlyOverheads');
 const appState = require('./lib/appState');
 
@@ -211,6 +211,11 @@ app.post('/api/pasta/save', async (req, res) => {
     res.json(await pastaView());
   } catch (err) { res.status(/must be|needs a name/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); }
 });
+// The Audit desk: stored result of the nightly check, run now, and ignore.
+const audit = require('./lib/audit');
+app.get('/api/audit', async (req, res) => { try { res.json(await audit.view()); } catch (err) { res.status(500).json({ error: err.message }); } });
+app.post('/api/audit/run', async (req, res) => { try { res.json(await audit.run()); } catch (err) { res.status(500).json({ error: `The check could not run: ${err.message}` }); } });
+app.post('/api/audit/ignore', async (req, res) => { try { res.json(await audit.ignore((req.body || {}).id)); } catch (err) { res.status(400).json({ error: err.message }); } });
 const attention = require('./lib/needsAttention');
 app.get('/api/attention', async (req, res) => { try { res.json({ items: await attention.loadAttention() }); } catch (err) { res.status(500).json({ error: `Could not check: ${err.message}` }); } });
 app.post('/api/attention/ignore', async (req, res) => { try { await attention.ignoreItem((req.body || {}).name); res.json({ ok: true }); } catch (err) { res.status(400).json({ error: err.message }); } });
@@ -232,5 +237,9 @@ app.listen(PORT, () => {
   startMonthlyOverheadsTimer(monthlyRoute.runMonthly);
   startTodoReminderTimer(briefingRoute.sendReminder, { store: { get: appState.getState, set: appState.setState } });
   startIndexExpiryTimer(() => botAdmin.expireStale());
+  startAuditTimer(() => audit.run(), async (v) => {
+    const to = process.env.BOH_GROUP_ID; const access = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    if (to && access) await require('./lib/lineApi').push(to, audit.sundayLine(v), access);
+  }, { store: { get: appState.getState, set: appState.setState } });
   startStockSnapshotTimer(require('./routes/stockLeft').runSnapshot, { store: { get: appState.getState, set: appState.setState } });
 });
