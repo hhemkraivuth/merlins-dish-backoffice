@@ -74,7 +74,7 @@ async function loadAttention() {
   const items = attentionItems({ expenseRows, stock, ignored, untracked });
   try {
     const svc = require('./ledgerService'); const { LEDGER_TAB, ledgerObjects } = require('./ledger');
-    items.unshift(...soldWithoutCost({ ledger: ledgerObjects(await svc.readOrEmpty(LEDGER_TAB)), ignored }));
+    items.unshift(...soldWithoutCost({ ledger: await svc.withPastaCosts(ledgerObjects(await svc.readOrEmpty(LEDGER_TAB))), ignored }));
   } catch (err) { console.error('Order cost check failed:', err.message); }
   return items;
 }

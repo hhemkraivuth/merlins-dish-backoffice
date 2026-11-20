@@ -188,6 +188,29 @@ app.post('/api/menu-bible/save', async (req, res) => { try { res.json(await menu
 app.post('/api/menu-bible/delete', async (req, res) => { try { res.json(await menuBible.remove(bibleSeed(), req.body || {})); } catch (err) { res.status(/Say which/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); } });
 app.get('/api/recipes', async (req, res) => { try { res.json(await recipeStore.load(require('./data/recipes.json'))); } catch (err) { res.json({ ...recipeStore.merge(require('./data/recipes.json'), []), warning: `Edits could not be loaded (${err.message}). Showing the starting recipes.` }); } });
 app.post('/api/recipes/save', async (req, res) => { try { res.json(await recipeStore.save(require('./data/recipes.json'), req.body || {})); } catch (err) { res.status(/empty|needs a name/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); } });
+// Pasta cost cards: cost per cooked to order pasta portion, priced live from the price book.
+const pastaCosts = require('./lib/pastaCosts');
+async function pastaView() {
+  const cards = await pastaCosts.loadCards(require('./data/pastaSeed.json'));
+  const pb = await require('./lib/liveData').loadPriceBook();
+  const today = require('./lib/dates').bangkokToday();
+  return { today: today.toISOString().slice(0, 10), cards: cards.map((c) => ({ ...c, cost: pastaCosts.costCard(c.card, pb, today) })) };
+}
+app.get('/api/pasta', async (req, res) => { try { res.json(await pastaView()); } catch (err) { res.status(500).json({ error: `Could not load the pasta costs: ${err.message}` }); } });
+app.post('/api/pasta/save', async (req, res) => {
+  try {
+    await pastaCosts.save(require('./data/pastaSeed.json'), req.body || {});
+    // A brand new pasta also gets its recipe page, so it shows in the Recipes list.
+    const name = String((req.body || {}).name || '').replace(/^pasta\s*-\s*/i, '').trim();
+    try {
+      const doc = await recipeStore.load(require('./data/recipes.json'));
+      if (!doc.dishes.some((d) => pastaCosts.key(d.dish) === pastaCosts.key(name) && /^pasta\s*-/i.test(d.dish))) {
+        await recipeStore.save(require('./data/recipes.json'), { dish: `Pasta - ${name}`, category: 'Noodles', title: `Pasta - ${name}`, text: '**I. How we sell it**\n* Cooked to order. Costs are on this page.' });
+      }
+    } catch (err) { /* the cost card is saved either way */ }
+    res.json(await pastaView());
+  } catch (err) { res.status(/must be|needs a name/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); }
+});
 const attention = require('./lib/needsAttention');
 app.get('/api/attention', async (req, res) => { try { res.json({ items: await attention.loadAttention() }); } catch (err) { res.status(500).json({ error: `Could not check: ${err.message}` }); } });
 app.post('/api/attention/ignore', async (req, res) => { try { await attention.ignoreItem((req.body || {}).name); res.json({ ok: true }); } catch (err) { res.status(400).json({ error: err.message }); } });

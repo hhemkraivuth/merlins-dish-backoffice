@@ -208,6 +208,15 @@ function purchasesFrom(rows) {
   return (rows || []).slice(1).map((r) => ({ date: parseDate(r[0]), name: String(r[1] || '').trim(), amount: num(r[2]), unitCost: num(r[4]) })).filter((x) => x.date);
 }
 
+// Pasta cooked to order is costed from the Pasta Costs cards in BOH. A failure here never blocks the reports.
+async function withPastaCosts(ledger) {
+  try {
+    const pc = require('./pastaCosts');
+    const cards = await pc.loadCards(require('../data/pastaSeed.json'));
+    return pc.applyToLedger(ledger, cards, await require('./liveData').loadPriceBook(), bangkokToday());
+  } catch (err) { return ledger; }
+}
+
 async function loadAll() {
   const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows, wasteRows, closedRows, rdRows] = await Promise.all([
     readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'), readOrEmpty('Closed Days'), readOrEmpty('R&D Log'),
@@ -216,7 +225,7 @@ async function loadAll() {
   const lotBook = new LotBook(lotRows, [], bangkokToday());
   return {
     lotBook,
-    ledger: ledgerObjects(ledgerRows),
+    ledger: await withPastaCosts(ledgerObjects(ledgerRows)),
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
     waste: require('./wasteLog').wasteFrom(wasteRows),
     closed: require('./closedDays').closedFrom(closedRows),
@@ -348,4 +357,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { withPastaCosts, cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };

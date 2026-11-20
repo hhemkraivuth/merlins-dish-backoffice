@@ -45,6 +45,8 @@ function buildCostTable(ledger) {
     if (!table.has(k)) table.set(k, []);
     table.get(k).push({ t: r.date.getTime(), cost: r.cost });
   }
+  // Pasta costed in BOH (Pasta Costs): used for any pasta the Recipe rows have no cost for.
+  if (ledger && ledger.pastaCosts) for (const [k, cost] of ledger.pastaCosts) if (!table.has(k)) table.set(k, [{ t: 0, cost }]);
   for (const list of table.values()) list.sort((a, b) => a.t - b.t);
   return table;
 }

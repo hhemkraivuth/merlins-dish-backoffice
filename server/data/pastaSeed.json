@@ -1,0 +1,185 @@
+{
+ "note": "Starting cards copied from the Pasta tabs of Merlin's numbers on 21/11/2026. Edits are saved in the Pasta Costs tab of the Claude Log.",
+ "cards": [
+  {
+   "name": "Tubetti",
+   "sell": 45,
+   "boxG": 500.0,
+   "dryG": 77.0,
+   "cookedG": 170,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 3.0,
+   "reheat": 1.0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - Tubetti",
+    "Tubetti"
+   ]
+  },
+  {
+   "name": "Rigatoni",
+   "sell": 40,
+   "boxG": 500.0,
+   "dryG": 92.0,
+   "cookedG": 170,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 4.0,
+   "reheat": 2.0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - Rigatoni",
+    "Rigatoni"
+   ]
+  },
+  {
+   "name": "Radiatori",
+   "sell": 45,
+   "boxG": 500.0,
+   "dryG": 73.0,
+   "cookedG": 170,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 7.0,
+   "reheat": 0.0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - Radiatori",
+    "Radiatori"
+   ]
+  },
+  {
+   "name": "Lumache",
+   "sell": 40,
+   "boxG": 500.0,
+   "dryG": 80.0,
+   "cookedG": 170,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 4.0,
+   "reheat": 1.0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - Lumache",
+    "Lumache"
+   ]
+  },
+  {
+   "name": "Linguine",
+   "sell": 40,
+   "boxG": 500.0,
+   "dryG": 75.0,
+   "cookedG": 170,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 11.0,
+   "reheat": 0.0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - Linguini",
+    "Pasta - Linguine",
+    "Linguine"
+   ]
+  },
+  {
+   "name": "Spaghetti",
+   "sell": 40,
+   "boxG": 500.0,
+   "dryG": 75.0,
+   "cookedG": 170,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 7.0,
+   "reheat": 2.0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - Spaghetti",
+    "Spaghetti"
+   ]
+  },
+  {
+   "name": "Heart",
+   "sell": 45,
+   "boxG": 400.0,
+   "dryG": 85.0,
+   "cookedG": 160,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 10.0,
+   "reheat": 0.0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - heart",
+    "Heart"
+   ]
+  },
+  {
+   "name": "Farfalle",
+   "sell": 40,
+   "boxG": 500.0,
+   "dryG": 80.0,
+   "cookedG": 160,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 10.0,
+   "reheat": 0.0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - Bow",
+    "Pasta - Farfalle",
+    "Farfalle"
+   ]
+  },
+  {
+   "name": "Chefferi",
+   "sell": 50,
+   "boxG": 500.0,
+   "dryG": 76.0,
+   "cookedG": 160,
+   "oilG": 1.0,
+   "butterG": 1.0,
+   "cookMin": 6.0,
+   "reheat": 0.0,
+   "pack": "Packaging Cup (12oz)",
+   "packQty": 1.0,
+   "priceNames": [
+    "Pasta - twisting elbow",
+    "Pasta - Chiferri",
+    "Pasta - Chefferi",
+    "Chefferi"
+   ]
+  },
+  {
+   "name": "Risoni",
+   "sell": 45,
+   "boxG": 500,
+   "dryG": 85,
+   "cookedG": 165,
+   "oilG": 2,
+   "butterG": 1,
+   "cookMin": 7,
+   "reheat": 0,
+   "pack": "Packaging Box (carb600ml)",
+   "packQty": 1,
+   "priceNames": [
+    "Pasta - Risoni",
+    "Orzo",
+    "Pasta - riso"
+   ],
+   "unconfirmed": [
+    "cookedG",
+    "oilG",
+    "cookMin"
+   ]
+  }
+ ]
+}

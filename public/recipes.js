@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let DOC = null;
+let PASTA = null; // live pasta cost cards from /api/pasta
 
 // Batch Cook dish names that differ a little from the doc's.
 const key = (n) => String(n || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\b(beef|comfort|the)\b/g, '').replace(/[^a-z0-9]+/g, '');
@@ -46,8 +47,56 @@ function drawChips() {
     const here = DOC.dishes.map((x, n) => [x, n]).filter(([x]) => x.category === c);
     return here.length ? `<optgroup label="${esc(c)}">${here.map(([x, n]) => `<option value="${n}"${n === CUR ? ' selected' : ''}>${esc(x.dish)}</option>`).join('')}</optgroup>` : '';
   }).join('');
-  $('chips').innerHTML = `<label class="fld" style="margin:0 0 6px">Recipe<select id="recipePick" style="width:100%;box-sizing:border-box;font:inherit;padding:10px;border-radius:10px">${groups}</select></label><button data-new="1" class="newbtn">+ New recipe</button>`;
+  $('chips').innerHTML = `<label class="fld" style="margin:0 0 6px">Recipe<select id="recipePick" style="width:100%;box-sizing:border-box;font:inherit;padding:10px;border-radius:10px">${groups}</select></label><button data-new="1" class="newbtn">+ New recipe</button> <button data-newpasta="1" class="newbtn">+ New pasta</button>`;
   $('recipePick').addEventListener('change', (e) => show(Number(e.target.value)));
+}
+
+const baht = (n) => `฿${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const qtyTxt = (n) => String(Math.round(Number(n) * 100) / 100);
+const dmy = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`; };
+const pastaOf = (dish) => PASTA && /^pasta\s*-/i.test(dish) ? PASTA.cards.find((c) => skey(c.card.name) === skey(String(dish).replace(/^pasta\s*-\s*/i, ''))) : null;
+
+// Live cost card for a cooked to order pasta: the same lines as the Pasta tabs in Merlin's numbers, priced from today's price book.
+function showPasta(d, pc) {
+  const c = pc.card; const k = pc.cost;
+  const rows = k.lines.map((l) => `<tr><td>${esc(l.label)}${l.guess ? ' <span class="tag guess">to confirm</span>' : ''}${l.missing ? ' <span class="tag bad">no price yet</span>' : ''}<small>${l.source && l.priceDate ? `price from ${esc(l.source)}, ${esc(dmy(l.priceDate))}${l.stale ? ', old' : ''}${l.jump ? ', jumped' : ''}` : ''}</small></td><td class="r">${esc(qtyTxt(l.qty))} ${esc(l.unit)}</td><td class="r">${baht(l.cost)}</td></tr>`).join('');
+  const warn = [...(k.missing.length ? [`No price found for ${k.missing.join(', ')}. The cost is too low until a receipt or the Price Log has one.`] : []), ...(k.guesses.length ? [`${k.guesses.join(', ')} still to confirm. Edit and save them once you have measured.`] : [])];
+  $('recipe').innerHTML = `<h2 style="margin:6px 0 2px">Pasta - ${esc(c.name)} (${baht(c.sell).replace('.00', '')}, cooked to order)</h2>
+    <p class="upd">${pc.saved ? `Last edited ${esc(stamp(pc.saved))}${pc.versions > 1 ? ` (${pc.versions} saves)` : ''}` : 'Copied from the Merlin\'s numbers tab'} · prices update by themselves · <button class="linkbtn" id="pcEdit">Edit costs</button></p>
+    ${warn.length ? `<div class="pwarn">${warn.map((w) => `<p>${esc(w)}</p>`).join('')}</div>` : ''}
+    <div class="how"><h3>Cost per portion</h3><table class="ptab">${rows}<tr class="tot"><td>Total cost</td><td></td><td class="r">${baht(k.total)}</td></tr></table>
+    <h3>Margin</h3><ul><li><b>Selling price:</b> ${baht(c.sell)}</li><li><b>Profit per portion:</b> ${baht(k.profit)}</li><li><b>Margin:</b> ${k.marginPct === null ? '' : Math.round(k.marginPct * 100) + '%'} of the price</li><li><b>Food cost:</b> ${k.foodPct === null ? '' : Math.round(k.foodPct * 100) + '%'} of the price</li></ul>
+    <h3>How we cook it</h3><ul><li>${esc(qtyTxt(c.dryG))}g dry pasta cooks up to a ${esc(qtyTxt(c.cookedG))}g portion</li><li>One ${esc(qtyTxt(c.boxG))}g box makes ${k.portionsPerBox === null ? '' : (Math.round(k.portionsPerBox * 10) / 10)} portions</li></ul></div>`;
+  $('pcEdit').addEventListener('click', () => pastaForm(pc));
+}
+
+const FIELD = (id, label, v, step = 'any') => `<label class="fld">${label}<input id="${id}" type="number" inputmode="decimal" step="${step}" min="0" value="${esc(v)}" /></label>`;
+function pastaForm(pc) {
+  const c = pc ? pc.card : { name: '', sell: 45, boxG: 500, dryG: 80, cookedG: 165, oilG: 1, butterG: 1, cookMin: 7, reheat: 0, pack: 'Packaging Box (carb600ml)', packQty: 1, priceNames: [] };
+  $('recipe').innerHTML = `<h2 style="margin:6px 0 6px">${pc ? 'Edit costs: Pasta - ' + esc(c.name) : 'New pasta'}</h2>
+    <p class="upd">Quantities only. Prices come from your receipts and the Price Log, so a new butter, oil, box or pasta price changes the cost by itself. Every save is kept.</p>
+    ${pc ? '' : '<label class="fld">Pasta name<input id="pcName" placeholder="for example Penne" /></label>'}
+    ${FIELD('pcSell', 'Selling price (฿)', c.sell)}${FIELD('pcBox', 'Box or bag size (g)', c.boxG)}${FIELD('pcDry', 'Dry pasta per portion (g)', c.dryG)}${FIELD('pcCooked', 'Cooked portion (g)', c.cookedG)}
+    ${FIELD('pcOil', 'Oil per portion (g)', c.oilG)}${FIELD('pcButter', 'Butter per portion (g)', c.butterG)}${FIELD('pcMin', 'Cooking time (minutes)', c.cookMin)}${FIELD('pcReheat', 'Reheats per order (0 if cooked fresh, 1 if par cooked)', c.reheat)}
+    <label class="fld">Packaging<input id="pcPack" value="${esc(c.pack)}" /></label>${FIELD('pcPackQty', 'Packaging count', c.packQty)}
+    <label class="fld">Where the pasta price comes from (names in the Price Log or receipts, separated by commas, newest price wins)<input id="pcNames" value="${esc((c.priceNames || []).join(', '))}" /></label>
+    <div class="btnrow"><button class="savebtn" id="pcSave">Save</button><button class="linkbtn" id="pcCancel">Cancel</button><span id="pcMsg" class="upd"></span></div>`;
+  $('pcCancel').addEventListener('click', () => show(CUR));
+  $('pcSave').addEventListener('click', async () => {
+    const v = (id) => $(id).value;
+    const name = pc ? c.name : v('pcName').trim();
+    if (!name) { $('pcMsg').textContent = 'Give the pasta a name first.'; return; }
+    $('pcSave').disabled = true; $('pcMsg').textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/pasta/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, sell: v('pcSell'), boxG: v('pcBox'), dryG: v('pcDry'), cookedG: v('pcCooked'), oilG: v('pcOil'), butterG: v('pcButter'), cookMin: v('pcMin'), reheat: v('pcReheat'), pack: v('pcPack'), packQty: v('pcPackQty'), priceNames: v('pcNames'), unconfirmed: pc ? c.unconfirmed : [] }) });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || 'Not saved');
+      PASTA = out;
+      const rr = await fetch('/api/recipes'); if (rr.ok) DOC = await rr.json();
+      const at = DOC.dishes.findIndex((x) => key(x.dish) === key(`Pasta - ${name}`));
+      show(at >= 0 ? at : CUR);
+    } catch (err) { $('pcMsg').textContent = `Not saved: ${err.message}`; $('pcSave').disabled = false; }
+  });
 }
 
 function show(i) {
@@ -55,6 +104,8 @@ function show(i) {
   const d = DOC.dishes[i];
   drawChips();
   history.replaceState(null, '', `#${encodeURIComponent(d.dish)}`);
+  const pc = pastaOf(d.dish);
+  if (pc) return showPasta(d, pc);
   const edited = d.saved ? `Last edited ${esc(stamp(d.saved))}${d.versions > 1 ? ` (${d.versions} saves)` : ''}` : `Original recipe doc, updated ${esc(d.updated)}. Not edited here yet`;
   $('recipe').innerHTML = `<h2 style="margin:6px 0 2px">${esc(d.title)}</h2><p class="upd">${edited} · <button class="linkbtn" id="editBtn">Edit this recipe</button></p><div class="how">${body(d.lines)}</div><div id="editor"></div>`;
   $('editBtn').addEventListener('click', () => openEditor(d, false));
@@ -93,8 +144,10 @@ function openEditor(d, isNew) {
     const res = await fetch('/api/recipes');
     DOC = await res.json();
     if (!res.ok) throw new Error(DOC.error || 'Request failed');
+    try { const pr = await fetch('/api/pasta'); if (pr.ok) PASTA = await pr.json(); } catch (err) { /* the old recipe text shows instead */ }
     $('chips').addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.newpasta) return pastaForm(null);
       if (b.dataset.new) return openEditor({ dish: '', title: '', category: 'Stews', lines: ['**I. Ingredients**', '', '**II. Method**', ''] }, true);
       if (b.dataset.n !== undefined) show(Number(b.dataset.n));
     });
