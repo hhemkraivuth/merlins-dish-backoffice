@@ -267,13 +267,15 @@ function wireMenu() {
       const skip = [...slot.querySelectorAll('[data-nd-offer]')].filter((c) => !c.checked).map((c) => c.dataset.ndOffer);
       const recommend = [...slot.querySelectorAll('[data-nd-rec]')].filter((c) => c.checked).map((c) => c.dataset.ndRec);
       const order = [...slot.querySelectorAll('[data-nd-row]')].map((r) => r.dataset.ndRow);
+      const f = $('mImg') && $('mImg').files[0]; // read the chosen photo BEFORE saving, because saving redraws the menu and removes this box
+      let photo = null;
+      if (f) { try { photo = await shrink(f); } catch (err) { toast(err.message, true); return; } }
       const ok = await save('menu/item', { id: m.id, ...((S.noodles || []).length ? { noodleSkip: skip, noodleRecommend: recommend, noodleOrder: order } : {}), name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
       if (ok && renamed) {
         try { const r = await api('aliases/add', { id: m.id, word, name: newName, oldName: m.name }); toast(`Saved. "${r.word || word}" now works in the stock box and LINE group.`); }
         catch (err) { toast(`The new name is saved, but the shorthand was not: ${err.message}`, true); }
       }
-      const f = $('mImg') && $('mImg').files[0];
-      if (ok && f) { try { await api('menu/image', { id: m.id, data: await shrink(f) }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(err.message, true); } }
+      if (ok && photo) { try { await api('menu/image', { id: m.id, data: photo }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(`Saved, but the photo did not upload: ${err.message}`, true); } }
     });
     $('mRemove').addEventListener('click', () => { if (confirm(`Take ${m.name} off the menu? Customers will no longer see it. You can put it back from the list below.`)) save('menu/remove', { id: m.id }, `${m.name} is off the menu.`); });
   }));
