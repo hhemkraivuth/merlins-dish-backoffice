@@ -16,7 +16,7 @@ const BATCH_DISHES = [
 // Rows that look like a dish name but are not a portion: size upgrades and side charges.
 const NOT_A_PORTION = /upgrade|upcharge|serving size|utensil/i;
 
-const PASTAS = ['tubetti', 'radiatori', 'rigatoni', 'lumache', 'linguine', 'spaghetti', 'heart', 'chefferi', 'farfalle'];
+const PASTAS = ['tubetti', 'radiatori', 'rigatoni', 'lumache', 'linguine', 'spaghetti', 'heart', 'chefferi', 'farfalle', 'risoni'];
 
 function normName(s) {
   return String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '');

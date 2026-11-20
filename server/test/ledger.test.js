@@ -112,6 +112,14 @@ test('LINE cost is estimated from the latest Grab recipe cost; unknown items are
   assert.strictEqual(wk.line.net, 450 + 95 + 38 + 245 - 45);
 });
 
+test('a risoni paired with a dish is flagged when it has no cost, never silently costed at zero', () => {
+  const { buildCostTable, lineItemCost } = require('../lib/reports');
+  const table = buildCostTable(ledgerFrom(grab));
+  const d = utc(2026, 11, 2);
+  assert.strictEqual(lineItemCost({ desc: 'Noir Ragu + Pasta (Risoni)', qty: 1, date: d }, table).missing, 'Risoni (pasta)');
+  assert.strictEqual(lineItemCost({ desc: 'Risoni (Extra)', qty: 1, date: d }, table).missing, 'Risoni (Extra)');
+});
+
 test('a stew with a pasta choice in brackets carries the pasta cost; a size in brackets does not', () => {
   const { buildCostTable, lineItemCost } = require('../lib/reports');
   const table = buildCostTable(ledgerFrom(grab));
