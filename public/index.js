@@ -240,6 +240,8 @@ function wireMenu() {
       <div id="mShRow" style="display:none;margin:2px 0 8px"><label>New shorthand for the stock box and LINE group<input id="mSh" placeholder="for example bp" maxlength="20" style="width:140px" autocapitalize="none" /></label><p class="sub" style="margin:2px 0 0">You changed the name, so tell me what you will type for it. The old shorthand keeps working.</p></div>
       <label>Category<select id="mC">${(S.categories || []).map((c) => `<option value="${esc(c.id)}"${c.id === m.category ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select></label>
       <label>Description<textarea id="mD">${esc(m.description)}</textarea></label>
+      <label>Show under (optional)<input id="mG" value="${esc(m.group || '')}" placeholder="for example Coke" maxlength="40" style="width:min(220px,60vw)" /></label>
+      <p class="sub" style="margin:0 0 8px">Items in the same category with the same word here show as one card on the order web, and customers pick which one.</p>
       ${choiceSelect('mO', choiceOf(m))}
       <div id="mNdRow" style="display:${choiceOf(m) === 'pasta' ? 'none' : 'block'}">${noodleTick('mNd', m.offersNoodles)}</div>
       <div id="mNdList" style="display:${choiceOf(m) === 'pasta' || m.offersNoodles ? 'block' : 'none'};margin:2px 0 8px"><p class="sub" style="margin:0 0 2px">Noodles for this dish. Use ▲ ▼ to set the order customers see. Recommended ones show first with a gold tag.</p>${noodleRows(m)}</div>
@@ -270,7 +272,7 @@ function wireMenu() {
       const f = $('mImg') && $('mImg').files[0]; // read the chosen photo BEFORE saving, because saving redraws the menu and removes this box
       let photo = null;
       if (f) { try { photo = await shrink(f); } catch (err) { toast(err.message, true); return; } }
-      const ok = await save('menu/item', { id: m.id, ...((S.noodles || []).length ? { noodleSkip: skip, noodleRecommend: recommend, noodleOrder: order } : {}), name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
+      const ok = await save('menu/item', { id: m.id, ...((S.noodles || []).length ? { noodleSkip: skip, noodleRecommend: recommend, noodleOrder: order } : {}), name: $('mN').value, price: $('mP').value, category: $('mC').value, description: $('mD').value, group: $('mG').value, options: $('mO').value, noodles: $('mNd').checked, ageRestricted: $('mA').checked });
       if (ok && renamed) {
         try { const r = await api('aliases/add', { id: m.id, word, name: newName, oldName: m.name }); toast(`Saved. "${r.word || word}" now works in the stock box and LINE group.`); }
         catch (err) { toast(`The new name is saved, but the shorthand was not: ${err.message}`, true); }
