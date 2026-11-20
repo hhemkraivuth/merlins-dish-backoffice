@@ -35,14 +35,7 @@ function currentHandoffs({ stock, moves, today, gaps = [] }) {
       out.push({ from: SALES, to: 'Operations', key: `over|${s.dish}|${s.oversold}`, message: `${s.dish}: ${portions(s.oversold)} sold beyond what the cook notes cover. Send the missing cook note so cost and stock are right.` });
     }
   }
-  for (const m of moves || []) {
-    if (daysBetween(today, m.date) > 14) continue;
-    const pct = Math.round(Math.abs(m.change) * 100);
-    out.push({
-      from: 'Purchasing', to: 'Operations', key: `price|${m.name}|${m.date.toISOString().slice(0, 10)}`,
-      message: `${m.name} is ${m.change > 0 ? 'up' : 'down'} ${pct}% on the ${formatDMY(m.date)} purchase. ${m.change > 0 ? 'Check the margin on dishes that use it.' : 'Margins on dishes that use it improve.'}`,
-    });
-  }
+  // Ingredient price moves (Purchasing to Operations) are no longer raised as handoffs: Lily treats them as routine kitchen updates.
   for (const g of gaps) {
     out.push({ from: 'Direct sales', to: 'Operations', key: `rider|${g.dmy}|${g.orderNo}`, message: `LINE order ${g.orderNo} on ${g.dmy}${g.customer ? ` (${g.customer})` : ''} has no rider fee yet. Send: rider ${g.orderNo.replace('#', '')} <fee>` });
   }

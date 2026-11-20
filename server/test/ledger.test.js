@@ -170,7 +170,7 @@ test('selling more than was cooked is reported as oversold, and sales before the
 });
 
 // ---- handoffs -------------------------------------------------------------------------------
-test('handoffs: aged stock, low stock and price moves are raised once, and clear themselves', () => {
+test('handoffs: aged stock and low stock are raised once and clear themselves; price moves are not raised', () => {
   const today = utc(2026, 11, 3);
   const ledger = ledgerFrom([sale('28/10/2026', 'Noir Ragu', 4)]);
   const cook = [{ key: 'a', date: utc(2026, 10, 27), dish: 'Noir Ragu', portions: 6, cost: 300 }];
@@ -180,21 +180,31 @@ test('handoffs: aged stock, low stock and price moves are raised once, and clear
   ]);
   const cur = currentHandoffs({ stock, moves, today });
   const kinds = cur.map((c) => c.key.split('|')[0]).sort();
-  assert.deepStrictEqual(kinds, ['age', 'low', 'price']);
+  assert.deepStrictEqual(kinds, ['age', 'low']);
   assert.match(cur.find((c) => c.key.startsWith('age')).message, /7 days old/);
 
   const first = reconcile([['Raised', 'From', 'To', 'Message', 'Status', 'Reply', 'Key']], cur, today);
-  assert.strictEqual(first.add.length, 3);
+  assert.strictEqual(first.add.length, 2);
   const sheet = [['h'], ...first.add];
   assert.strictEqual(reconcile(sheet, cur, today).add.length, 0);                    // not raised twice
 
-  const closed = reconcile(sheet, cur.filter((c) => !c.key.startsWith('price')), today); // price situation gone
+  const closed = reconcile(sheet, cur.filter((c) => !c.key.startsWith('low')), today); // low stock situation gone
   assert.strictEqual(closed.update.length, 1);
   assert.strictEqual(closed.update[0].row[4], 'Done (cleared)');
 
   sheet[1][4] = 'Done'; // you closed it by hand: it is not raised again while the situation lasts
   assert.strictEqual(reconcile(sheet, cur, today).add.length, 0);
-  assert.strictEqual(openHandoffs(sheet).length, 2);
+  assert.strictEqual(openHandoffs(sheet).length, 1);
+});
+
+test('huddle leaves routine ingredient price notes out of the open handoffs', () => {
+  const ledger = ledgerFrom(grab, line);
+  const text = buildHuddle({ today: utc(2026, 11, 3), ledger, cookBatches: [], purchases: [], stock: [], open: [
+    { from: 'Purchasing', to: 'Operations', message: 'Onion is up 106% on the 13/11/2026 purchase. Check the margin on dishes that use it.' },
+    { from: 'Operations', to: 'App sales', message: 'Flash sale please' },
+  ] });
+  assert.match(text, /Open handoffs \(1\)/);
+  assert.doesNotMatch(text, /Onion is up/);
 });
 
 test('huddle text states how far each channel runs', () => {

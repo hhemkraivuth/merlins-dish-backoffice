@@ -41,7 +41,8 @@ function weekLine(periods, today) {
 
 // { today, ledger, cookBatches, purchases, stock, open }
 function buildHuddle({ today, closed = null, ledger, cookBatches, purchases, stock, open: openRaw, lowPacks = [] }) {
-  const open = compactHandoffs(openRaw);
+  // Routine ingredient price notes from Purchasing stay out of the daily message so it reads as one clear picture.
+  const open = compactHandoffs((openRaw || []).filter((h) => !(h.from === 'Purchasing' && /% on the \d/.test(h.message || ''))));
   const yesterday = addDays(today, -1);
   const out = [`Daily huddle, ${formatDMY(today)}`, ''];
   out.push(`Yesterday (${formatDMY(yesterday)}): ${dayLine(ledger, yesterday, closed)}.`);

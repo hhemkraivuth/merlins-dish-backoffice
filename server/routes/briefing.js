@@ -22,7 +22,8 @@ async function sendReminder() {
   const todayIso = lib.isoFromDmy(formatDMY(bangkokToday()));
   const view = await lib.todoView(todayIso);
   let riderMissing = 0; try { riderMissing = (await svc.riderOrders()).missing; } catch (e) { /* skip the rider line */ }
-  const text = lib.reminderText({ todos: view.todos, riderMissing, todayIso });
+  const SHOW_TODO = false; // the To do list is switched off until Lily says bring it back; the rider fee line still goes out
+  const text = lib.reminderText({ todos: SHOW_TODO ? view.todos : [], riderMissing, todayIso });
   if (text && to && access) await require('../lib/lineApi').push(to, text, access);
   return { sent: Boolean(text && to && access), text };
 }

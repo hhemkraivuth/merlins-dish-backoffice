@@ -3,6 +3,8 @@
 // On open, the team "runs up" with anything new since Lily last closed the window. Closing it (Noted, the cross, Esc or a tap outside) marks it all as noted.
 // Below the reports sits the to do list, with due dates. The same list also lives on the Home page as the To do card.
 (function () {
+  // The To do list is switched off until Lily says bring it back. Set this to true to restore it everywhere (Home card, Team report, Today strip, button count).
+  const SHOW_TODO = false;
   const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let data = { reports: [], todos: [], done: [], teams: ['Me'], today: '', riderMissing: 0 };
   let modal = null;
@@ -109,12 +111,12 @@
   function draw() {
     if (!modal) return;
     const n = data.reports.length;
-    const late = data.todos.filter((t) => t.overdue).length;
+    const late = SHOW_TODO ? data.todos.filter((t) => t.overdue).length : 0;
     const line = n ? `${n} ${n === 1 ? 'thing' : 'things'} to tell you.` : 'Nothing new since you last looked.';
     modal.querySelector('.bf-card').innerHTML = `
       <div class="bf-head"><svg class="bf-pig" viewBox="0 0 64 64" aria-hidden="true"><circle cx="14" cy="14" r="7" fill="#f4a3b5"/><circle cx="50" cy="14" r="7" fill="#f4a3b5"/><circle cx="32" cy="34" r="25" fill="#f7b8c6" stroke="#2b4c9b" stroke-width="3"/><ellipse cx="32" cy="42" rx="11" ry="8" fill="#f08aa3" stroke="#2b4c9b" stroke-width="2"/><circle cx="28" cy="42" r="2" fill="#2b4c9b"/><circle cx="36" cy="42" r="2" fill="#2b4c9b"/><circle cx="22" cy="29" r="3" fill="#2b4c9b"/><circle cx="42" cy="29" r="3" fill="#2b4c9b"/></svg><div class="bf-bubble">Boss, got a minute?<small>${esc(data.today)}. ${esc(line)}${late ? ` ${late} overdue.` : ''}</small></div><button class="bf-x" data-x type="button" aria-label="Close">×</button></div>
       <h3>Reports</h3>${n ? repsHtml(data.reports) : '<p class="bf-none">All quiet.</p>'}
-      <h3>To do</h3><div data-list>${todoList()}</div>${addForm()}
+      ${SHOW_TODO ? `<h3>To do</h3><div data-list>${todoList()}</div>${addForm()}` : ''}
       <div class="bf-foot"><button class="bf-btn" data-noted type="button">Noted</button></div>`;
     modal.querySelector('[data-x]').addEventListener('click', noted);
     modal.querySelector('[data-noted]').addEventListener('click', noted);
@@ -136,6 +138,8 @@
   function drawCard() {
     const box = document.getElementById('todoBox');
     if (!box) return;
+    box.hidden = !SHOW_TODO;
+    if (!SHOW_TODO) return;
     box.querySelector('[data-card]').innerHTML = `<div data-list>${todoList()}</div>${addForm()}`;
     wire(box.querySelector('[data-card]'), () => { drawCard(); draw(); drawStrip(); });
   }
@@ -144,8 +148,8 @@
   function drawStrip() {
     const box = document.getElementById('todayStrip');
     if (!box) return;
-    const late = data.todos.filter((t) => t.overdue).length;
-    const now = data.todos.filter((t) => t.today).length;
+    const late = SHOW_TODO ? data.todos.filter((t) => t.overdue).length : 0;
+    const now = SHOW_TODO ? data.todos.filter((t) => t.today).length : 0;
     const n = data.reports.length;
     const rider = data.riderMissing || 0;
     const chips = [];
@@ -168,7 +172,7 @@
       fab.addEventListener('click', async () => { try { data = await call('/api/briefing'); } catch (e) { /* keep what we have */ } open(); drawFab(); });
       document.body.appendChild(fab);
     }
-    const count = data.reports.length + data.todos.filter((t) => t.overdue || t.today).length;
+    const count = data.reports.length + (SHOW_TODO ? data.todos.filter((t) => t.overdue || t.today).length : 0);
     fab.innerHTML = `${PIG}<span>Team report</span>${count ? `<span class="n">${count}</span>` : ''}`;
   }
 
