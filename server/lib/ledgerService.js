@@ -213,8 +213,10 @@ async function withPastaCosts(ledger) {
   try {
     const pc = require('./pastaCosts');
     const cards = await pc.loadCards(require('../data/pastaSeed.json'));
-    return pc.applyToLedger(ledger, cards, await require('./liveData').loadPriceBook(), bangkokToday());
-  } catch (err) { return ledger; }
+    pc.applyToLedger(ledger, cards, await require('./liveData').loadPriceBook(), bangkokToday());
+  } catch (err) { /* pasta cards are skipped */ }
+  try { const ic = require('./itemCosts'); ic.applyToLedger(ledger, await ic.load()); } catch (err) { /* typed item costs are skipped */ }
+  return ledger;
 }
 
 async function loadAll() {

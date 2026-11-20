@@ -4,7 +4,7 @@ const { runChecks, view, ignore, summarise, sundayLine } = require('../lib/audit
 
 const today = new Date('2026-11-21T00:00:00Z');
 const d = (s) => new Date(`${s}T00:00:00Z`);
-const row = (o) => ({ date: d('2026-11-19'), desc: '', channel: 'LINE', type: 'Order', qty: 1, moneyIn: 0, cost: null, net: null, key: '', ...o });
+const row = (o) => ({ date: d('2026-11-19'), dmy: '19/11/2026', desc: '', channel: 'LINE', type: 'Order', qty: 1, moneyIn: 0, cost: null, net: null, key: '', ...o });
 const memStore = () => { const m = {}; return { getState: async (k) => m[k] || '', setState: async (k, v) => { m[k] = v; } }; };
 
 test('sold with no cost is flagged with the money at risk', () => {
@@ -51,4 +51,24 @@ test('ignore hides a finding for good, summary lights', async () => {
   assert.strictEqual(summarise([]).light, 'green');
   assert.strictEqual(summarise(new Array(5).fill({})).light, 'red');
   assert.match(sundayLine(v), /1 to review/);
+});
+
+test('unreadable XXXXXX items get a rename action, not a cost request', () => {
+  const ledger = [row({ channel: 'Grab', desc: 'XXXXXX', moneyIn: 350, key: 'k1', orderNo: 'GF-1' }), row({ channel: 'Grab', type: 'Recipe', desc: 'XXXXXX', key: 'k2', orderNo: '' })];
+  const f = runChecks({ today, ledger });
+  const u = f.find((x) => x.check === 'Unreadable item');
+  assert.ok(u && u.action.type === 'rename' && u.baht === 350);
+  assert.ok(!f.some((x) => x.check === 'Sold with no cost'));
+});
+
+test('bundled noodles at 5 baht are not judged on food cost, and a plain item gets a cost box', () => {
+  const ledger = [
+    row({ type: 'Recipe', desc: 'Radiatori', cost: 7.05, channel: 'Grab' }),
+    row({ desc: 'Radiatori (Ragu bundle)', moneyIn: 5, qty: 1, channel: 'Grab' }),
+    row({ desc: 'Lemon Soda', moneyIn: 60, qty: 2 }),
+  ];
+  const f = runChecks({ today, ledger });
+  assert.ok(!f.some((x) => x.check === 'Margin'));
+  const n = f.find((x) => x.check === 'Sold with no cost');
+  assert.ok(n && n.action.type === 'cost' && n.action.name === 'Lemon Soda');
 });

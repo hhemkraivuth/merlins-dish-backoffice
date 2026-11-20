@@ -63,22 +63,22 @@ const r2 = (x) => Math.round(x * 100) / 100;
 // card: a cleaned card. pb: the price book. date: the day to price on (a Date). Returns every line with its source.
 function costCard(card, pb, date) {
   const lines = [];
-  const add = (label, qty, unit, names, flag) => {
+  const add = (label, qty, unit, names, flag, field) => {
     const p = qty > 0 ? price(pb, names, date) : null;
     const unitCost = p ? p.cost : 0;
     lines.push({
-      label, qty, unit, unitCost, cost: qty * unitCost,
+      label, field, qty, unit, unitCost, cost: qty * unitCost,
       source: p ? p.name : null, priceDate: p ? p.date : null,
       missing: qty > 0 && !p, stale: Boolean(p && p.stale), jump: Boolean(p && p.jumpFrom), guess: Boolean(flag),
     });
   };
   const unc = new Set(card.unconfirmed || []);
-  add(`Pasta - ${card.name}`, card.dryG, 'g', card.priceNames);
-  add('Oil', card.oilG, 'g', OIL, unc.has('oilG'));
-  add('Butter', card.butterG, 'g', BUTTER, unc.has('butterG'));
-  add('Cooking utilities', card.cookMin, 'min', COOKING, unc.has('cookMin'));
-  add('Reheating utilities', card.reheat, 'per order', REHEAT, unc.has('reheat'));
-  add(card.pack, card.packQty, 'set', card.pack);
+  add(`Pasta - ${card.name}`, card.dryG, 'g', card.priceNames, false, 'dryG');
+  add('Oil', card.oilG, 'g', OIL, unc.has('oilG'), 'oilG');
+  add('Butter', card.butterG, 'g', BUTTER, unc.has('butterG'), 'butterG');
+  add('Cooking utilities', card.cookMin, 'min', COOKING, unc.has('cookMin'), 'cookMin');
+  add('Reheating utilities', card.reheat, 'per order', REHEAT, unc.has('reheat'), 'reheat');
+  add(card.pack, card.packQty, 'set', card.pack, false, 'packQty');
   const total = lines.reduce((s, l) => s + l.cost, 0);
   const profit = card.sell - total;
   return {
@@ -86,6 +86,7 @@ function costCard(card, pb, date) {
     marginPct: card.sell > 0 ? profit / card.sell : null,
     foodPct: card.sell > 0 ? total / card.sell : null,
     portionsPerBox: card.dryG > 0 ? card.boxG / card.dryG : null,
+    cookedGuess: (card.unconfirmed || []).includes('cookedG'),
     missing: lines.filter((l) => l.missing).map((l) => l.label),
     guesses: lines.filter((l) => l.guess).map((l) => l.label),
     total2: r2(total),
@@ -134,8 +135,10 @@ async function loadCards(seed) {
 
 async function save(seed, input) {
   const card = clean(input);
-  // Pressing Save on the card confirms every number on it, changed or not.
-  card.unconfirmed = [];
+  // Saving the whole card confirms every number on it. Saving one line (confirm: ['oilG']) confirms only that number.
+  const only = Array.isArray(input.confirm) ? input.confirm : null;
+  const prevUnc = ((await loadCards(seed)).find((c) => key(c.card.name) === key(card.name)) || { card: {} }).card.unconfirmed || [];
+  card.unconfirmed = only ? prevUnc.filter((k) => !only.includes(k)) : [];
   await ensureTab(TAB, HEADERS);
   const { name, ...rest } = card;
   await appendRows(TAB, [[name, new Date().toISOString(), JSON.stringify(rest)]], { raw: true });

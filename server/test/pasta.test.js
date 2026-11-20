@@ -39,7 +39,9 @@ test('ledger recipe rows with no cost get the pasta cost', () => {
   assert.ok(ledger.pastaCosts.has('risoni'));
 });
 
-test('saving a card confirms every number on it', () => {
+test('saving a line confirms only that number, saving the card confirms all', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '../lib/pastaCosts.js'), 'utf8');
-  assert.match(src, /card\.unconfirmed = \[\];/);
+  assert.match(src, /only \? prevUnc\.filter/);
+  const k = pc.costCard(pc.clean({ ...seed.cards.find((c) => c.name === 'Risoni'), unconfirmed: ['oilG', 'cookMin'] }), pb, new Date('2026-11-21'));
+  assert.deepStrictEqual(k.lines.filter((l) => l.guess).map((l) => l.field), ['oilG', 'cookMin']);
 });

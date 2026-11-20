@@ -59,15 +59,30 @@ const pastaOf = (dish) => PASTA && /^pasta\s*-/i.test(dish) ? PASTA.cards.find((
 // Live cost card for a cooked to order pasta: the same lines as the Pasta tabs in Merlin's numbers, priced from today's price book.
 function showPasta(d, pc) {
   const c = pc.card; const k = pc.cost;
-  const rows = k.lines.map((l) => `<tr><td>${esc(l.label)}${l.guess ? ' <span class="tag guess">to confirm</span>' : ''}${l.missing ? ' <span class="tag bad">no price yet</span>' : ''}<small>${l.source && l.priceDate ? `price from ${esc(l.source)}, ${esc(dmy(l.priceDate))}${l.stale ? ', old' : ''}${l.jump ? ', jumped' : ''}` : ''}</small></td><td class="r">${esc(qtyTxt(l.qty))} ${esc(l.unit)}</td><td class="r">${baht(l.cost)}</td></tr>`).join('');
+  const rows = k.lines.map((l) => `<tr><td>${esc(l.label)}${l.guess ? ' <span class="tag guess">to confirm</span>' : ''}${l.missing ? ' <span class="tag bad">no price yet</span>' : ''}<small>${l.source && l.priceDate ? `price from ${esc(l.source)}, ${esc(dmy(l.priceDate))}${l.stale ? ', old' : ''}${l.jump ? ', jumped' : ''}` : ''}</small></td><td class="r" data-q="${esc(l.field)}">${esc(qtyTxt(l.qty))} ${esc(l.unit)} <button class="linkbtn" data-line="${esc(l.field)}">Edit</button></td><td class="r">${baht(l.cost)}</td></tr>`).join('');
   const warn = [...(k.missing.length ? [`No price found for ${k.missing.join(', ')}. The cost is too low until a receipt or the Price Log has one.`] : []), ...(k.guesses.length ? [`${k.guesses.join(', ')} still to confirm. Edit and save them once you have measured.`] : [])];
   $('recipe').innerHTML = `<h2 style="margin:6px 0 2px">Pasta - ${esc(c.name)} (${baht(c.sell).replace('.00', '')}, cooked to order)</h2>
     <p class="upd">${pc.saved ? `Last edited ${esc(stamp(pc.saved))}${pc.versions > 1 ? ` (${pc.versions} saves)` : ''}` : 'Copied from the Merlin\'s numbers tab'} · prices update by themselves · <button class="linkbtn" id="pcEdit">Edit costs</button></p>
     ${warn.length ? `<div class="pwarn">${warn.map((w) => `<p>${esc(w)}</p>`).join('')}</div>` : ''}
     <div class="how"><h3>Cost per portion</h3><table class="ptab">${rows}<tr class="tot"><td>Total cost</td><td></td><td class="r">${baht(k.total)}</td></tr></table>
     <h3>Margin</h3><ul><li><b>Selling price:</b> ${baht(c.sell)}</li><li><b>Profit per portion:</b> ${baht(k.profit)}</li><li><b>Margin:</b> ${k.marginPct === null ? '' : Math.round(k.marginPct * 100) + '%'} of the price</li><li><b>Food cost:</b> ${k.foodPct === null ? '' : Math.round(k.foodPct * 100) + '%'} of the price</li></ul>
-    <h3>How we cook it</h3><ul><li>${esc(qtyTxt(c.dryG))}g dry pasta cooks up to a ${esc(qtyTxt(c.cookedG))}g portion</li><li>One ${esc(qtyTxt(c.boxG))}g box makes ${k.portionsPerBox === null ? '' : (Math.round(k.portionsPerBox * 10) / 10)} portions</li></ul></div>`;
+    <h3>How we cook it</h3><ul><li>${esc(qtyTxt(c.dryG))}g dry pasta cooks up to a <span data-q="cookedG">${esc(qtyTxt(c.cookedG))}g</span> portion${k.cookedGuess ? ' <span class="tag guess">to confirm</span>' : ''} <button class="linkbtn" data-line="cookedG">Edit</button></li><li>One ${esc(qtyTxt(c.boxG))}g box makes ${k.portionsPerBox === null ? '' : (Math.round(k.portionsPerBox * 10) / 10)} portions</li></ul></div>`;
   $('pcEdit').addEventListener('click', () => pastaForm(pc));
+  // Edit one number and save just that one, like the Batch Cook costs. Saving confirms that number.
+  $('recipe').querySelectorAll('[data-line]').forEach((b) => b.addEventListener('click', () => {
+    const f = b.dataset.line; const cell = $('recipe').querySelector(`[data-q="${f}"]`);
+    cell.innerHTML = `<input type="number" inputmode="decimal" step="any" min="0" value="${esc(c[f])}" style="width:84px;font:inherit;padding:6px;border:1px solid var(--line);border-radius:8px"> <button class="linkbtn" data-ok>Save</button> <button class="linkbtn" data-no>Cancel</button><span class="upd" data-m></span>`;
+    cell.querySelector('[data-no]').addEventListener('click', () => showPasta(d, pc));
+    cell.querySelector('[data-ok]').addEventListener('click', async () => {
+      const m = cell.querySelector('[data-m]'); m.textContent = ' Saving…';
+      try {
+        const res = await fetch('/api/pasta/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...c, [f]: cell.querySelector('input').value, confirm: [f] }) });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(out.error || 'Not saved');
+        PASTA = out; show(CUR);
+      } catch (err) { m.textContent = ` Not saved: ${err.message}`; }
+    });
+  }));
 }
 
 const FIELD = (id, label, v, step = 'any') => `<label class="fld">${label}<input id="${id}" type="number" inputmode="decimal" step="${step}" min="0" value="${esc(v)}" /></label>`;
