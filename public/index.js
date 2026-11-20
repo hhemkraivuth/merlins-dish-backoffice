@@ -244,7 +244,7 @@ function wireMenu() {
       <div id="mNdRow" style="display:${choiceOf(m) === 'pasta' ? 'none' : 'block'}">${noodleTick('mNd', m.offersNoodles)}</div>
       <div id="mNdList" style="display:${choiceOf(m) === 'pasta' || m.offersNoodles ? 'block' : 'none'};margin:2px 0 8px"><p class="sub" style="margin:0 0 2px">Noodles for this dish. Use ▲ ▼ to set the order customers see. Recommended ones show first with a gold tag.</p>${noodleRows(m)}</div>
       ${ageTick('mA', m.ageRestricted)}
-      <div class="row" style="align-items:center">${m.image ? `<img src="${esc(m.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${m.image ? 'Change photo' : 'Add a photo'}<input type="file" id="mImg" accept="image/*" /></label></div>
+      <div class="row" style="align-items:center">${m.image ? `<img src="${esc(m.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px" />` : '<span class="sub">No photo yet.</span>'}<label>${m.image ? 'Change photo' : 'Add a photo'}<input type="file" id="mImg" accept="image/*" /></label>${m.image ? '<button class="small-button" id="mImgDel" type="button">Remove photo</button>' : ''}</div>
       <div class="row"><button class="primary-button" id="mSave">Save</button><button class="small-button" id="mRemove">Take off the menu</button><button class="small-button" id="mCancel">Cancel</button></div></div>`;
     $('mCancel').addEventListener('click', () => { slot.innerHTML = ''; });
     const nameChanged = () => $('mN').value.trim() !== '' && $('mN').value.trim() !== m.name;
@@ -277,6 +277,7 @@ function wireMenu() {
       }
       if (ok && photo) { try { await api('menu/image', { id: m.id, data: photo }); toast('Saved with the new photo.'); draw(); } catch (err) { toast(`Saved, but the photo did not upload: ${err.message}`, true); } }
     });
+    if ($('mImgDel')) $('mImgDel').addEventListener('click', async () => { if (!confirm(`Remove the photo from ${m.name}? Customers will see it without a picture.`)) return; try { await api('menu/image', { id: m.id, remove: true }); toast('Photo removed.'); draw(); } catch (err) { toast(err.message, true); } });
     $('mRemove').addEventListener('click', () => { if (confirm(`Take ${m.name} off the menu? Customers will no longer see it. You can put it back from the list below.`)) save('menu/remove', { id: m.id }, `${m.name} is off the menu.`); });
   }));
   document.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', () => save('menu/restore', { id: b.dataset.restore }, 'Put back on the menu.')));
