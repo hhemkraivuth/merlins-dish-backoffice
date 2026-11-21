@@ -265,8 +265,8 @@ async function withPastaCosts(ledger) {
 }
 
 async function loadAll() {
-  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows, wasteRows, closedRows, rdRows] = await Promise.all([
-    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'), readOrEmpty('Closed Days'), readOrEmpty('R&D Log'),
+  const [ledgerRows, cookLog, cookSizes, expense, handoffs, overheadRows, stockCounts, lotRows, levelRows, grabAdRows, walletRows, wasteRows, closedRows, rdRows, ingWasteRows] = await Promise.all([
+    readOrEmpty(LEDGER_TAB), readOrEmpty('Cook Log'), readOrEmpty('Cook Log Sizes'), readOrEmpty('Expense Log'), readOrEmpty(HANDOFF_TAB), readOrEmpty('Overheads'), readOrEmpty('Stock Counts'), readOrEmpty('Ingredient Lots'), readOrEmpty('Reorder Levels'), readOrEmpty('Grab Ads'), readOrEmpty('Wallet Paid'), readOrEmpty('Waste Log'), readOrEmpty('Closed Days'), readOrEmpty('R&D Log'), readOrEmpty('Ingredient Waste'),
   ]);
   const purchases = purchasesFrom(expense);
   const lotBook = new LotBook(lotRows, [], bangkokToday());
@@ -275,6 +275,7 @@ async function loadAll() {
     ledger: await withPastaCosts(ledgerObjects(ledgerRows)),
     cookBatches: cookBatchesFrom(cookLog, cookSizes),
     waste: require('./wasteLog').wasteFrom(wasteRows),
+    ingredientWaste: require('./wasteLog').ingredientWasteFrom(ingWasteRows),
     closed: require('./closedDays').closedFrom(closedRows),
     rd: require('./rdBatches').rdFrom(rdRows),
     purchases: [...purchases.map((p) => ({ date: p.date, name: p.name, amount: p.amount || 0 })), ...overheadsFrom(overheadRows), ...grabAdsFrom(grabAdRows), ...walletPaidFrom(walletRows), ...require('./rdBatches').rdPurchases(rdRows)],

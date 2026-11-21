@@ -10,7 +10,7 @@
 const { parseTypedReceipt } = require('./typedReceipt');
 const { matchIngredient } = require('./typedReceipt');
 const { toBaseQty } = require('./ingredientLots');
-const { parseDate, formatDMY } = require('./dates');
+const { parseDate, formatDMY, bangkokNow } = require('./dates');
 const { normName, looseKey } = require('./priceBook');
 const { isContainerWord } = require('./packSizes');
 const { lowItems, parseLevels } = require('./reorderLevels');
@@ -18,9 +18,30 @@ const { lowItems, parseLevels } = require('./reorderLevels');
 const baht = (n) => `฿${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const qtyText = (n, unit) => `${Number(n.toFixed(2)).toLocaleString('en-AU')}${unit}`;
 
+
+const INGREDIENT_WASTE = /^waste\s+(?:(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?)\s+)?(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?)\b\s*(.*)$/i;
+const WASTE_TAB = 'Ingredient Waste';
+const WASTE_HEADERS = ['Date', 'Ingredient', 'Qty', 'Unit', 'Reason', 'Cost', 'Bought at', 'Logged At'];
+
+// Takes qty (base units) of an ingredient off the oldest lots and prices it at what those lots cost.
+// Returns { cost, short, shop, usage, row } or null when the ingredient has no lots at all.
+function wasteIngredient(book, name, qty, unit, date, reason) {
+  const lots = book.lotsFor(name);
+  if (!lots.length) return null;
+  const a = book.allocate(name, qty, unit, date);
+  let cost = a.parts.reduce((t, p) => t + p.qty * p.unitCost, 0);
+  const last = lots[lots.length - 1];
+  if (a.short > 1e-6) cost += a.short * last.unitCost;
+  const first = (a.parts[0] && a.parts[0].lot) || last;
+  const shop = String(first.note || '').split(/\s+/)[0] || '';
+  const usage = a.parts.map((p) => ['WASTE', formatDMY(date), name, p.lot.id, formatDMY(p.lot.date), Number(p.qty.toFixed(3)), Number(p.unitCost.toFixed(5)), Number((p.qty * p.unitCost).toFixed(2)), bangkokNow()]);
+  const row = [formatDMY(date), name, Number(qty.toFixed(3)), unit, reason, Number(cost.toFixed(2)), shop, bangkokNow()];
+  return { cost, short: a.short, shop, usage, row };
+}
+
 const COUNT = /^count\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?)?$/i;
 
-const USAGE = 'Stock lot commands:\nlots (what is left)\nfree 4/11 then lines like: knorr cube 2 boxes of 6 (free samples and gifts)\nopening 19/10 then lines like: minced pork 2000g 220thb\ncount minced pork 3000g (set the real quantity)\nlow (what is running low) and low salt 500g (alert me when it drops below that)\nsize worcestershire sauce 290ml (how much is in one bottle or can)\nundo noir ragu 6/10 (take a logged batch back out)';
+const USAGE = 'Stock lot commands:\nwaste mushroom 500g mould (an ingredient thrown away)\nlots (what is left)\nfree 4/11 then lines like: knorr cube 2 boxes of 6 (free samples and gifts)\nopening 19/10 then lines like: minced pork 2000g 220thb\ncount minced pork 3000g (set the real quantity)\nlow (what is running low) and low salt 500g (alert me when it drops below that)\nsize worcestershire sauce 290ml (how much is in one bottle or can)\nundo noir ragu 6/10 (take a logged batch back out)';
 
 const LOW_SET = /^low\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?)$/i;
 const SIZE = /^size\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gm|grams?|ml|l|ltr)$/i;
@@ -121,6 +142,26 @@ async function processLots(text, messageDate, deps) {
       if (live.length > 4) out.push(`  plus ${live.length - 4} more lots`);
     }
     return [out.join('\n')];
+  }
+
+  // waste mushroom 500g mould   (an ingredient thrown away: rotten, spilt, expired)   waste 18/11 mushroom 500g mould
+  const wm = first.match(INGREDIENT_WASTE);
+  if (wm && raw === first) {
+    if (!deps.appendRows) return null;
+    const date = wm[1] ? parseDate(wm[1], messageDate) : messageDate;
+    if (!date) return [`"${wm[1]}" doesn't look like a valid date. Nothing was logged.`];
+    const base = toBaseQty(`${wm[3].replace(',', '.')}${wm[4]}`);
+    if (!base) return ['I could not read that quantity. Nothing was logged. Example: waste mushroom 500g mould'];
+    const book = await deps.loadLotBook();
+    const m = matchIngredient(wm[2], book.names());
+    if (!m.name) return [m.ambiguous ? `"${wm[2]}" could be ${m.ambiguous.join(' or ')}. Say which one. Nothing was logged.` : `I don't know the ingredient "${wm[2]}". Nothing was logged.`];
+    const reason = wm[5].trim() || 'wasted';
+    const r = wasteIngredient(book, m.name, base.qty, base.unit, date, reason);
+    if (!r) return [`${m.name} has no stock lots, so there is no price to cost it at. Nothing was logged.`];
+    await deps.saveLots(book, r.usage);
+    await deps.ensureTab(WASTE_TAB, WASTE_HEADERS);
+    await deps.appendRows(WASTE_TAB, [r.row]);
+    return [`Logged ${qtyText(base.qty, base.unit)} ${m.name} (${reason}) on ${formatDMY(date)}, cost ${baht(r.cost)}${r.shop ? `, bought at ${r.shop}` : ''}. Taken off stock.${r.short > 1e-6 ? ` The books only held ${qtyText(base.qty - r.short, base.unit)}, so the rest is costed at the latest price.` : ''}`];
   }
 
   const op = first.match(/^opening(?:\s+(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?))?$/i);
@@ -229,4 +270,4 @@ async function processLots(text, messageDate, deps) {
   return null;
 }
 
-module.exports = { processLots, USAGE };
+module.exports = { processLots, USAGE, wasteIngredient, INGREDIENT_WASTE, WASTE_TAB, WASTE_HEADERS };

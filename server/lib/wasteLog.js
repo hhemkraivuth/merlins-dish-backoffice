@@ -21,6 +21,12 @@ function wasteFrom(rows) {
     .filter((w) => w.date && w.dish && w.portions > 0);
 }
 
+// Rows of the Ingredient Waste tab (header first): Date, Ingredient, Qty, Unit, Reason, Cost, Bought at.
+function ingredientWasteFrom(rows) {
+  return (rows || []).slice(1).map((r) => ({ date: parseDate(r[0]), name: String(r[1] || '').trim(), qty: num(r[2]), unit: String(r[3] || '').trim(), reason: String(r[4] || '').trim(), cost: num(r[5]), shop: String(r[6] || '').trim() }))
+    .filter((w) => w.date && w.name && w.qty > 0);
+}
+
 function costPerPortion(batches, dish, date) {
   const list = batches.filter((b) => b.dish === dish && b.portions > 0 && b.cost > 0 && b.date.getTime() <= date.getTime()).sort((a, b) => a.date - b.date);
   const b = list[list.length - 1];
@@ -31,6 +37,7 @@ function costPerPortion(batches, dish, date) {
 async function processWaste(text, today, deps) {
   const raw = String(text || '').trim();
   if (!/^waste\b/i.test(raw)) return null;
+  if (/^waste\s+(?:\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?\s+)?.+?\s+\d+(?:[.,]\d+)?\s*(?:kg|g|gm|grams?|ml|l|ltr|pcs?|pieces?)\b/i.test(raw)) return null; // an ingredient, handled with the stock lots
   const usage = 'To log waste, send for example:\nwaste bolo 2 burnt\nwaste 8/11 ragu 1 dropped';
   const words = raw.replace(/^waste\b[\s:]*/i, '').split(/\s+/).filter(Boolean);
   let date = today;
@@ -60,4 +67,4 @@ async function processWaste(text, today, deps) {
     : `Logged ${portions} ${dish} (${reason}) on ${formatDMY(date)}, cost ${baht(cost)} at ${baht(per)} a portion. Taken off remaining stock.`];
 }
 
-module.exports = { processWaste, wasteFrom, TAB, HEADERS };
+module.exports = { processWaste, wasteFrom, ingredientWasteFrom, TAB, HEADERS };

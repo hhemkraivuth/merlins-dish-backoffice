@@ -944,6 +944,18 @@ async function renderStock() {
         <button class="primary-button" id="bulkBtn" type="button" style="margin-top:8px">Add all</button>
       </details>
       <div class="intro" style="margin-top:26px">
+        <h1 class="intro-title" style="font-size:18px">Thrown away</h1>
+        <p class="intro-body">Rotten, spilt or expired? Pick the ingredient and how much. It comes off stock at the price you paid and shows on Analysis as thrown away. It is not added to expenses again, because you already paid for it when you shopped.</p>
+      </div>
+      <form class="stock-row" id="wasteForm" style="display:grid;grid-template-columns:1fr 90px 80px;gap:8px;align-items:center">
+        <input class="stock-edit-input" id="wasteName" list="stockNames" placeholder="Ingredient (e.g. mushrooms)" autocomplete="off" required style="width:auto" />
+        <input class="stock-edit-input" id="wasteQty" type="number" inputmode="decimal" step="any" placeholder="Amount" required style="width:auto" />
+        <select class="stock-edit-input" id="wasteUnit" style="width:auto"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">l</option><option value="pcs">pcs</option></select>
+        <input class="stock-edit-input" id="wasteReason" placeholder="Why (e.g. mould)" maxlength="80" style="grid-column:1 / -1;width:auto" />
+        <button class="primary-button" type="submit" style="grid-column:1 / -1">Log waste</button>
+      </form>
+      <div id="wasteMsg" class="stock-meta" style="margin:6px 2px"></div>
+      <div class="intro" style="margin-top:26px">
         <h1 class="intro-title" style="font-size:18px">Replaced an ingredient</h1>
         <p class="intro-body">Use this only when the ingredient itself is a different product, like Polpa replaced by Pelati. The recipe is not touched, and batches from the start date use the new ingredient and its cost. A new brand of the same ingredient (another stout, another pasta) needs nothing here: tap the item in the list above and type the brand.</p>
       </div>
@@ -1262,6 +1274,18 @@ async function renderStock() {
     swapBox.appendChild(rowEl);
   });
   section.querySelector('#swapFrom').value = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  section.querySelector('#wasteForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = section.querySelector('#wasteMsg');
+    msg.textContent = 'Logging...';
+    try {
+      const r = await fetch('/api/stock/waste', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: section.querySelector('#wasteName').value, qty: section.querySelector('#wasteQty').value, unit: section.querySelector('#wasteUnit').value, reason: section.querySelector('#wasteReason').value }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Could not log that.');
+      msg.textContent = d.message;
+      if (d.ok) { section.querySelector('#wasteForm').reset(); }
+    } catch (err) { msg.textContent = err.message; }
+  });
   section.querySelector('#swapForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {

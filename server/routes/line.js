@@ -29,6 +29,8 @@ function defaultDeps() {
     saveLots: lots.saveLots,
     addLots: lots.addLots,
     loadUntracked: lots.loadUntracked,
+    ensureTab: cookLog.ensureTab,
+    appendRows,
     loadLevels: require('../lib/reorderLevels').loadLevels,
     setLevel: require('../lib/reorderLevels').setLevel,
     loadCatalogue: live.loadCatalogue,

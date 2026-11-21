@@ -85,6 +85,7 @@ app.post('/api/stock/ingredient-category', stockCountsRoute.setIngredientCategor
 app.post('/api/stock/ingredient-brand', stockCountsRoute.setIngredientBrand);
 app.get('/api/stock/lots', stockCountsRoute.ingredientLots);
 app.post('/api/stock/purchase', stockCountsRoute.addPurchase);
+app.post('/api/stock/waste', require('./routes/stockWaste').wasteIngredientRoute);
 app.post('/api/stock/lot-edit', stockCountsRoute.editLot);
 app.post('/api/stock/lot-delete', stockCountsRoute.deleteLot);
 app.post('/api/stock/item-meta', stockCountsRoute.setItemMeta);

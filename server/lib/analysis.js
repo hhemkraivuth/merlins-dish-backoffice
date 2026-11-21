@@ -367,7 +367,7 @@ function resultWithBoh(res, months) {
   return { ...res, months: [...res.months, ...boh] };
 }
 
-function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [], waste = [], lotBook = null, period = null, countRows = [] }) {
+function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master = [], cookBatches = [], expense = [], waste = [], ingredientWaste = [], lotBook = null, period = null, countRows = [] }) {
   const per = period && (period.from || period.to) ? period : null;
   const overlaps = (p) => !per || ((!per.from || p.to >= per.from) && (!per.to || p.from <= per.to));
   const chW = channelOrders(ledger, 'week'); const chM = channelOrders(ledger, 'month');
@@ -400,6 +400,7 @@ function buildAnalysis({ weekly = [], monthly = [], ledger = [], today, master =
     history: { ...buildHistory({ events, today }), result: withBoh(monthlyResult(master, today), months) },
     heatmap: heatmap(ledger, per, masterEvents),
     dishes,
+    ingredientWaste: (() => { const rows = (ingredientWaste || []).filter((w) => inPeriod(w.date, per)).sort((a, b) => b.date - a.date); return { cost: Math.round(rows.reduce((t, w) => t + w.cost, 0) * 100) / 100, rows: rows.slice(0, 20).map((w) => ({ date: formatDMY(w.date), name: w.name, qty: w.qty, unit: w.unit, reason: w.reason, cost: w.cost, shop: w.shop })) }; })(),
     period: per ? { from: per.from ? formatDMY(per.from) : null, to: per.to ? formatDMY(per.to) : null } : null,
   };
 }
