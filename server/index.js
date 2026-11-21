@@ -214,6 +214,12 @@ app.post('/api/pasta/save', async (req, res) => {
 // The Audit desk: stored result of the nightly check, run now, and ignore.
 const audit = require('./lib/audit');
 const itemCosts = require('./lib/itemCosts');
+app.post('/api/audit/split', async (req, res) => {
+  try {
+    const out = await require('./lib/ledgerService').splitOrderRows((req.body || {}).keys, (req.body || {}).text);
+    res.json({ ...out, audit: await audit.run() });
+  } catch (err) { res.status(/I don't know|Type the items|add up to|more than one dish|no longer in the Ledger/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); }
+});
 app.post('/api/item-cost/save', async (req, res) => {
   try { const out = await itemCosts.save((req.body || {}).name, (req.body || {}).cost); res.json({ ...out, audit: await audit.run() }); }
   catch (err) { res.status(/must be|Which item|could not be read/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); }

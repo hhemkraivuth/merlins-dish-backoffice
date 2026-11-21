@@ -17,8 +17,8 @@ function find(f) {
   const a = f.action || {};
   const typed = a.type === 'cost'
     ? `<div class="fixrow"><label>Cost per portion (฿)<input type="number" inputmode="decimal" min="0" step="any" data-val placeholder="for example 25.50"></label><button type="button" class="primary" data-fix>Save cost</button></div>`
-    : a.type === 'rename'
-      ? `<div class="fixrow"><label>What was it?<input type="text" data-val placeholder="the item name as it should read"></label><button type="button" class="primary" data-fix>Save name</button></div>`
+    : a.type === 'split'
+      ? `<div class="fixrow"><label>What was in the order?<input type="text" data-val value="${esc(a.text || '')}" placeholder="${esc(a.hint || 'Dark Beer Stew + Tubetti')}"></label><button type="button" class="primary" data-fix>Save items</button></div>`
       : '';
   const go = !typed && f.fix ? `<a href="${esc(f.fix)}">${esc(f.fixLabel || 'Open')}</a>` : '';
   return `<div class="find" data-id="${esc(f.id)}"><span class="tagc">${esc(f.check)}</span><p>${esc(f.line)}${f.baht >= 1 ? ` <span class="at">${esc(baht(f.baht))}</span>` : ''}</p>${typed}<div class="acts">${go}<button type="button" data-ignore>Ignore</button></div><div class="fmsg" data-msg></div></div>`;
@@ -42,7 +42,7 @@ $('list').addEventListener('click', async (e) => {
     fx.disabled = true; msg.textContent = 'Saving…';
     try {
       if (f.action.type === 'cost') draw(await call('/api/item-cost/save', { name: f.action.name, cost: val }).then((d) => d.audit));
-      else { for (const key of f.action.keys) await call('/api/ledger/row/update', { key, changes: { desc: val } }); draw(await call('/api/audit/run', {})); }
+      else { const out = await call('/api/audit/split', { keys: f.action.keys, text: val }); draw(out.audit); $('status').textContent = [`Saved: ${out.items.join(', ')}.`, ...(out.notes || [])].join(' '); }
     } catch (err) { msg.textContent = err.message; fx.disabled = false; }
     return;
   }

@@ -17,6 +17,7 @@ const { buildReadyStock } = require('./logViews');
 const { buildSpend, buildCooking } = require('./summaries');
 const marketingLib = require('./marketing');
 const { parseDate, formatDMY, bangkokToday } = require('./dates');
+const { normName } = require('./dishes');
 
 const WEEKLY_TAB = 'Weekly Report';
 const MONTHLY_TAB = 'Monthly Report';
@@ -184,6 +185,36 @@ async function updateLedgerRow(key, changes) {
   if (at < 0) throw new Error('That row is no longer in the Ledger. Reload the page.');
   await updateCells(LEDGER_TAB, at + 1, cells.cells);
   return { updated: cells.cells.length };
+}
+
+// Rebuilds one order row that holds several items as proper rows (see splitOrder.js). Keys are the Order row and its Recipe rows.
+async function splitOrderRows(keys, text) {
+  const split = require('./splitOrder');
+  const { applyShorthandRows, defaultShorthand } = require('./aliases');
+  const raw = await readOrEmpty(LEDGER_TAB);
+  const objs = ledgerObjects(raw);
+  const rows = (keys || []).map((k) => objs.find((r) => r.key === String(k))).filter(Boolean);
+  const order = rows.find((r) => r.type === 'Order');
+  if (!order) throw new Error('That order row is no longer in the Ledger. Reload the page.');
+  const rawOrder = raw.find((r, i) => i > 0 && String(r[COL.key] || '').trim() === order.key);
+  let sh = defaultShorthand();
+  try { sh = applyShorthandRows(sh, await require('./cookLog').readShorthandRows()); } catch (err) { /* defaults */ }
+  const p = split.plan(order, text, objs, sh);
+  if (p.error) throw new Error(p.error);
+  const w = split.rowsToWrite(order, rows.filter((r) => r.type === 'Recipe'), p, rawOrder, COL);
+  for (const e of w.edits) await updateLedgerRow(e.key, e.changes);
+  if (w.adds.length) await appendRows(LEDGER_TAB, w.adds, { raw: true });
+  for (const k of w.deletes) await deleteLedgerRow(k);
+  // Which batch the stew is costed from: the newest one cooked on or before the sale.
+  const notes = [];
+  try {
+    const d = await loadAll();
+    for (const it of p.items.filter((i) => i.kind === 'batch')) {
+      const b = d.cookBatches.filter((x) => normName(x.dish) === normName(it.canon) && x.date <= order.date && x.portions > 0).sort((a, c) => c.date - a.date)[0];
+      notes.push(b ? `${it.name} is costed from the batch cooked ${formatDMY(b.date)}, ฿${(b.cost / b.portions).toFixed(2)} a portion.` : `No ${it.name} batch was logged on or before ${order.dmy}, so it has no batch cost yet.`);
+    }
+  } catch (err) { /* the rows are saved either way */ }
+  return { items: p.items.map((i) => `${i.desc} ฿${i.price}`), notes };
 }
 
 // ---- loading the other teams' data -------------------------------------------------------------
@@ -377,4 +408,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { pitStock, withPastaCosts, cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { splitOrderRows, pitStock, withPastaCosts, cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };

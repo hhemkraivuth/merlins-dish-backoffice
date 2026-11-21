@@ -36,7 +36,7 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   for (const r of unreadable) { const k = `${r.channel}|${r.dmy}|${r.orderNo || r.key}`; const a = byOrder.get(k) || []; a.push(r); byOrder.set(k, a); }
   for (const [k, rows] of byOrder) {
     const first = rows[0]; const money = rows.reduce((s, r) => s + (r.type === 'Order' ? (r.moneyIn || 0) * (r.qty || 1) : 0), 0);
-    add({ id: `unreadable:${k}`, check: 'Unreadable item', line: `${first.channel} order ${first.orderNo || ''} on ${first.dmy.slice(0, 5)} has an item Grab could not read (shown as XXXXXX). Type what it was.`.replace('order  on', 'order on'), baht: money, action: { type: 'rename', keys: rows.map((r) => r.key) } });
+    add({ id: `unreadable:${k}`, check: 'Unreadable item', line: `${first.channel} order ${first.orderNo || ''} on ${first.dmy.slice(0, 5)} has an item Grab could not read (shown as XXXXXX). Type what was in the order.`.replace('order  on', 'order on'), baht: money, action: { type: 'split', keys: rows.map((r) => r.key), hint: 'For example: Dark Beer Stew + Tubetti' } });
   }
 
   // 2. Sold with no cost, and 4. food cost over 40%, from the same pass over recent orders.
@@ -45,12 +45,12 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   for (const r of recent) {
     if (placeholder(r.desc)) continue;
     if (r.type === 'Recipe' && (r.cost === null || r.cost <= 0)) {
-      const k = loose(r.desc); const s = sold.get(k) || { name: r.desc, n: 0, money: 0 }; s.n += r.qty || 1; sold.set(k, s);
+      const k = loose(r.desc); const s = sold.get(k) || { name: r.desc, n: 0, money: 0, keys: [] }; s.n += r.qty || 1; if (r.key) s.keys.push(r.key); sold.set(k, s);
     }
     if (r.type !== 'Order') continue;
     const c = lineItemCost(r, table);
     if (c.missing) {
-      const k = loose(c.missing); const s = sold.get(k) || { name: c.missing, n: 0, money: 0 }; s.n += r.qty || 1; s.money += r.moneyIn || 0; sold.set(k, s);
+      const k = loose(c.missing); const s = sold.get(k) || { name: c.missing, n: 0, money: 0, keys: [] }; s.n += r.qty || 1; s.money += r.moneyIn || 0; if (r.key) s.keys.push(r.key); sold.set(k, s);
     } else if (r.moneyIn >= 10 && !/bundle/i.test(r.desc) && c.cost > 0) {
       // Noodles bundled with a stew or ragu are sold at ฿0 to ฿5 on purpose, so only rows sold at a real price are judged.
       const k = loose(r.desc); const d = dish.get(k) || { name: r.desc, money: 0, cost: 0, n: 0 }; d.money += r.moneyIn * (r.qty || 1); d.cost += c.cost; d.n += r.qty || 1; dish.set(k, d);
@@ -59,6 +59,8 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   for (const [k, s] of sold) {
     const pasta = /pasta|risoni|tubetti|radiatori|rigatoni|lumache|linguine|spaghetti|farfalle|chefferi|heart/i.test(s.name);
     const clean = s.name.replace(/^pasta\s*-\s*/i, '').replace(/\s*\(.*\)/, '');
+    const combined = /\s\+\s|\+/.test(s.name) && s.keys.length;
+    if (combined) { add({ id: `combo:${k}`, check: 'Two items in one row', line: `"${s.name}" is one row but looks like several items. Split it so each item gets its own cost.`, baht: s.money, action: { type: 'split', keys: s.keys, text: s.name } }); continue; }
     add({ id: `nocost:${k}`, check: 'Sold with no cost', line: `${s.name} sold ${plural(s.n, 'time')} with no cost on record, so profit looks too high.${pasta ? ' Open its cost card.' : ' Type its cost per portion.'}`, baht: s.money, ...(pasta ? { fix: `recipes.html#Pasta - ${clean}`, fixLabel: 'Open cost card' } : { action: { type: 'cost', name: s.name } }) });
   }
   for (const [k, d] of dish) {

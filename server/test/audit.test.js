@@ -53,11 +53,11 @@ test('ignore hides a finding for good, summary lights', async () => {
   assert.match(sundayLine(v), /1 to review/);
 });
 
-test('unreadable XXXXXX items get a rename action, not a cost request', () => {
+test('unreadable XXXXXX items get a split action, not a cost request', () => {
   const ledger = [row({ channel: 'Grab', desc: 'XXXXXX', moneyIn: 350, key: 'k1', orderNo: 'GF-1' }), row({ channel: 'Grab', type: 'Recipe', desc: 'XXXXXX', key: 'k2', orderNo: '' })];
   const f = runChecks({ today, ledger });
   const u = f.find((x) => x.check === 'Unreadable item');
-  assert.ok(u && u.action.type === 'rename' && u.baht === 350);
+  assert.ok(u && u.action.type === 'split' && u.baht === 350);
   assert.ok(!f.some((x) => x.check === 'Sold with no cost'));
 });
 
