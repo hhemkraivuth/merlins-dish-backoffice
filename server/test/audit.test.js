@@ -124,3 +124,14 @@ test('a pasta still counting reheats per order is asked for minutes', () => {
   const f = runChecks({ today, pastaCards: [{ card, cost: pcs.costCard(card, pb, today) }] }).find((x) => /reheating is still counted per order/.test(x.line));
   assert.ok(f);
 });
+
+test('the Expense Log header is not a receipt line, and three identical lines in one receipt are three items, not duplicates', () => {
+  const rid = 'Typed on the web; Receipt R261117-164137; x';
+  const shiraz = ['14/11/2026', 'Poco Vino - Shiraz', '199', '187ml', '1.06', 'villa', rid];
+  const header = ['Shopping Date', 'Ingredient', 'Purchase Price', 'Purchase Unit', 'Cost per Recipe Unit', 'Shopped at', 'Remarks'];
+  const one = runChecks({ today, expenseRows: [header, shiraz, shiraz, shiraz] }).filter((x) => x.check === 'Receipts');
+  assert.strictEqual(one.length, 0);
+  const again = [...shiraz]; again[6] = 'Typed on the web; Receipt R261118-090000; x';
+  const two = runChecks({ today, expenseRows: [header, shiraz, again] }).filter((x) => /entered twice/.test(x.line));
+  assert.strictEqual(two.length, 1); assert.strictEqual(two[0].items[0].ref.i, 2);
+});

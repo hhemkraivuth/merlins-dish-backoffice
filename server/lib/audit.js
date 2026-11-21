@@ -121,10 +121,11 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   const seen = new Map(); let noShop = 0, noShopBaht = 0, noDate = 0; let dup = 0, dupBaht = 0;
   const lines = { noDate: [], noShop: [], dup: [] };
   expenseRows.forEach((r, i) => {
-    if (i === 0 && /^date$/i.test(String(r[0] || '').trim())) return;
+    if (i === 0 && /date/i.test(String(r[0] || ''))) return; // the header row ("Shopping Date")
     const name = String(r[1] || '').trim(); if (!name) return;
     const price = Number(String(r[2] ?? '').replace(/[฿,\s]/g, '')) || 0;
     const date = parseDate(String(r[0] || ''), today);
+    const rid = (String(r[6] || '').match(/R\d{6}-\d{6}/) || [''])[0];
     const row = { date: String(r[0] || '').trim(), item: name, qty: String(r[3] || '').trim(), price, shop: String(r[5] || '').trim() };
     const ref = { t: 'E', i, d: String(r[0] || ''), n: String(r[1] || ''), p: String(r[2] || '') };
     const text = `${row.date || 'No date'}, ${name}${row.qty ? ' ' + row.qty : ''}, ${baht(price)}${row.shop ? ' at ' + row.shop : ''}`;
@@ -132,7 +133,8 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
     if (daysBetween(today, date) > WINDOW) return;
     if (!row.shop) { noShop += 1; noShopBaht += price; lines.noShop.push({ text, ref, row }); }
     const k = `${iso(date)}|${loose(name)}|${price}|${loose(row.shop)}`;
-    if (seen.has(k)) { dup += 1; dupBaht += price; lines.dup.push({ text, ref, row }); } else seen.set(k, true);
+    // The same line several times inside ONE receipt is several of the item (three bottles). Only a repeat from another receipt is a double entry.
+    if (seen.has(k)) { const first = seen.get(k); if (!rid || rid !== first) { dup += 1; dupBaht += price; lines.dup.push({ text, ref, row }); } } else seen.set(k, rid || true);
   });
   const rcptItems = (arr, kind) => arr.slice(0, 10).map((x) => ({ text: x.text, ref: x.ref, row: x.row, kind }));
   const rcptMore = (n) => (n > 10 ? { fix: '/#receipts', fixLabel: `Open Purchasing Receipts (${n - 10} more)` } : {});
