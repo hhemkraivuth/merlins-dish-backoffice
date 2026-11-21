@@ -9,7 +9,8 @@ const { parseDate, formatDMY, daysBetween, bangkokToday } = require('./dates');
 const RESULT_KEY = 'audit_latest';
 const IGNORE_KEY = 'audit_ignored';
 const FOOD_COST_LIMIT = 0.4;
-const BANK_STALE_DAYS = 14;
+// Lily pulls the bank statement once a month, by the 5th of the next month, so the balance is only late after that.
+const BANK_DUE_DAY = 5;
 const STOCK_OLD_DAYS = 5;
 const WINDOW = 30; // days looked back
 // Where the Grab order screenshots live in Drive: Daily Screenshots, then the month folder, then a folder named like 17/11.
@@ -149,7 +150,8 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
 
   // 7. Bank balance not refreshed.
   const asOf = bank && parseDate(String(bank.asOf || ''));
-  if (asOf && daysBetween(today, asOf) > BANK_STALE_DAYS) add({ id: `bank:${bank.asOf}`, check: 'Bank', line: `The bank balance is from ${bank.asOf}, ${daysBetween(today, asOf)} days ago. Cash figures drift without a fresh statement.`, fix: 'reports.html', fixLabel: 'Open Numbers' });
+  const lastMonthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
+  if (asOf && today.getUTCDate() > BANK_DUE_DAY && asOf.getTime() < lastMonthEnd.getTime()) add({ id: `bank:${bank.asOf}`, check: 'Bank', line: `The bank balance is from ${bank.asOf}. Last month's statement (up to ${formatDMY(lastMonthEnd)}) was due by the ${BANK_DUE_DAY}th, so cash figures are drifting.`, fix: 'reports.html', fixLabel: 'Open Numbers' });
 
   // 8. Stock: oversold, no yield, sitting too long.
   for (const s of stock) {

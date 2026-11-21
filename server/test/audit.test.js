@@ -24,7 +24,7 @@ test('duplicate ledger keys, missing days, receipts, bank and stock', () => {
   const f = runChecks({
     today, ledger,
     expenseRows: [['Date', 'Ingredient', 'Price'], ['19/11/2026', 'Butter', '90', '', '', ''], ['19/11/2026', 'Eggs', '60', '', '', 'Tops'], ['19/11/2026', 'Eggs', '60', '', '', 'Tops']],
-    bank: { amount: 1, asOf: '01/11/2026' },
+    bank: { amount: 1, asOf: '15/09/2026' },
     stock: [{ dish: 'Bolo', remaining: -2 }, { dish: 'Ragu', remaining: 4, oldestAgeDays: 7 }],
     cookBatches: [{ date: d('2026-11-18'), dish: 'Stew', portions: 0 }],
   });
@@ -134,4 +134,9 @@ test('the Expense Log header is not a receipt line, and three identical lines in
   const again = [...shiraz]; again[6] = 'Typed on the web; Receipt R261118-090000; x';
   const two = runChecks({ today, expenseRows: [header, shiraz, again] }).filter((x) => /entered twice/.test(x.line));
   assert.strictEqual(two.length, 1); assert.strictEqual(two[0].items[0].ref.i, 2);
+});
+
+test('a bank balance that covers last month is not late, even if 16 days old', () => {
+  const ok = runChecks({ today, ledger: [], bank: { amount: 1, asOf: '05/11/2026' } });
+  assert.ok(!ok.some((x) => x.check === 'Bank'));
 });
