@@ -32,7 +32,8 @@ function find(f) {
         : `<button type="button" class="del" data-itm>Delete this line</button>`;
     return `<div class="itm" data-n="${n}"><div class="t">${esc(it.text)}</div><div class="row2">${ctl}</div><div class="m" data-m></div></div>`;
   }).join('');
-  return `<div class="find" data-id="${esc(f.id)}"><span class="tagc">${esc(f.check)}</span><p>${esc(f.line)}${f.baht >= 1 ? ` <span class="at">${esc(baht(f.baht))}</span>` : ''}</p>${how}${chips}${typed}${items}<div class="acts">${go}${links}<button type="button" data-ignore>Ignore</button></div><div class="fmsg" data-msg></div></div>`;
+  const head = f.text ? `<p><b>${esc(f.title || '')}</b><br>${esc(f.text)}</p>` : `<p>${esc(f.line)}${f.baht >= 1 && !f.hideBaht ? ` <span class="at">${esc(baht(f.baht))}</span>` : ''}</p>`;
+  return `<div class="find" data-id="${esc(f.id)}"><span class="tagc">${esc(f.check)}</span>${head}${how}${chips}${typed}${items}<div class="acts">${go}${links}<button type="button" data-ignore>Ignore</button></div><div class="fmsg" data-msg></div></div>`;
 }
 async function call(url, body) {
   const res = await fetch(url, body === undefined ? undefined : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });

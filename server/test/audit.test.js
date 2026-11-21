@@ -92,7 +92,7 @@ test('unreadable items name the folder to upload to, and a name placeholder alon
 test('margin links to the exact dates and rows, and states price and cost', () => {
   const ledger = [row({ type: 'Recipe', desc: 'Pierre Maison - Forever Lemon', cost: 41, channel: 'Grab' }), row({ desc: 'Pierre Maison - Forever Lemon', moneyIn: 78, channel: 'Grab' })];
   const f = runChecks({ today, ledger }).find((x) => x.check === 'Margin');
-  assert.ok(f); assert.match(f.line, /sells for ฿78 and costs ฿41/);
+  assert.ok(f); assert.strictEqual(f.text, 'Selling price ฿78, cost ฿41. The cost is ฿10 too much.');
   assert.match(f.fix, /^reports\.html\?from=19%2F11%2F2026&to=19%2F11%2F2026&find=Pierre%20Maison/);
 });
 

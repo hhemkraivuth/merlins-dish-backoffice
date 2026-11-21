@@ -79,7 +79,12 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   }
   for (const [k, d] of dish) {
     const pct = d.cost / d.money;
-    if (pct > FOOD_COST_LIMIT) add({ id: `margin:${k}`, check: 'Margin', line: `${d.name} sells for ${baht(d.money / d.n)} and costs ${baht(d.cost / d.n)} to make, which is ${Math.round(pct * 100)}% of the price (limit ${Math.round(FOOD_COST_LIMIT * 100)}%). Check the cost on its sales rows, or raise the price.`, baht: d.cost - FOOD_COST_LIMIT * d.money, fix: `reports.html?from=${encodeURIComponent(formatDMY(d.from))}&to=${encodeURIComponent(formatDMY(d.to))}&find=${encodeURIComponent(d.name)}`, fixLabel: 'See the sales rows' });
+    if (pct > FOOD_COST_LIMIT) {
+      // Said one portion at a time, so it reads the same whether 1 or 40 were sold.
+      const price = d.money / d.n; const cost = d.cost / d.n; const most = price * FOOD_COST_LIMIT; const over = cost - most;
+      add({ id: `margin:${k}`, check: 'Margin', title: d.name, text: `Selling price ${baht(price)}, cost ${baht(cost)}. The cost is ${baht(over)} too much.`, line: `${d.name}: selling price ${baht(price)}, cost ${baht(cost)}. The cost is ${baht(over)} too much.`, hideBaht: true,
+        baht: d.cost - FOOD_COST_LIMIT * d.money, fix: `reports.html?from=${encodeURIComponent(formatDMY(d.from))}&to=${encodeURIComponent(formatDMY(d.to))}&find=${encodeURIComponent(d.name)}`, fixLabel: 'See the sales rows' });
+    }
   }
 
   // 3. Cost cards (pasta): a price missing, or a number still marked to confirm.
