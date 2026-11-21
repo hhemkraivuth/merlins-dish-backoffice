@@ -29,7 +29,7 @@ const list = (a, max = 3) => (a.length <= max ? a.join(', ') : `${a.slice(0, max
 // ledger: ledgerObjects (already pasta costed). expenseRows: Expense Log rows (header optional).
 // stock: [{ dish, remaining, oldestAgeDays }]. cookBatches: [{ date, dish, portions }]. closed: Map iso -> reason.
 // pastaCards: [{ card, cost }] where cost is pastaCosts.costCard. bank: { amount, asOf "DD/MM/YYYY" }.
-function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null } = {}) {
+function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [] } = {}) {
   const out = [];
   const add = (f) => out.push({ baht: 0, ...f });
   const recent = ledger.filter((r) => daysBetween(today, r.date) <= WINDOW);
@@ -148,6 +148,16 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   if (noShop) add({ id: `rcpt-noshop:${noShop}`, check: 'Receipts', line: `${plural(noShop, 'receipt line')} in the last 30 days ${noShop === 1 ? 'has' : 'have'} no shop.`, baht: noShopBaht, items: rcptItems(lines.noShop, 'shop'), ...rcptMore(noShop) });
   if (dup) add({ id: `rcpt-dup:${dup}:${Math.round(dupBaht)}`, check: 'Receipts', line: `${plural(dup, 'receipt line')} ${dup === 1 ? 'looks' : 'look'} entered twice (same day, item, price and shop). The second copy is listed. Delete it if it is a repeat.`, baht: dupBaht, items: rcptItems(lines.dup, 'delete'), ...rcptMore(dup) });
 
+  // 6b. Grab's own daily totals (the PDF) against what the Ledger holds for that day.
+  for (const x of require('./grabTotals').checkTotals(ledger, grabTotals)) {
+    if (x.missing) { add({ id: `grabtotal:${x.day}:none`, check: 'Grab totals', line: `Grab's PDF for ${x.day} shows ${baht(x.t.gross)} gross, but the Ledger has no Grab rows that day.`, fix: `reports.html?from=${encodeURIComponent(x.day)}&to=${encodeURIComponent(x.day)}`, fixLabel: 'See that day' }); continue; }
+    const bits = [];
+    if (Math.abs(x.dGross) > 0.5) bits.push(`gross ${baht(x.gross)} against ${baht(x.t.gross)} on the PDF`);
+    if (Math.abs(x.dNet) > 0.5) bits.push(`net ${baht(x.net)} against ${baht(x.t.net)}`);
+    if (x.t.orders !== null && x.t.orders !== x.orders) bits.push(`${x.orders} orders against ${x.t.orders}`);
+    add({ id: `grabtotal:${x.day}:${x.dGross}:${x.dNet}:${x.orders}`, check: 'Grab totals', line: `Grab ${x.day}: the Ledger has ${bits.join(', ')}.`, baht: Math.abs(x.dNet) > 0.5 ? Math.abs(x.dNet) : Math.abs(x.dGross), fix: `reports.html?from=${encodeURIComponent(x.day)}&to=${encodeURIComponent(x.day)}`, fixLabel: 'See that day' });
+  }
+
   // 7. Bank balance not refreshed.
   const asOf = bank && parseDate(String(bank.asOf || ''));
   const lastMonthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
@@ -186,7 +196,8 @@ async function run({ store = require('./appState') } = {}) {
   let expenseRows = []; try { expenseRows = await svc.readOrEmpty('Expense Log'); } catch (err) { /* skip */ }
   let stock = []; try { stock = (await svc.pitStock(d, today)) || []; } catch (err) { /* skip */ }
   let bank = null; try { bank = await require('./borrowed').loadBank(); } catch (err) { /* skip */ }
-  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank });
+  let grabTotals = []; try { grabTotals = require('./grabTotals').totalsFrom(await svc.readOrEmpty(require('./grabTotals').TAB)); } catch (err) { /* skip */ }
+  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals });
   const result = { ranAt: new Date().toISOString(), findings: all };
   await store.setState(RESULT_KEY, JSON.stringify(result));
   return view(result, store);

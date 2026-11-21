@@ -62,17 +62,18 @@ async function moveFile(drive, f, readyId, importedId) {
 }
 
 // importCsv is importGrabCsv from ledgerService. It is passed in so tests can run without Google.
-async function runDriveImport({ drive, importCsv, readyId, importedId, log = console }) {
+async function runDriveImport({ drive, importCsv, importTotals, readyId, importedId, log = console }) {
   const files = await listReady(drive, readyId);
   const results = [];
   for (const f of files) {
     const r = { name: f.name, ok: false, moved: false };
     try {
-      const out = await importCsv(await readText(drive, f));
+      const isTotals = /^grab_totals_/i.test(f.name || '');
+      const out = isTotals && importTotals ? await importTotals(await readText(drive, f)) : await importCsv(await readText(drive, f));
       if (!out.imported) {
         r.error = (out.problems && out.problems[0]) || 'Nothing could be read from that file.';
       } else {
-        Object.assign(r, { ok: true, imported: out.imported, replaced: out.replaced, orders: out.orders, flagged: out.flagged, days: out.days, problems: out.problems || [] });
+        Object.assign(r, { totals: Boolean(out.totals), ok: true, imported: out.imported, replaced: out.replaced, orders: out.orders, flagged: out.flagged, days: out.days, problems: out.problems || [] });
         try { await moveFile(drive, f, readyId, importedId); r.moved = true; } catch (err) { r.moveError = err.message; }
       }
     } catch (err) {
@@ -89,6 +90,7 @@ function summaryText(run) {
   if (!run.files.length) return '';
   const lines = run.files.map((r) => {
     if (!r.ok) return `Could not import ${r.name}: ${r.error} It is still in "Ready for BOH".`;
+    if (r.totals) return `Imported ${r.name}: Grab PDF totals for ${r.days.join(', ')}.${r.moved ? '' : ' Imported, but the file could not be moved to "Imported".'}`;
     const days = r.days.length === 1 ? r.days[0] : `${r.days[0]} to ${r.days[r.days.length - 1]}`;
     const bits = [`${r.orders} orders, ${r.imported} rows for ${days}`];
     if (r.replaced) bits.push(`replaced ${r.replaced} rows already there`);
@@ -108,7 +110,9 @@ async function importFromDrive() {
   try {
     const { readyId, importedId } = folderIds();
     const { importGrabCsv } = require('./ledgerService');
-    return await runDriveImport({ drive: driveClient(), importCsv: importGrabCsv, readyId, importedId });
+    const grabTotals = require('./grabTotals'); const cookLog = require('./cookLog'); const sheets = require('./sheets');
+    const importTotals = (text) => grabTotals.importTotals(text, { ensureTab: cookLog.ensureTab, appendRows: sheets.appendRows, deleteRowsWhere: sheets.deleteRowsWhere });
+    return await runDriveImport({ drive: driveClient(), importCsv: importGrabCsv, importTotals, readyId, importedId });
   } finally { running = false; }
 }
 
