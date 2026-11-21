@@ -90,6 +90,7 @@
       #detail { overflow-x: auto; }
     }
     a.back { color: var(--accent); font-size: 14px; text-decoration: none; }
+      tr.hl td { background: #fff2b8 !important; }
   </style>
 </head>
 <body>
@@ -122,7 +123,7 @@
       <div class="tablewrap"><table id="profit"></table></div>
       <div id="profitFoot" class="profitfoot"></div>
       <p class="hint">Months before 10/2026 are copied from the Log tab of the Merlin's numbers sheet, so only their total cost is known and the cost columns show a dash. Those three cost columns and Money to take out in the Total row cover 10/2026 onward only. Type the amount you borrowed from Merlin's Dish in the Borrowed column, then tap Save (or press Enter). The box turns red until it is saved.</p>
-      <h2 style="font-size:16px;margin:18px 0 6px">Tools</h2>
+      <h2 id="tools" style="font-size:16px;margin:18px 0 6px">Tools</h2>
       <div class="actions">
         <label class="btn">Import Grab CSV (one or more files)<input id="csv" type="file" accept=".csv,text/csv" multiple hidden /></label>
         <button id="driveImport" class="alt">Import from Drive now</button>

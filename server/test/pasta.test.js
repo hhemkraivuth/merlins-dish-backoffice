@@ -45,3 +45,15 @@ test('saving a line confirms only that number, saving the card confirms all', ()
   const k = pc.costCard(pc.clean({ ...seed.cards.find((c) => c.name === 'Risoni'), unconfirmed: ['oilG', 'cookMin'] }), pb, new Date('2026-11-21'));
   assert.deepStrictEqual(k.lines.filter((l) => l.guess).map((l) => l.field), ['oilG', 'cookMin']);
 });
+
+test('reheating in minutes is priced like cooking minutes, and older per order cards keep their cost until minutes are set', () => {
+  const base = pc.clean(seed.cards.find((c) => c.reheat > 0));
+  const old = pc.costCard(base, pb, new Date('2026-11-21'));
+  assert.ok(old.legacyReheat); assert.strictEqual(old.lines.find((l) => l.label === 'Reheating utilities').legacy, true);
+  const set = pc.costCard(pc.clean({ ...base, reheatMin: 4 }), pb, new Date('2026-11-21'));
+  const line = set.lines.find((l) => l.label === 'Reheating utilities');
+  assert.strictEqual(set.legacyReheat, false); assert.strictEqual(line.unit, 'min'); assert.strictEqual(line.qty, 4);
+  assert.ok(Math.abs(line.cost - 4 * 0.5) < 1e-9);
+  const none = pc.costCard(pc.clean({ ...base, reheatMin: 0 }), pb, new Date('2026-11-21'));
+  assert.strictEqual(none.lines.find((l) => l.label === 'Reheating utilities').cost, 0);
+});

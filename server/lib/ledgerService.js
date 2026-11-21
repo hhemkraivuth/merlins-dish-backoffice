@@ -187,6 +187,20 @@ async function updateLedgerRow(key, changes) {
   return { updated: cells.cells.length };
 }
 
+// Types the customer name onto an order (Grab shows XXXXXX when its screenshot was never read). The name sits on the first
+// row of the order's block in the sheet, so that row is the one changed.
+async function setOrderCustomer(keys, name) {
+  const text = String(name || '').trim();
+  if (!text || /^x{3,}$/i.test(text)) throw new Error('Type the customer name first.');
+  const raw = await readOrEmpty(LEDGER_TAB);
+  const want = new Set((keys || []).map(String));
+  const hits = raw.map((r, i) => ({ r, i })).filter(({ r, i }) => i > 0 && want.has(String(r[COL.key] || '').trim()));
+  if (!hits.length) throw new Error('That order is no longer in the Ledger. Reload the page.');
+  const lead = hits.find(({ r }) => String(r[COL.orderNo] || '').trim()) || hits[0];
+  await updateLedgerRow(String(lead.r[COL.key]).trim(), { customer: text });
+  return { name: text };
+}
+
 // Rebuilds one order row that holds several items as proper rows (see splitOrder.js). Keys are the Order row and its Recipe rows.
 async function splitOrderRows(keys, text) {
   const split = require('./splitOrder');
@@ -408,4 +422,4 @@ async function periodText(type) {
   return buildPeriodText(type === 'month' ? monthly : weekly, type, bangkokToday());
 }
 
-module.exports = { splitOrderRows, pitStock, withPastaCosts, cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };
+module.exports = { setOrderCustomer, splitOrderRows, pitStock, withPastaCosts, cookBatchesFrom, readOrEmpty, marketing, addMarketingNote, addHandoff, addManualOrders, deleteLedgerRange, deleteTabRange, deleteLedgerRow, updateLedgerRow, dayDetailFor, findLineOrders, saveRider, riderOrders, saveRiderFee, importGrabCsv, syncLineOrders, loadAll, computeReports, refreshReports, refreshHandoffs, huddle, pit, spendSummary, cookingSummary, periodText, cookBatchesFrom, purchasesFrom };

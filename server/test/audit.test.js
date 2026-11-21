@@ -72,3 +72,55 @@ test('bundled noodles at 5 baht are not judged on food cost, and a plain item ge
   const n = f.find((x) => x.check === 'Sold with no cost');
   assert.ok(n && n.action.type === 'cost' && n.action.name === 'Lemon Soda');
 });
+
+test('a Grab order with no customer name is flagged with a name box and the Drive folder to upload to', () => {
+  const ledger = [row({ channel: 'Grab', dmy: '17/11/2026', date: d('2026-11-17'), orderNo: 'GF-140', type: 'Order', desc: 'Dark Beer Stew', customer: 'XXXXXX', key: 'G|17/11/2026|9', moneyIn: 350 })];
+  const f = runChecks({ today, ledger }).find((x) => x.check === 'No customer name');
+  assert.ok(f); assert.strictEqual(f.action.type, 'customer'); assert.deepStrictEqual(f.action.keys, ['G|17/11/2026|9']);
+  assert.match(f.how, /Daily Screenshots, November, folder 17\/11/);
+  assert.ok(f.links[0].href.includes('drive.google.com'));
+});
+
+test('unreadable items name the folder to upload to, and a name placeholder alongside is not flagged twice', () => {
+  const ledger = [row({ channel: 'Grab', dmy: '17/11/2026', date: d('2026-11-17'), orderNo: 'GF-140', desc: 'XXXXXX', customer: 'XXXXXX', key: 'G1', moneyIn: 350 })];
+  const out = runChecks({ today, ledger });
+  const f = out.filter((x) => /GF-140/.test(x.line));
+  assert.strictEqual(f.length, 1); assert.strictEqual(f[0].check, 'Unreadable item');
+  assert.match(f[0].how, /folder 17\/11/);
+});
+
+test('margin links to the exact dates and rows, and states price and cost', () => {
+  const ledger = [row({ type: 'Recipe', desc: 'Pierre Maison - Forever Lemon', cost: 41, channel: 'Grab' }), row({ desc: 'Pierre Maison - Forever Lemon', moneyIn: 78, channel: 'Grab' })];
+  const f = runChecks({ today, ledger }).find((x) => x.check === 'Margin');
+  assert.ok(f); assert.match(f.line, /sells for ฿78 and costs ฿41/);
+  assert.match(f.fix, /^reports\.html\?from=19%2F11%2F2026&to=19%2F11%2F2026&find=Pierre%20Maison/);
+});
+
+test('missing days list every date as a link, with what to do for each channel', () => {
+  const ledger = [row({ channel: 'Grab', date: d('2026-11-10') }), row({ channel: 'LINE', date: d('2026-11-10') })];
+  const f = runChecks({ today, ledger }).filter((x) => x.check === 'Missing days');
+  const g = f.find((x) => /^Grab/.test(x.line)); const l = f.find((x) => /^LINE/.test(x.line));
+  assert.ok(g.chips.length > 4); assert.ok(g.chips[0].href.startsWith('reports.html?from='));
+  assert.match(g.how, /Drive/); assert.ok(g.links.length === 1);
+  assert.match(l.how, /Sync LINE orders/); assert.strictEqual(l.fix, 'reports.html#tools');
+});
+
+test('receipt problems list each line so it can be fixed on the card', () => {
+  const f = runChecks({
+    today, ledger: [],
+    expenseRows: [['Date', 'Ingredient', 'Price', 'Unit'], ['', 'Salt', '20', '500g', '', 'Tops'], ['19/11/2026', 'Butter', '90', '250g', '', ''], ['19/11/2026', 'Eggs', '60', '10pc', '', 'Tops'], ['19/11/2026', 'Eggs', '60', '10pc', '', 'Tops']],
+  }).filter((x) => x.check === 'Receipts');
+  const nd = f.find((x) => /no readable date/.test(x.line)); const ns = f.find((x) => /no shop/.test(x.line)); const dp = f.find((x) => /entered twice/.test(x.line));
+  assert.strictEqual(nd.items[0].kind, 'date'); assert.strictEqual(nd.items[0].ref.i, 1); assert.strictEqual(nd.items[0].row.qty, '500g');
+  assert.strictEqual(ns.items[0].kind, 'shop'); assert.strictEqual(ns.items[0].row.item, 'Butter');
+  assert.strictEqual(dp.items[0].kind, 'delete'); assert.strictEqual(dp.items[0].ref.i, 4);
+});
+
+test('a pasta still counting reheats per order is asked for minutes', () => {
+  const pcs = require('../lib/pastaCosts'); const seed = require('../data/pastaSeed.json');
+  const card = pcs.clean({ ...seed.cards.find((c) => c.reheat > 0) });
+  const prices = { oil: 0.05, butter: 0.4, 'utility costs - cooking': 0.18, 'utility costs - reheating': 0.43, 'packaging box (carb600ml)': 1.54 };
+  const pb = { lookup: (n) => (prices[String(n).toLowerCase()] ? { cost: prices[String(n).toLowerCase()], date: '2026-11-18' } : { cost: 0.17, date: '2026-11-18' }) };
+  const f = runChecks({ today, pastaCards: [{ card, cost: pcs.costCard(card, pb, today) }] }).find((x) => /reheating is still counted per order/.test(x.line));
+  assert.ok(f);
+});

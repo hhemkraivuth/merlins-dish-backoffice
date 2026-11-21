@@ -12,6 +12,12 @@ const FOOD_COST_LIMIT = 0.4;
 const BANK_STALE_DAYS = 14;
 const STOCK_OLD_DAYS = 5;
 const WINDOW = 30; // days looked back
+// Where the Grab order screenshots live in Drive: Daily Screenshots, then the month folder, then a folder named like 17/11.
+const DRIVE_SCREENSHOTS = 'https://drive.google.com/drive/folders/1RlTIVMOyF694vvZc9oHaRYQu5OG_hUSj';
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const dayParts = (dmy) => { const m = String(dmy || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? { d: Number(m[1]), m: Number(m[2]), y: Number(m[3]) } : null; };
+const shotHow = (dmy) => { const p = dayParts(dmy); const where = p ? `Daily Screenshots, ${MONTH_NAMES[p.m - 1]}, folder ${p.d}/${p.m}` : 'Daily Screenshots, the month folder, the day folder'; return `Upload its screenshot to Drive: ${where}. The 16:05 run picks it up and sends that day again, which fills in the customer and items. Or type them in here.`; };
+const driveLink = { label: 'Open Drive screenshots', href: DRIVE_SCREENSHOTS, ext: true };
 
 const loose = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9฀-๿]+/g, '');
 const baht = (n) => `฿${Math.round(n || 0).toLocaleString('en-AU')}`;
@@ -29,14 +35,22 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   const { buildCostTable, lineItemCost } = require('./reports');
   const table = buildCostTable(ledger);
 
-  // 1. Items Grab could not read (XXXXXX). Lily types what they were, and the row is corrected in the Ledger.
+  // 1. Items or a customer name Grab could not read (XXXXXX). Most often the order's screenshot was never uploaded.
   const placeholder = (x) => /^x{3,}$/i.test(String(x || '').trim());
-  const unreadable = recent.filter((r) => placeholder(r.desc) && r.key);
-  const byOrder = new Map();
-  for (const r of unreadable) { const k = `${r.channel}|${r.dmy}|${r.orderNo || r.key}`; const a = byOrder.get(k) || []; a.push(r); byOrder.set(k, a); }
-  for (const [k, rows] of byOrder) {
-    const first = rows[0]; const money = rows.reduce((s, r) => s + (r.type === 'Order' ? (r.moneyIn || 0) * (r.qty || 1) : 0), 0);
-    add({ id: `unreadable:${k}`, check: 'Unreadable item', line: `${first.channel} order ${first.orderNo || ''} on ${first.dmy.slice(0, 5)} has an item Grab could not read (shown as XXXXXX). Type what was in the order.`.replace('order  on', 'order on'), baht: money, action: { type: 'split', keys: rows.map((r) => r.key), hint: 'For example: Dark Beer Stew + Tubetti' } });
+  const orderKey = (r) => `${r.channel}|${r.dmy}|${r.orderNo || r.key}`;
+  const groups = new Map();
+  for (const r of recent) { if (!r.key) continue; const k = orderKey(r); const g = groups.get(k) || []; g.push(r); groups.set(k, g); }
+  for (const [k, rows] of groups) {
+    const first = rows[0]; const noItems = rows.filter((r) => placeholder(r.desc));
+    const noName = first.channel === 'Grab' && rows.some((r) => r.type === 'Order' && placeholder(r.customer));
+    if (!noItems.length && !noName) continue;
+    const money = rows.reduce((s, r) => s + (r.type === 'Order' ? (r.moneyIn || 0) * (r.qty || 1) : 0), 0);
+    const ref = `${first.channel} order ${first.orderNo || ''} on ${first.dmy.slice(0, 5)}`.replace('order  on', 'order on');
+    if (noItems.length) {
+      add({ id: `unreadable:${k}`, check: 'Unreadable item', line: `${ref} has an item Grab could not read (shown as XXXXXX).`, how: shotHow(first.dmy), links: [driveLink], baht: money, action: { type: 'split', keys: noItems.map((r) => r.key), hint: 'For example: Dark Beer Stew + Tubetti' } });
+    } else {
+      add({ id: `nocust:${k}`, check: 'No customer name', line: `${ref} has no customer name (shown as XXXXXX).`, how: shotHow(first.dmy).replace('fills in the customer and items. Or type them in here.', 'fills in the customer. Or type the name in here.'), links: [driveLink], baht: 0, action: { type: 'customer', keys: rows.map((r) => r.key), hint: 'Customer name' } });
+    }
   }
 
   // 2. Sold with no cost, and 4. food cost over 40%, from the same pass over recent orders.
@@ -53,7 +67,7 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
       const k = loose(c.missing); const s = sold.get(k) || { name: c.missing, n: 0, money: 0, keys: [] }; s.n += r.qty || 1; s.money += r.moneyIn || 0; if (r.key) s.keys.push(r.key); sold.set(k, s);
     } else if (r.moneyIn >= 10 && !/bundle/i.test(r.desc) && c.cost > 0) {
       // Noodles bundled with a stew or ragu are sold at ฿0 to ฿5 on purpose, so only rows sold at a real price are judged.
-      const k = loose(r.desc); const d = dish.get(k) || { name: r.desc, money: 0, cost: 0, n: 0 }; d.money += r.moneyIn * (r.qty || 1); d.cost += c.cost; d.n += r.qty || 1; dish.set(k, d);
+      const k = loose(r.desc); const d = dish.get(k) || { name: r.desc, money: 0, cost: 0, n: 0, from: r.date, to: r.date }; d.money += r.moneyIn * (r.qty || 1); d.cost += c.cost; d.n += r.qty || 1; if (r.date < d.from) d.from = r.date; if (r.date > d.to) d.to = r.date; dish.set(k, d);
     }
   }
   for (const [k, s] of sold) {
@@ -65,7 +79,7 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   }
   for (const [k, d] of dish) {
     const pct = d.cost / d.money;
-    if (pct > FOOD_COST_LIMIT) add({ id: `margin:${k}`, check: 'Margin', line: `${d.name} costs ${Math.round(pct * 100)}% of what it sells for (limit ${Math.round(FOOD_COST_LIMIT * 100)}%). Check the cost or raise the price.`, baht: d.cost - FOOD_COST_LIMIT * d.money, fix: 'reports.html', fixLabel: 'Open Numbers' });
+    if (pct > FOOD_COST_LIMIT) add({ id: `margin:${k}`, check: 'Margin', line: `${d.name} sells for ${baht(d.money / d.n)} and costs ${baht(d.cost / d.n)} to make, which is ${Math.round(pct * 100)}% of the price (limit ${Math.round(FOOD_COST_LIMIT * 100)}%). Check the cost on its sales rows, or raise the price.`, baht: d.cost - FOOD_COST_LIMIT * d.money, fix: `reports.html?from=${encodeURIComponent(formatDMY(d.from))}&to=${encodeURIComponent(formatDMY(d.to))}&find=${encodeURIComponent(d.name)}`, fixLabel: 'See the sales rows' });
   }
 
   // 3. Cost cards (pasta): a price missing, or a number still marked to confirm.
@@ -74,6 +88,7 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
     if (k.missing.length) add({ id: `card-missing:${loose(name)}`, check: 'Cost card', line: `Pasta - ${name} has no price for ${list(k.missing)}, so its cost is too low.`, fix: `recipes.html#Pasta - ${name}`, fixLabel: 'Open cost card' });
     else if (k.guesses.length) add({ id: `card-guess:${loose(name)}:${k.guesses.join('|')}`, check: 'Cost card', line: `Pasta - ${name}: ${list(k.guesses)} still to confirm.`, fix: `recipes.html#Pasta - ${name}`, fixLabel: 'Open cost card' });
     if (k.foodPct !== null && k.foodPct > FOOD_COST_LIMIT && !k.missing.length) add({ id: `card-margin:${loose(name)}`, check: 'Margin', line: `Pasta - ${name} costs ${Math.round(k.foodPct * 100)}% of its price to make.`, baht: k.total - FOOD_COST_LIMIT * pc.card.sell, fix: `recipes.html#Pasta - ${name}`, fixLabel: 'Open cost card' });
+    if (k.legacyReheat) add({ id: `card-reheat:${loose(name)}`, check: 'Cost card', line: `Pasta - ${name}: reheating is still counted per order, not in minutes. Enter its reheating minutes.`, fix: `recipes.html#Pasta - ${name}`, fixLabel: 'Open cost card' });
     if (k.portionsPerBox !== null && pc.card.cookedG > 0 && pc.card.dryG > 0 && pc.card.cookedG / pc.card.dryG > 3) add({ id: `card-yield:${loose(name)}`, check: 'Cost card', line: `Pasta - ${name}: ${Math.round(pc.card.dryG)}g dry giving ${Math.round(pc.card.cookedG)}g cooked looks off.`, fix: `recipes.html#Pasta - ${name}`, fixLabel: 'Open cost card' });
   }
 
@@ -82,13 +97,18 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   for (const r of ledger) if (have[r.channel]) have[r.channel].add(iso(r.date));
   for (const [ch, lag] of [['Grab', 3], ['LINE', 2]]) {
     if (!have[ch].size) continue;
-    const gaps = [];
+    const gaps = []; const gapDays = [];
     for (let back = lag; back <= 14; back += 1) {
       const d = new Date(today.getTime() - back * 86400000);
       if (closed.has(iso(d)) || have[ch].has(iso(d))) continue;
-      gaps.push(formatDMY(d).slice(0, 5));
+      gaps.push(formatDMY(d).slice(0, 5)); gapDays.push(formatDMY(d));
     }
-    if (gaps.length) add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}. Not imported, or the shop was shut and not marked closed.`, fix: 'reports.html', fixLabel: 'Open Numbers' });
+    if (gaps.length) {
+      const how = ch === 'Grab'
+        ? "Upload that day's Grab screenshots to Drive (Daily Screenshots, the month folder, a folder named like 15/11). The 16:05 run sends each finished day to BOH. If the shop was shut, type close 15/11 and a reason in the BOH LINE group."
+        : 'Press Sync LINE orders under Tools on Numbers. If the shop was shut, type close 15/11 and a reason in the BOH LINE group.';
+      add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}.`, how, chips: gapDays.map((x) => ({ label: x.slice(0, 5), href: `reports.html?from=${encodeURIComponent(x)}&to=${encodeURIComponent(x)}` })), links: ch === 'Grab' ? [driveLink] : [], fix: ch === 'Grab' ? undefined : 'reports.html#tools', fixLabel: ch === 'Grab' ? undefined : 'Open Numbers tools' });
+    }
   }
 
   // 5. Same order counted twice in the Ledger.
@@ -97,23 +117,28 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   const dupes = [...keys.values()].filter((a) => a.length > 1);
   if (dupes.length) add({ id: `ledger-dupes:${dupes.length}`, check: 'Totals', line: `${plural(dupes.length, 'ledger row')} appear twice, so sales are counted twice.`, baht: dupes.reduce((s, a) => s + a.slice(1).reduce((x, r) => x + (r.moneyIn || 0), 0), 0), fix: 'reports.html', fixLabel: 'Open Numbers' });
 
-  // 6. Receipts: no shop or no date, and the same line twice.
+  // 6. Receipts: no shop or no date, and the same line twice. Each bad line is listed so it can be fixed right on the card.
   const seen = new Map(); let noShop = 0, noShopBaht = 0, noDate = 0; let dup = 0, dupBaht = 0;
+  const lines = { noDate: [], noShop: [], dup: [] };
   expenseRows.forEach((r, i) => {
     if (i === 0 && /^date$/i.test(String(r[0] || '').trim())) return;
     const name = String(r[1] || '').trim(); if (!name) return;
     const price = Number(String(r[2] ?? '').replace(/[฿,\s]/g, '')) || 0;
     const date = parseDate(String(r[0] || ''), today);
-    if (!date) { noDate += 1; return; }
+    const row = { date: String(r[0] || '').trim(), item: name, qty: String(r[3] || '').trim(), price, shop: String(r[5] || '').trim() };
+    const ref = { t: 'E', i, d: String(r[0] || ''), n: String(r[1] || ''), p: String(r[2] || '') };
+    const text = `${row.date || 'No date'}, ${name}${row.qty ? ' ' + row.qty : ''}, ${baht(price)}${row.shop ? ' at ' + row.shop : ''}`;
+    if (!date) { noDate += 1; lines.noDate.push({ text, ref, row }); return; }
     if (daysBetween(today, date) > WINDOW) return;
-    const shop = String(r[5] || '').trim();
-    if (!shop) { noShop += 1; noShopBaht += price; }
-    const k = `${iso(date)}|${loose(name)}|${price}|${loose(shop)}`;
-    if (seen.has(k)) { dup += 1; dupBaht += price; } else seen.set(k, true);
+    if (!row.shop) { noShop += 1; noShopBaht += price; lines.noShop.push({ text, ref, row }); }
+    const k = `${iso(date)}|${loose(name)}|${price}|${loose(row.shop)}`;
+    if (seen.has(k)) { dup += 1; dupBaht += price; lines.dup.push({ text, ref, row }); } else seen.set(k, true);
   });
-  if (noDate) add({ id: `rcpt-nodate:${noDate}`, check: 'Receipts', line: `${plural(noDate, 'receipt line')} have no readable date.`, fix: '/#receipts', fixLabel: 'Open Purchasing Receipts' });
-  if (noShop) add({ id: `rcpt-noshop:${noShop}`, check: 'Receipts', line: `${plural(noShop, 'receipt line')} in the last 30 days have no shop.`, baht: noShopBaht, fix: '/#receipts', fixLabel: 'Open Purchasing Receipts' });
-  if (dup) add({ id: `rcpt-dup:${dup}:${Math.round(dupBaht)}`, check: 'Receipts', line: `${plural(dup, 'receipt line')} look entered twice (same day, item, price and shop).`, baht: dupBaht, fix: '/#receipts', fixLabel: 'Open Purchasing Receipts' });
+  const rcptItems = (arr, kind) => arr.slice(0, 10).map((x) => ({ text: x.text, ref: x.ref, row: x.row, kind }));
+  const rcptMore = (n) => (n > 10 ? { fix: '/#receipts', fixLabel: `Open Purchasing Receipts (${n - 10} more)` } : {});
+  if (noDate) add({ id: `rcpt-nodate:${noDate}`, check: 'Receipts', line: `${plural(noDate, 'receipt line')} ${noDate === 1 ? 'has' : 'have'} no readable date, so ${noDate === 1 ? 'it does' : 'they do'} not show in the receipts list.`, items: rcptItems(lines.noDate, 'date'), ...rcptMore(noDate) });
+  if (noShop) add({ id: `rcpt-noshop:${noShop}`, check: 'Receipts', line: `${plural(noShop, 'receipt line')} in the last 30 days ${noShop === 1 ? 'has' : 'have'} no shop.`, baht: noShopBaht, items: rcptItems(lines.noShop, 'shop'), ...rcptMore(noShop) });
+  if (dup) add({ id: `rcpt-dup:${dup}:${Math.round(dupBaht)}`, check: 'Receipts', line: `${plural(dup, 'receipt line')} ${dup === 1 ? 'looks' : 'look'} entered twice (same day, item, price and shop). The second copy is listed. Delete it if it is a repeat.`, baht: dupBaht, items: rcptItems(lines.dup, 'delete'), ...rcptMore(dup) });
 
   // 7. Bank balance not refreshed.
   const asOf = bank && parseDate(String(bank.asOf || ''));

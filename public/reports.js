@@ -369,3 +369,20 @@ $('delGo').addEventListener('click', async () => {
 });
 
 load();
+
+// Links from the Audit page: reports.html?from=DD/MM/YYYY&to=DD/MM/YYYY&find=Dish name opens that period and marks the rows.
+(async () => {
+  const q = new URLSearchParams(location.search); const from = q.get('from'); if (!from) return;
+  await showDay(from, q.get('to') || from, null);
+  const find = String(q.get('find') || '').toLowerCase().replace(/[^a-z0-9฀-๿]+/g, '');
+  const box = $('detail'); const tbl = box.querySelector('table'); if (!tbl) return;
+  const note = document.createElement('p'); note.className = 'intro-body';
+  let first = null; let n = 0;
+  if (find) tbl.querySelectorAll('tbody tr').forEach((tr) => {
+    const desc = tr.children[6] ? tr.children[6].textContent.toLowerCase().replace(/[^a-z0-9฀-๿]+/g, '') : '';
+    if (desc && desc === find) { tr.classList.add('hl'); n += 1; if (!first) first = tr; }
+  });
+  note.textContent = find ? (n ? `${n} row${n === 1 ? '' : 's'} for ${q.get('find')} marked in yellow. Use Edit on a row to change its cost or price.` : `No rows named ${q.get('find')} in this period.`) : '';
+  if (find) box.insertBefore(note, box.querySelector('h3:nth-of-type(2)') || box.firstChild);
+  (first || box).scrollIntoView({ behavior: 'smooth', block: first ? 'center' : 'start' });
+})();

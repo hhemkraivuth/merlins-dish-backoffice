@@ -59,7 +59,7 @@ const pastaOf = (dish) => PASTA && /^pasta\s*-/i.test(dish) ? PASTA.cards.find((
 // Live cost card for a cooked to order pasta: the same lines as the Pasta tabs in Merlin's numbers, priced from today's price book.
 function showPasta(d, pc) {
   const c = pc.card; const k = pc.cost;
-  const rows = k.lines.map((l) => `<tr><td>${esc(l.label)}${l.guess ? ' <span class="tag guess">to confirm</span>' : ''}${l.missing ? ' <span class="tag bad">no price yet</span>' : ''}<small>${l.source && l.priceDate ? `price from ${esc(l.source)}, ${esc(dmy(l.priceDate))}${l.stale ? ', old' : ''}${l.jump ? ', jumped' : ''}` : ''}</small></td><td class="r" data-q="${esc(l.field)}">${esc(qtyTxt(l.qty))} ${esc(l.unit)} <button class="linkbtn" data-line="${esc(l.field)}">Edit</button></td><td class="r">${baht(l.cost)}</td></tr>`).join('');
+  const rows = k.lines.map((l) => `<tr><td>${esc(l.label)}${l.guess ? ' <span class="tag guess">to confirm</span>' : ''}${l.legacy ? ' <span class="tag guess">set minutes</span>' : ''}${l.missing ? ' <span class="tag bad">no price yet</span>' : ''}<small>${l.source && l.priceDate ? `price from ${esc(l.source)}, ${esc(dmy(l.priceDate))}${l.stale ? ', old' : ''}${l.jump ? ', jumped' : ''}` : ''}</small></td><td class="r" data-q="${esc(l.field)}">${esc(qtyTxt(l.qty))} ${esc(l.unit)} <button class="linkbtn" data-line="${esc(l.field)}">Edit</button></td><td class="r">${baht(l.cost)}</td></tr>`).join('');
   const warn = [...(k.missing.length ? [`No price found for ${k.missing.join(', ')}. The cost is too low until a receipt or the Price Log has one.`] : []), ...(k.guesses.length ? [`${k.guesses.join(', ')} still to confirm. Edit and save them once you have measured.`] : [])];
   $('recipe').innerHTML = `<h2 style="margin:6px 0 2px">Pasta - ${esc(c.name)} (${baht(c.sell).replace('.00', '')}, cooked to order)</h2>
     <p class="upd">${pc.saved ? `Last edited ${esc(stamp(pc.saved))}${pc.versions > 1 ? ` (${pc.versions} saves)` : ''}` : 'Copied from the Merlin\'s numbers tab'} · prices update by themselves · <button class="linkbtn" id="pcEdit">Edit costs</button></p>
@@ -87,12 +87,12 @@ function showPasta(d, pc) {
 
 const FIELD = (id, label, v, step = 'any') => `<label class="fld">${label}<input id="${id}" type="number" inputmode="decimal" step="${step}" min="0" value="${esc(v)}" /></label>`;
 function pastaForm(pc) {
-  const c = pc ? pc.card : { name: '', sell: 45, boxG: 500, dryG: 80, cookedG: 165, oilG: 1, butterG: 1, cookMin: 7, reheat: 0, pack: 'Packaging Box (carb600ml)', packQty: 1, priceNames: [] };
+  const c = pc ? pc.card : { name: '', sell: 45, boxG: 500, dryG: 80, cookedG: 165, oilG: 1, butterG: 1, cookMin: 7, reheat: 0, reheatMin: 0, pack: 'Packaging Box (carb600ml)', packQty: 1, priceNames: [] };
   $('recipe').innerHTML = `<h2 style="margin:6px 0 6px">${pc ? 'Edit costs: Pasta - ' + esc(c.name) : 'New pasta'}</h2>
     <p class="upd">Quantities only. Prices come from your receipts and the Price Log, so a new butter, oil, box or pasta price changes the cost by itself. Every save is kept.</p>
     ${pc ? '' : '<label class="fld">Pasta name<input id="pcName" placeholder="for example Penne" /></label>'}
     ${FIELD('pcSell', 'Selling price (฿)', c.sell)}${FIELD('pcBox', 'Box or bag size (g)', c.boxG)}${FIELD('pcDry', 'Dry pasta per portion (g)', c.dryG)}${FIELD('pcCooked', 'Cooked portion (g)', c.cookedG)}
-    ${FIELD('pcOil', 'Oil per portion (g)', c.oilG)}${FIELD('pcButter', 'Butter per portion (g)', c.butterG)}${FIELD('pcMin', 'Cooking time (minutes)', c.cookMin)}${FIELD('pcReheat', 'Reheats per order (0 if cooked fresh, 1 if par cooked)', c.reheat)}
+    ${FIELD('pcOil', 'Oil per portion (g)', c.oilG)}${FIELD('pcButter', 'Butter per portion (g)', c.butterG)}${FIELD('pcMin', 'Cooking time (minutes)', c.cookMin)}${FIELD('pcReheat', 'Reheating time (minutes, 0 if cooked fresh)', c.reheatMin === null || c.reheatMin === undefined ? '' : c.reheatMin)}
     <label class="fld">Packaging<input id="pcPack" value="${esc(c.pack)}" /></label>${FIELD('pcPackQty', 'Packaging count', c.packQty)}
     <label class="fld">Where the pasta price comes from (names in the Price Log or receipts, separated by commas, newest price wins)<input id="pcNames" value="${esc((c.priceNames || []).join(', '))}" /></label>
     <div class="btnrow"><button class="savebtn" id="pcSave">Save</button><button class="linkbtn" id="pcCancel">Cancel</button><span id="pcMsg" class="upd"></span></div>`;
@@ -103,7 +103,7 @@ function pastaForm(pc) {
     if (!name) { $('pcMsg').textContent = 'Give the pasta a name first.'; return; }
     $('pcSave').disabled = true; $('pcMsg').textContent = 'Saving…';
     try {
-      const res = await fetch('/api/pasta/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, sell: v('pcSell'), boxG: v('pcBox'), dryG: v('pcDry'), cookedG: v('pcCooked'), oilG: v('pcOil'), butterG: v('pcButter'), cookMin: v('pcMin'), reheat: v('pcReheat'), pack: v('pcPack'), packQty: v('pcPackQty'), priceNames: v('pcNames'), unconfirmed: pc ? c.unconfirmed : [] }) });
+      const res = await fetch('/api/pasta/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, sell: v('pcSell'), boxG: v('pcBox'), dryG: v('pcDry'), cookedG: v('pcCooked'), oilG: v('pcOil'), butterG: v('pcButter'), cookMin: v('pcMin'), reheatMin: v('pcReheat'), pack: v('pcPack'), packQty: v('pcPackQty'), priceNames: v('pcNames'), unconfirmed: pc ? c.unconfirmed : [] }) });
       const out = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(out.error || 'Not saved');
       PASTA = out;

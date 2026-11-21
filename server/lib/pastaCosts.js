@@ -19,6 +19,8 @@ const OIL = 'Oil';
 const BUTTER = 'Butter';
 const COOKING = 'Utility costs - cooking';
 const REHEAT = 'Utility costs - reheating';
+// Reheating is counted in minutes. Until a reheating price per minute is logged, a minute is priced like a minute of cooking.
+const REHEAT_MIN = 'Utility costs - reheating per minute';
 const DEFAULT_PACK = 'Packaging Box (carb600ml)';
 
 const key = (s) => normName(String(s || '').replace(/^pasta\s*-\s*/i, ''));
@@ -37,7 +39,8 @@ function clean(card) {
     oilG: f('oilG', 'Oil (g)'),
     butterG: f('butterG', 'Butter (g)'),
     cookMin: f('cookMin', 'Cooking minutes'),
-    reheat: f('reheat', 'Reheats per order'),
+    reheat: card.reheat === undefined || card.reheat === null || card.reheat === '' ? 0 : f('reheat', 'Reheats per order'),
+    reheatMin: card.reheatMin === undefined || card.reheatMin === null || card.reheatMin === '' ? null : f('reheatMin', 'Reheating minutes'),
     pack: String(card.pack || DEFAULT_PACK).trim(),
     packQty: f('packQty', 'Packaging count'),
     priceNames: [...new Set((Array.isArray(card.priceNames) ? card.priceNames : String(card.priceNames || '').split(',')).map((s) => String(s).trim()).filter(Boolean))],
@@ -77,7 +80,10 @@ function costCard(card, pb, date) {
   add('Oil', card.oilG, 'g', OIL, unc.has('oilG'), 'oilG');
   add('Butter', card.butterG, 'g', BUTTER, unc.has('butterG'), 'butterG');
   add('Cooking utilities', card.cookMin, 'min', COOKING, unc.has('cookMin'), 'cookMin');
-  add('Reheating utilities', card.reheat, 'per order', REHEAT, unc.has('reheat'), 'reheat');
+  // Minutes once she has entered them. Older cards counted reheats per order, kept as they were until minutes are set.
+  const legacyReheat = card.reheatMin === null || card.reheatMin === undefined;
+  if (legacyReheat) { add('Reheating utilities', card.reheat, 'per order, set minutes', REHEAT, false, 'reheatMin'); if (lines[lines.length - 1].qty > 0) lines[lines.length - 1].legacy = true; }
+  else add('Reheating utilities', card.reheatMin, 'min', [REHEAT_MIN, COOKING], unc.has('reheatMin'), 'reheatMin');
   add(card.pack, card.packQty, 'set', card.pack, false, 'packQty');
   const total = lines.reduce((s, l) => s + l.cost, 0);
   const profit = card.sell - total;
@@ -87,6 +93,7 @@ function costCard(card, pb, date) {
     foodPct: card.sell > 0 ? total / card.sell : null,
     portionsPerBox: card.dryG > 0 ? card.boxG / card.dryG : null,
     cookedGuess: (card.unconfirmed || []).includes('cookedG'),
+    legacyReheat: legacyReheat && card.reheat > 0,
     missing: lines.filter((l) => l.missing).map((l) => l.label),
     guesses: lines.filter((l) => l.guess).map((l) => l.label),
     total2: r2(total),

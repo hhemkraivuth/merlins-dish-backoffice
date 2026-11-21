@@ -220,6 +220,12 @@ app.post('/api/audit/split', async (req, res) => {
     res.json({ ...out, audit: await audit.run() });
   } catch (err) { res.status(/I don't know|Type the items|add up to|more than one dish|no longer in the Ledger/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); }
 });
+app.post('/api/audit/customer', async (req, res) => {
+  try {
+    const out = await require('./lib/ledgerService').setOrderCustomer((req.body || {}).keys, (req.body || {}).name);
+    res.json({ ...out, audit: await audit.run() });
+  } catch (err) { res.status(/Type the|no longer in the Ledger/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); }
+});
 app.post('/api/item-cost/save', async (req, res) => {
   try { const out = await itemCosts.save((req.body || {}).name, (req.body || {}).cost); res.json({ ...out, audit: await audit.run() }); }
   catch (err) { res.status(/must be|Which item|could not be read/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); }
