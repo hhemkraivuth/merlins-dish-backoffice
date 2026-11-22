@@ -5,6 +5,7 @@
 
 const crypto = require('crypto');
 const { getState, setState } = require('./appState');
+const { pinnedFor } = require('./pinned');
 
 const SEEN_KEY = 'briefing_seen';
 const TODO_KEY = 'team_todos';
@@ -252,7 +253,7 @@ async function build({ pit, marketingList, todayIso, moves = [], riderMissing = 
   const seen = new Set(parseJson(await getState(SEEN_KEY), []));
   const all = [...reportsFromMarketing(marketingList), ...reportsFromPit(pit)];
   const reports = all.filter((r) => !seen.has(r.key));
-  return { ...(await todoView(todayIso)), reports, teams: TEAMS, riderMissing };
+  return { ...(await todoView(todayIso)), reports, pinned: pinnedFor(todayIso), teams: TEAMS, riderMissing };
 }
 
 module.exports = { build, syncAuto, autoCandidates, movesFromRows, dateInText, teamForHandoff, reminderText, todoView, addTodo, setDone, removeTodo, markSeen, dueLabel, reportsFromPit, reportsFromMarketing, cleanTodo, sortTodos, isoFromDmy, dmyFromIso, TEAMS };

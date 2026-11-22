@@ -6,7 +6,7 @@
   // The To do list is switched off until Lily says bring it back. Set this to true to restore it everywhere (Home card, Team report, Today strip, button count).
   const SHOW_TODO = false;
   const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let data = { reports: [], todos: [], done: [], teams: ['Me'], today: '', riderMissing: 0 };
+  let data = { reports: [], pinned: [], todos: [], done: [], teams: ['Me'], today: '', riderMissing: 0 };
   let modal = null;
 
   const css = document.createElement('style');
@@ -28,6 +28,8 @@
   .bf-bul{list-style:disc;margin:2px 0 0;padding-left:18px}
   .bf-bul li{padding:6px 0;border-top:1px solid var(--line,#e6e0d4)}
   .bf-bul li:first-child{border-top:0;padding-top:2px}
+  .bf-rep.pin{border-left-color:#e0a800;background:#fff8d6}
+  .bf-rep.pin small{display:block;margin-top:4px;color:var(--muted,#666)}
   .bf-rep a{color:var(--blue,#2b4c9b);font-weight:600}
   .bf-none{font-size:14px;color:var(--muted,#666);margin:0 0 6px}
   .bf-todo{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line,#ddd);font-size:14px}
@@ -99,6 +101,13 @@
     return teams.map((g) => `<div class="bf-rep"><b>${esc(g.team)}</b><ul class="bf-bul">${g.list.map((r) => `<li>${r.lines.map((l, i) => `<p>${esc(l)}${r.href && i === r.lines.length - 1 ? ` <a href="${esc(r.href)}">Open it</a>` : ''}</p>`).join('')}${r.href && !r.lines.length ? `<p><a href="${esc(r.href)}">Open it</a></p>` : ''}</li>`).join('')}</ul></div>`).join('');
   }
 
+  // Pinned notes: always shown, no way to dismiss them, they drop off by themselves after their last date.
+  function pinnedHtml() {
+    const list = data.pinned || [];
+    if (!list.length) return '';
+    return `<h3>Pinned, stays until it ends</h3>${list.map((p) => `<div class="bf-rep pin"><b>${esc(p.team)}</b><p><strong>${esc(p.title)}</strong></p><ul class="bf-bul">${p.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><small>Pinned until ${esc(p.until)}. It cannot be dismissed.</small></div>`).join('')}`;
+  }
+
   async function noted() {
     const keys = data.reports.map((r) => r.key);
     close();
@@ -112,10 +121,11 @@
     if (!modal) return;
     const n = data.reports.length;
     const late = SHOW_TODO ? data.todos.filter((t) => t.overdue).length : 0;
-    const line = n ? `${n} ${n === 1 ? 'thing' : 'things'} to tell you.` : 'Nothing new since you last looked.';
+    const pn = (data.pinned || []).length;
+    const line = (n ? `${n} ${n === 1 ? 'thing' : 'things'} to tell you.` : 'Nothing new since you last looked.') + (pn ? ` ${pn} pinned.` : '');
     modal.querySelector('.bf-card').innerHTML = `
       <div class="bf-head"><svg class="bf-pig" viewBox="0 0 64 64" aria-hidden="true"><circle cx="14" cy="14" r="7" fill="#f4a3b5"/><circle cx="50" cy="14" r="7" fill="#f4a3b5"/><circle cx="32" cy="34" r="25" fill="#f7b8c6" stroke="#2b4c9b" stroke-width="3"/><ellipse cx="32" cy="42" rx="11" ry="8" fill="#f08aa3" stroke="#2b4c9b" stroke-width="2"/><circle cx="28" cy="42" r="2" fill="#2b4c9b"/><circle cx="36" cy="42" r="2" fill="#2b4c9b"/><circle cx="22" cy="29" r="3" fill="#2b4c9b"/><circle cx="42" cy="29" r="3" fill="#2b4c9b"/></svg><div class="bf-bubble">Boss, got a minute?<small>${esc(data.today)}. ${esc(line)}${late ? ` ${late} overdue.` : ''}</small></div><button class="bf-x" data-x type="button" aria-label="Close">×</button></div>
-      <h3>Reports</h3>${n ? repsHtml(data.reports) : '<p class="bf-none">All quiet.</p>'}
+      ${pinnedHtml()}<h3>Reports</h3>${n ? repsHtml(data.reports) : '<p class="bf-none">All quiet.</p>'}
       ${SHOW_TODO ? `<h3>To do</h3><div data-list>${todoList()}</div>${addForm()}` : ''}
       <div class="bf-foot"><button class="bf-btn" data-noted type="button">Noted</button></div>`;
     modal.querySelector('[data-x]').addEventListener('click', noted);
@@ -155,6 +165,8 @@
     const chips = [];
     if (late) chips.push(`<button class="bf-chip bad" type="button" data-open>${late} overdue</button>`);
     if (now) chips.push(`<button class="bf-chip warn" type="button" data-open>${now} due today</button>`);
+    const pc = (data.pinned || []).length;
+    if (pc) chips.push(`<button class="bf-chip warn" type="button" data-open>${pc} pinned</button>`);
     if (n) chips.push(`<button class="bf-chip info" type="button" data-open>${n} new ${n === 1 ? 'report' : 'reports'}</button>`);
     if (rider) chips.push(`<a class="bf-chip warn" href="commands.html#deliveryCost">${rider} rider ${rider === 1 ? 'fee' : 'fees'} to log</a>`);
     box.innerHTML = `<div class="bf-strip"><b>Today</b>${chips.length ? chips.join('') : '<span class="bf-chip ok">Nothing needs you today</span>'}</div>`;
@@ -172,7 +184,7 @@
       fab.addEventListener('click', async () => { try { data = await call('/api/briefing'); } catch (e) { /* keep what we have */ } open(); drawFab(); });
       document.body.appendChild(fab);
     }
-    const count = data.reports.length + (SHOW_TODO ? data.todos.filter((t) => t.overdue || t.today).length : 0);
+    const count = data.reports.length + (data.pinned || []).length + (SHOW_TODO ? data.todos.filter((t) => t.overdue || t.today).length : 0);
     fab.innerHTML = `${PIG}<span>Team report</span>${count ? `<span class="n">${count}</span>` : ''}`;
   }
 
@@ -185,7 +197,7 @@
     const urgent = data.todos.some((t) => t.overdue || t.today);
     let entered = true; // if storage is blocked, never auto open, so it cannot repeat on every page
     try { entered = sessionStorage.getItem('bfEntered') === '1'; if (!entered) sessionStorage.setItem('bfEntered', '1'); } catch (e) { entered = true; }
-    if (!entered && (data.reports.length || urgent)) open();
+    if (!entered && (data.reports.length || (data.pinned || []).length || urgent)) open();
   }
   init();
 })();
