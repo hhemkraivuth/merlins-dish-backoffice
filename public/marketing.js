@@ -202,10 +202,25 @@ function draw(d) {
     + (comp.length ? drawer('Who moved', comp.length, `<p class="sub" style="margin:0 0 10px">Tap a row for its Key. Opening means a gap we can use, Watch means keep an eye on it. ${repLink(d, 'audit')} ${repLink(d, 'grab', 'Grab listings')}</p><div class="stack">${whoMoved(comp)}</div>`) : '')
     + (lanes ? drawer('Price lanes on Grab', null, lanes) : '')
     + drawer('Dates ahead', (d.dates || []).length, datesAhead(d, d.notes.Date || []))
+    + vmBox(d.vm)
     + drawer('Ad drafts (nothing runs without your approval)', null, drafts.length ? drafts.map(note).join('') : '<p class="sub">Drafts only, nothing runs without your approval.</p>')
     + other
     + '</div>';
   $('sections').innerHTML = '';
+}
+
+const dmyOf = (iso) => String(iso).split('-').reverse().join('/');
+function vmBox(v) {
+  if (!v || v.error) return '';
+  const now = v.now ? `<p class="big" style="margin:4px 0 2px">${esc(v.now.short)}</p><p class="sub">on the order web until ${esc(dmyOf(v.now.to))}.${v.next ? ` Next change ${esc(dmyOf(v.next.from))}: ${esc(v.next.short)}.` : ''}</p>` : '<p class="sub">Plain window right now.</p>';
+  const built = v.seasons.map((s) => `<p class="note"><b>${esc(s.short)}</b>${esc(dmyOf(s.from))} to ${esc(dmyOf(s.to))}</p>`).join('') + `<p class="sub">${esc(v.endNote)}</p>`;
+  const plan = v.planned.map((p) => `<p class="note"><b>${esc(p.name)}</b><small>Event ${esc(p.event)}. Window ${esc(dmyOf(p.from))} to ${esc(dmyOf(p.to))}.</small><br>${esc(p.note)}</p>`).join('');
+  const maybe = v.maybe.map((p) => `<p class="note"><b>${esc(p.name)}</b><small>${esc(p.event)}</small></p>`).join('');
+  const inner = `<p class="sub" style="margin:0 0 4px">Dresses the order web window for every event and season. <a href="${esc(v.orderWeb)}">Open the order web</a></p>${now}
+    <details><summary>Live now (built)</summary>${built}</details>
+    <details><summary>Planned, next 12 months</summary>${plan}<p class="sub">Dates are suggestions. Tell me what to change.</p></details>
+    <details><summary>Maybe, not decided</summary>${maybe}</details>`;
+  return drawer('VM, window calendar', v.planned.length, inner).replace('<details class="drawer"', '<details class="drawer" id="vm"');
 }
 
 function customersBox(c) {
@@ -236,7 +251,9 @@ async function load() {
     d.plan = plan;
     d.links = links;
     d.crm = crm;
+    d.vm = await fetch('/api/visual-merch').then((r) => (r.ok ? r.json() : null)).catch(() => null);
     draw(d);
+    if (location.hash === '#vm' && $('vm')) { $('vm').open = true; $('vm').scrollIntoView(); }
     $('dlNotes').textContent = `Download all notes (CSV, ${HISTORY.length} rows)`;
     if (!$('kind').options.length) $('kind').innerHTML = d.kinds.map((k) => `<option>${esc(k)}</option>`).join('');
     s.textContent = '';

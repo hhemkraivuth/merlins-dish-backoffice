@@ -5,7 +5,7 @@ const { SEASONS, END_NOTE, OFF_FROM, dmy } = require('./visualMerch');
 const PINNED = [
   {
     id: 'xmas-web-2026',
-    team: 'Visual Merchandise',
+    team: 'VM',
     from: SEASONS[0].from,
     to: SEASONS[SEASONS.length - 1].to,
     title: 'Order web decorations',

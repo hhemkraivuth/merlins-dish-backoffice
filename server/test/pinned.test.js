@@ -21,3 +21,10 @@ test('note is gone before 23/11/2026 and after 15/01/2027', () => {
   assert.strictEqual(pinnedFor('2027-01-15').length, 1);
   assert.strictEqual(pinnedFor('2027-01-16').length, 0);
 });
+
+test('VM calendar has windows in order and the pit card is called VM', () => {
+  const vm = require('../lib/visualMerch');
+  assert.strictEqual(vm.pitCard('2026-11-23').name, 'VM');
+  assert.ok(vm.PLANNED.length >= 6);
+  vm.PLANNED.forEach((p) => assert.ok(p.from <= p.to));
+});

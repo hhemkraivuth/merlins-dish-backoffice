@@ -126,6 +126,12 @@ app.get('/api/link-clicks', async (req, res) => {
     res.json(require('./lib/linkClicks').summarise(taps, new Date(), orders));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+app.get('/api/visual-merch', (req, res) => {
+  const vm = require('./lib/visualMerch');
+  const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const w = vm.windowNow(today);
+  res.json({ today, now: w.now, next: w.next, seasons: vm.SEASONS, planned: vm.PLANNED, maybe: vm.MAYBE, endNote: vm.END_NOTE, orderWeb: 'https://merlins-dish-bot-production.up.railway.app/' });
+});
 app.get('/api/marketing', ledgerRoute.marketing);
 app.post('/api/marketing/note', ledgerRoute.addMarketingNote);
 app.get('/api/marketing/reports', marketingReportsRoute.list);
