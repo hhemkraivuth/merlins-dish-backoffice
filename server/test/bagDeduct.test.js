@@ -21,11 +21,31 @@ test('a count on or after the cook date wins, so nothing is taken', () => {
   assert.strictEqual(later.used.length, 1);
 });
 
-test('not enough bags empties the card and says so', () => {
+test('typed bags 900+700 take exactly those two bags, and a missing weight takes nothing', () => {
+  const card = { key: 'porkmince', name: 'Pork mince', unit: 'g', bags: [900, 700, 1000, 1000], batch: 1600, countedAt: '' };
+  const p = planBagUse([{ ...ing('Pork mince', 1600), parts: [900, 700] }], [card], new Date('2026-11-17T00:00:00Z'));
+  assert.deepStrictEqual(p.used[0].removed, [900, 700]);
+  assert.strictEqual(p.used[0].left, 2000);
+  const miss = planBagUse([ing('Pork mince', 1500)], [card], new Date('2026-11-17T00:00:00Z'));
+  assert.strictEqual(miss.used.length, 0);
+  assert.match(miss.skipped[0].reason, /no 1,500g bag/);
+});
+
+test('it never empties the card, and says BUY when less than one batch is left', () => {
   const p = planBagUse([ing('Beef - chuck', 2000)], [chuck({ bags: [900, 800] })], new Date('2026-11-20T00:00:00Z'));
-  assert.strictEqual(p.used[0].left, 0);
-  assert.strictEqual(p.used[0].short, 300);
-  assert.ok(reportLines(p).some((l) => /now 0/.test(l)));
+  assert.strictEqual(p.used.length, 0);
+  const q = planBagUse([ing('Beef - chuck', 1600)], [chuck({ bags: [1600, 300], batch: 1600 })], new Date('2026-11-20T00:00:00Z'));
+  assert.strictEqual(q.used[0].left, 300);
+  assert.ok(reportLines(q).some((l) => /BUY Beef - chuck/.test(l)));
+});
+
+test('the note parser keeps 900+700 as two bags', () => {
+  const { parseNote: parseNotes } = require('../lib/noteParser');
+  const { defaultShorthand } = require('../lib/aliases');
+  const out = parseNotes('17/11 bolo\nmeat 900+700\nyield 21', defaultShorthand(), new Date('2026-11-17T00:00:00Z'));
+  const l = out.batches[0].lines[0];
+  assert.strictEqual(l.qty, 1600);
+  assert.deepStrictEqual(l.parts, [900, 700]);
 });
 
 test('a card counted in pieces is reported, not guessed', () => {

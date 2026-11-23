@@ -93,6 +93,10 @@ app.post('/api/stock/bags', stockCountsRoute.saveBags);
 app.post('/api/stock/bags/suggest', stockCountsRoute.suggestBags);
 app.post('/api/stock/category', stockCountsRoute.addCategoryRoute);
 app.post('/api/stock/seed-meat', stockCountsRoute.seedMeat);
+// Meat cards: batches that never took their bags off (preview, then apply), and the check before cooking a dish.
+app.get('/api/stock/meat-catch-up', async (req, res) => { try { const bd = require('./lib/bagDeduct'); const { formatDMY } = require('./lib/dates'); const rows = await bd.catchUpPreview(); res.json({ batches: rows.map((r) => ({ key: r.key, dish: r.dish, date: formatDMY(r.date), lines: require('./lib/bagDeduct').reportLines(r.plan) })) }); } catch (err) { res.status(500).json({ error: err.message }); } });
+app.post('/api/stock/meat-catch-up/apply', async (req, res) => { try { res.json({ done: await require('./lib/bagDeduct').catchUpApply() }); } catch (err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/stock/meat-check', async (req, res) => { try { const live = require('./lib/liveData'); const r = await live.loadRecipe(String(req.query.dish || '')); res.json({ meats: await require('./lib/bagDeduct').precheck(r.ingredients) }); } catch (err) { res.status(500).json({ error: err.message }); } });
 app.get('/api/blends', stockCountsRoute.listBlends);
 app.post('/api/blends', stockCountsRoute.saveBlendRoute);
 app.post('/api/blends/delete', stockCountsRoute.deleteBlendRoute);

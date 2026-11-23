@@ -171,7 +171,9 @@ function parseNote(text, shorthand, today = bangkokToday()) {
     if (m) {
       if (!current) { problems.push(`"${line}" has no dish above it`); continue; }
       const q = toBase(sumOf(m[2]), m[3]);
-      current.lines.push({ token: m[1].trim(), qty: q.qty, unit: q.unit, raw: line });
+      const pieces = String(m[2]).split('+');
+      const parts = pieces.length > 1 ? pieces.map((n) => toBase(Number(n.trim().replace(',', '.')), m[3]).qty) : undefined; // "900+700" is two bags
+      current.lines.push({ token: m[1].trim(), qty: q.qty, unit: q.unit, raw: line, ...(parts ? { parts } : {}) });
       continue;
     }
 

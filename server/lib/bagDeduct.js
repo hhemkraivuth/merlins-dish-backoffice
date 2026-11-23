@@ -7,7 +7,8 @@
 // Rules:
 //  - Only grams. A meat counted in pieces (lamb shank) is reported, never guessed.
 //  - Your count always wins. If the card was counted on or after the cook date, that count already includes the cook, so it is skipped.
-//  - A cook that needs more than the bags hold empties the card to 0 and says how much was short.
+//  - The bags come from what she types: "900+700" is two bags, "1600" is one bag. A weight with no such bag on the card is reported, nothing is guessed.
+//  - A cook never empties a card by guesswork. When what is left drops below one batch the reply says BUY.
 //  - Delete or undo of a batch puts its bags back.
 
 const { normName, UNIT_FACTORS } = require('./priceBook');
@@ -26,9 +27,11 @@ function takeBags(bags, use) {
   return left;
 }
 
-// Pure. lines: batch ingredient lines [{ type, name, qty, unit }]. items: [{ key, name, unit, bags, countedAt }] (bagged stock items).
-// cookDate: Date or YYYY-MM-DD. Returns { used: [{ key, name, grams, removed, left, short, bagsAfter }], skipped: [{ name, reason }] }.
-function planBagUse(lines, items, cookDate, links = {}) {
+// Pure. lines: batch ingredient lines [{ type, name, qty, unit, parts? }]. items: [{ key, name, unit, bags, batch, countedAt }].
+// cookDate: Date or YYYY-MM-DD. Each typed bag ("900+700" is two bags, "1600" is one) is matched to a bag of that weight on the card.
+// A weight with no matching bag is reported and nothing is taken for it, so a card never empties by guesswork.
+// guess: for batches logged before bags were typed, pick the fewest bags that cover the grams (shown to Lily first, never silent).
+function planBagUse(lines, items, cookDate, links = {}, { guess = false } = {}) {
   const ing = (lines || []).filter((l) => l.type === 'Ingredient' && l.name);
   if (!ing.length || !items.length) return { used: [], skipped: [] };
   const needs = [...new Map(ing.map((l) => [normName(l.name), { key: normName(l.name), name: l.name }])).values()];
@@ -38,40 +41,52 @@ function planBagUse(lines, items, cookDate, links = {}) {
   for (const it of items) {
     const need = assign.get(it.key);
     if (!need) continue;
-    const mine = ing.filter((l) => normName(l.name) === need);
-    let grams = 0; let unmeasured = false;
-    for (const l of mine) {
+    const wanted = []; let unmeasured = false;
+    for (const l of ing.filter((x) => normName(x.name) === need)) {
       const f = UNIT_FACTORS[String(l.unit || '').trim().toLowerCase()];
-      if (f && f[0] === 'g') grams += Number(l.qty) * f[1]; else unmeasured = true;
+      if (!(f && f[0] === 'g')) { unmeasured = true; continue; }
+      if (Array.isArray(l.parts) && l.parts.length > 1) wanted.push(...l.parts.map((p) => ({ g: Number(p), typed: true })));
+      else wanted.push({ g: Number(l.qty) * f[1], typed: false });
     }
+    const grams = wanted.reduce((a, w) => a + w.g, 0);
     if (!(grams > 0)) { if (unmeasured) skipped.push({ name: it.name, reason: 'The recipe does not give it in grams, so I did not take it off.' }); continue; }
     if (String(it.unit || 'g').toLowerCase() !== 'g') { skipped.push({ name: it.name, reason: `It is counted in ${it.unit}, not grams, so I did not take ${g(grams)} off. Please recount it.` }); continue; }
     const counted = it.countedAt ? bangkokDay(it.countedAt) : '';
-    if (counted && cook && counted >= cook) { skipped.push({ name: it.name, reason: `You counted it on ${counted.split('-').reverse().join('/')}, on or after this cook, so the count already includes it.` }); continue; }
-    const s = bagsLib.suggest(it.bags, grams);
-    const bagsAfter = takeBags(it.bags, s.use);
-    used.push({ key: it.key, name: it.name, grams: round(grams), removed: s.use, left: bagsLib.total(bagsAfter), short: s.short, bagsAfter });
+    if (counted && cook && counted >= cook) { skipped.push({ name: it.name, reason: `You counted this raw meat on ${counted.split('-').reverse().join('/')}, on or after this cook, so your count already includes it.` }); continue; }
+    let left = it.bags.slice(); const removed = []; const missing = [];
+    for (const w of wanted) {
+      const at = left.findIndex((b) => Math.abs(b - w.g) <= 1);
+      if (at >= 0) { removed.push(left[at]); left.splice(at, 1); } else missing.push(w.g);
+    }
+    if (missing.length && guess && !wanted.some((w) => w.typed)) {
+      const s = bagsLib.suggest(it.bags, grams);
+      if (!s.short) { left = takeBags(it.bags, s.use); removed.length = 0; removed.push(...s.use); missing.length = 0; }
+    }
+    if (missing.length) skipped.push({ name: it.name, reason: `no ${missing.map(g).join(' or ')} bag on the card, so ${removed.length ? 'only the other bags were taken off' : 'nothing was taken off'}. Type the bags you used like 900+700 (each one a bag on the card), or recount the card.` });
+    if (!removed.length) continue;
+    const leftTotal = bagsLib.total(left);
+    used.push({ key: it.key, name: it.name, grams: round(removed.reduce((a, b) => a + b, 0)), removed, left: leftTotal, short: 0, bagsAfter: left, belowBatch: it.batch > 0 && leftTotal < it.batch, batch: it.batch || 0 });
   }
   return { used, skipped };
 }
 
 function reportLines(plan) {
   const out = [];
-  if (plan.used.length) out.push(`Meat bags used: ${plan.used.map((u) => `${u.name} ${g(u.removed.reduce((a, b) => a + b, 0))} (${u.removed.length} bag${u.removed.length === 1 ? '' : 's'}), ${g(u.left)} left`).join('; ')}`);
-  for (const u of plan.used) if (u.short > 0) out.push(`${u.name}: the card only held ${g(u.grams - u.short)} and the batch used ${g(u.grams)}, so it is now 0. Please recount it.`);
+  if (plan.used.length) out.push(`Meat bags used: ${plan.used.map((u) => `${u.name} ${u.removed.map(g).join(' + ')}, ${g(u.left)} left`).join('; ')}`);
+  for (const u of plan.used) if (u.belowBatch) out.push(`BUY ${u.name}: ${g(u.left)} left, less than one batch (${g(u.batch)}).`);
   for (const s of plan.skipped) out.push(`${s.name}: ${s.reason}`);
   return out;
 }
 
 // Impure. Loads the bagged items, plans, saves the bags and the Stock count, and remembers what was taken so Delete can give it back.
-async function deductForBatch(result, key, io = realIo()) {
+async function deductForBatch(result, key, io = realIo(), opts = {}) {
   const map = await io.loadBags();
   const names = await io.stockNames();
   const items = Object.keys(map).map((k) => {
     const row = names.get(k) || {};
-    return { key: k, name: row.itemName || k, unit: map[k].unit || 'g', bags: map[k].bags || [], countedAt: (row.lastUpdatedBy && row.lastUpdatedBy !== 'Auto' ? row.lastUpdated : '') || map[k].countedAt || '' };
+    return { key: k, name: row.itemName || k, unit: map[k].unit || 'g', bags: map[k].bags || [], batch: map[k].batch || 0, countedAt: (row.lastUpdatedBy && row.lastUpdatedBy !== 'Auto' ? row.lastUpdated : '') || map[k].countedAt || '' };
   }).filter((i) => i.bags.length || names.has(i.key));
-  const plan = planBagUse(result.lines, items, result.date, await io.loadLinks());
+  const plan = planBagUse(result.lines, items, result.date, await io.loadLinks(), opts);
   if (!plan.used.length) return reportLines(plan);
   const usage = [];
   for (const u of plan.used) {
@@ -125,7 +140,7 @@ async function loggedBatches(io, today, days = 30) {
 
 async function bagItems(io) {
   const map = await io.loadBags(); const names = await io.stockNames();
-  return Object.keys(map).map((k) => { const row = names.get(k) || {}; return { key: k, name: row.itemName || k, unit: map[k].unit || 'g', bags: (map[k].bags || []).slice(), countedAt: (row.lastUpdatedBy && row.lastUpdatedBy !== 'Auto' ? row.lastUpdated : '') || map[k].countedAt || '' }; });
+  return Object.keys(map).map((k) => { const row = names.get(k) || {}; return { key: k, name: row.itemName || k, unit: map[k].unit || 'g', bags: (map[k].bags || []).slice(), batch: map[k].batch || 0, countedAt: (row.lastUpdatedBy && row.lastUpdatedBy !== 'Auto' ? row.lastUpdated : '') || map[k].countedAt || '' }; });
 }
 
 // What a catch up would do, batch by batch, against bags that move as it goes. Nothing is written.
@@ -134,7 +149,7 @@ async function catchUpPreview(io = realIo(), today = require('./dates').bangkokT
   const items = await bagItems(io); const links = await io.loadLinks();
   const rows = [];
   for (const b of batches) {
-    const plan = planBagUse(b.lines, items, b.date, links);
+    const plan = planBagUse(b.lines, items, b.date, links, { guess: true });
     for (const u of plan.used) { const it = items.find((i) => i.key === u.key); it.bags = u.bagsAfter; }
     if (plan.used.length) rows.push({ ...b, plan });
   }
@@ -145,7 +160,7 @@ async function catchUpApply(io = realIo(), today = require('./dates').bangkokTod
   const batches = await loggedBatches(io, today);
   const lines = [];
   for (const b of batches) {
-    const r = await deductForBatch({ lines: b.lines, date: b.date }, b.key, io);
+    const r = await deductForBatch({ lines: b.lines, date: b.date }, b.key, io, { guess: true });
     if (r.length) lines.push(`${b.dish} ${require('./dates').formatDMY(b.date)}: ${r.join(' ')}`);
   }
   return lines;
@@ -165,6 +180,23 @@ async function processCatchUp(text, io = realIo()) {
   return [`These batches never took meat off the Stock page:\n${rows.map((r) => `${r.dish} ${formatDMY(r.date).slice(0, 5)}: ${reportLines(r.plan).join(' ')}`).join('\n')}\nNothing is changed yet. Send "catch up meat apply" to do it.`];
 }
 
+// Before cooking: what the dish's recipe needs from each bagged meat, what the card holds, and which bags would make it.
+async function precheck(recipeLines, io = realIo()) {
+  const items = await bagItems(io); const links = await io.loadLinks();
+  const ing = (recipeLines || []).map((l) => ({ type: 'Ingredient', name: l.name, qty: l.qty, unit: l.unit }));
+  const needs = [...new Map(ing.map((l) => [normName(l.name), { key: normName(l.name), name: l.name }])).values()];
+  const { assign } = linkStock(needs, items.map((i) => ({ key: i.key, name: i.name })), { links });
+  const out = [];
+  for (const it of items) {
+    const need = assign.get(it.key); if (!need) continue;
+    const grams = ing.filter((l) => normName(l.name) === need).reduce((a, l) => { const f = UNIT_FACTORS[String(l.unit || '').trim().toLowerCase()]; return f && f[0] === 'g' ? a + Number(l.qty) * f[1] : a; }, 0);
+    if (!(grams > 0)) continue;
+    const have = bagsLib.total(it.bags); const s = bagsLib.suggest(it.bags, grams);
+    out.push({ name: it.name, need: grams, have, enough: !s.short, shortBy: s.short, use: s.use, bags: it.bags });
+  }
+  return out;
+}
+
 function realIo() {
   const appState = require('./appState');
   const sc = require('./stockCounts');
@@ -182,4 +214,4 @@ function realIo() {
   };
 }
 
-module.exports = { loggedBatches, bagItems, catchUpPreview, catchUpApply, processCatchUp, planBagUse, reportLines, deductForBatch, restoreForBatch, takeBags, USAGE_KEY };
+module.exports = { precheck, loggedBatches, bagItems, catchUpPreview, catchUpApply, processCatchUp, planBagUse, reportLines, deductForBatch, restoreForBatch, takeBags, USAGE_KEY };

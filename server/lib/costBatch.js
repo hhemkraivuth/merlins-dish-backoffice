@@ -76,8 +76,10 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
   const qtyFor = new Map(); // normalised recipe name -> qty from note
   const extras = []; // note lines that aren't in the recipe
   const freeSet = new Set(); // ingredients marked free (฿0) on this batch only
+  const partsFor = new Map(); // normalised name -> the separate bags typed as 900+700
   for (const nl of batch.lines) {
     const { line, viaMeat, target, ambiguous } = findRecipeIngredient(nl.token, recipe, shorthand);
+    if (nl.parts && nl.parts.length > 1) partsFor.set(normName(line ? line.name : target), nl.parts);
     if (line) {
       qtyFor.set(normName(line.name), nl.qty);
       if (nl.free) freeSet.add(normName(line.name));
@@ -226,6 +228,8 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
     costPerGram = total / cookedWeight;
     sizes = sizedIn.map((x) => ({ name: x.name, weight: x.weight, count: x.count, costPerPortion: round2(x.weight * costPerGram) }));
   }
+
+  for (const l of lines) { const pp = l.type === 'Ingredient' && partsFor.get(normName(l.name)); if (pp) l.parts = pp; }
 
   return {
     sizes,
