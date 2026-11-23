@@ -77,9 +77,11 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
   const extras = []; // note lines that aren't in the recipe
   const freeSet = new Set(); // ingredients marked free (฿0) on this batch only
   const partsFor = new Map(); // normalised name -> the separate bags typed as 900+700
+  const piecesFor = new Map(); // normalised name -> bags typed in pieces (7pcs 980g + 1pc 150g)
   for (const nl of batch.lines) {
     const { line, viaMeat, target, ambiguous } = findRecipeIngredient(nl.token, recipe, shorthand);
     if (nl.parts && nl.parts.length > 1) partsFor.set(normName(line ? line.name : target), nl.parts);
+    if (nl.pieces) piecesFor.set(normName(line ? line.name : target), nl.pieces);
     if (line) {
       qtyFor.set(normName(line.name), nl.qty);
       if (nl.free) freeSet.add(normName(line.name));
@@ -229,7 +231,7 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
     sizes = sizedIn.map((x) => ({ name: x.name, weight: x.weight, count: x.count, costPerPortion: round2(x.weight * costPerGram) }));
   }
 
-  for (const l of lines) { const pp = l.type === 'Ingredient' && partsFor.get(normName(l.name)); if (pp) l.parts = pp; }
+  for (const l of lines) { const pp = l.type === 'Ingredient' && partsFor.get(normName(l.name)); if (pp) l.parts = pp; const pi = l.type === 'Ingredient' && piecesFor.get(normName(l.name)); if (pi) l.pieces = pi; }
 
   return {
     sizes,

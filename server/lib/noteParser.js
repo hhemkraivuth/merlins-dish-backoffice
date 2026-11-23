@@ -167,6 +167,14 @@ function parseNote(text, shorthand, today = bangkokToday()) {
       continue;
     }
 
+    const pc = line.match(/^(.+?)\s+(\d+\s*(?:pcs?|pieces?)\b.*)$/i);
+    const pb = pc ? require('./bagText').parsePieceBags(pc[2]) : null;
+    if (pb) {
+      if (!current) { problems.push(`"${line}" has no dish above it`); continue; }
+      current.lines.push({ token: pc[1].trim(), qty: pb.grams, unit: 'g', raw: line, pieces: pb.pieces });
+      continue;
+    }
+
     const m = line.match(ING_LINE);
     if (m) {
       if (!current) { problems.push(`"${line}" has no dish above it`); continue; }

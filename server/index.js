@@ -269,5 +269,6 @@ app.listen(PORT, () => {
     const to = process.env.BOH_GROUP_ID; const access = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     if (to && access) await require('./lib/lineApi').push(to, audit.sundayLine(v), access);
   }, { store: { get: appState.getState, set: appState.setState } });
+  require('./lib/bagDeduct').migratePieceCards().catch((err) => console.error('piece card migration', err.message));
   startStockSnapshotTimer(require('./routes/stockLeft').runSnapshot, { store: { get: appState.getState, set: appState.setState } });
 });

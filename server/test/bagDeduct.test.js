@@ -91,3 +91,39 @@ test('the Audit flags a batch that never took its meat off', () => {
   const f = runChecks({ today: new Date('2026-11-23T00:00:00Z'), meatGaps: [{ key: 'k9', dish: 'Red Wine Beef Stew', dmy: '20/11/2026', names: ['Beef - chuck'] }] });
   assert.ok(f.some((x) => x.id === 'meatgap:k9' && /never went down/.test(x.line)));
 });
+
+const chicken = (o = {}) => ({ key: 'chickenthigh', name: 'Chicken thigh', unit: 'pcs', bags: [2, 3, 1, 7, 7, 7, 7], batch: 7, countedAt: '', ...o });
+
+test('chicken soup takes one piece per portion by default, the 7 piece bag', () => {
+  const p = planBagUse([ing('Chicken thigh', 980)], [chicken()], new Date('2026-11-24T00:00:00Z'), {}, { yield: 7 });
+  assert.deepStrictEqual(p.used[0].removed, [7]);
+  assert.strictEqual(p.used[0].left, 27);
+  assert.match(reportLines(p)[0], /7 pcs, 27 pcs left/);
+});
+
+test('chicken typed by the bag: 7pcs 980g + 1pc 150g takes the 7 bag and the 1 bag', () => {
+  const l = { ...ing('Chicken thigh', 1130), pieces: [{ n: 7, of: 0, grams: 980 }, { n: 1, of: 0, grams: 150 }] };
+  const p = planBagUse([l], [chicken()], new Date('2026-11-24T00:00:00Z'), {}, { yield: 7 });
+  assert.deepStrictEqual(p.used[0].removed, [7, 1]);
+  assert.deepStrictEqual(p.used[0].bagsAfter.slice().sort((a, b) => a - b), [2, 3, 7, 7, 7]);
+});
+
+test('1pc of 7 leaves a 6 piece bag, and a bag size that does not exist takes nothing', () => {
+  const l = { ...ing('Chicken thigh', 150), pieces: [{ n: 1, of: 7, grams: 150 }] };
+  const p = planBagUse([l], [chicken()], new Date('2026-11-24T00:00:00Z'), {}, { yield: 7 });
+  assert.ok(p.used[0].bagsAfter.includes(6));
+  const none = planBagUse([ing('Chicken thigh', 500)], [chicken({ bags: [2, 3] })], new Date('2026-11-24T00:00:00Z'), {}, { yield: 7 });
+  assert.strictEqual(none.used.length, 0);
+  assert.match(none.skipped[0].reason, /no 7 piece bag/);
+});
+
+test('the piece parser and the note parser read 7pcs 980g + 1pc 150g', () => {
+  const { parsePieceBags } = require('../lib/bagText');
+  assert.strictEqual(parsePieceBags('7pcs 980g + 1pc 150g').grams, 1130);
+  assert.strictEqual(parsePieceBags('7pcs'), null);
+  const { parseNote } = require('../lib/noteParser');
+  const { defaultShorthand } = require('../lib/aliases');
+  const out = parseNote('24/11 chix\nchicken 7pcs 980g + 1pc 150g\nyield 7', defaultShorthand(), new Date('2026-11-24T00:00:00Z'));
+  const line = out.batches.length ? out.batches[0].lines[0] : null;
+  assert.ok(line && line.pieces && line.pieces.length === 2 && line.qty === 1130, JSON.stringify(out.problems));
+});

@@ -524,6 +524,7 @@ async function renderBatchCook() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
       renderCookForm(area, data, dateInput, reloadCooking);
+      showMeatCheck(area, dishSelect.value);
     } catch (err) {
       area.innerHTML = `<div class="result-card"><div class="error-item">${escapeHtml(err.message)}</div></div>`;
     }
@@ -640,14 +641,17 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
       const node = el(`
         <div class="recipe-row${r.removed ? ' removed' : ''}" data-idx="${idx}">
           <span class="recipe-name">${escapeHtml(r.name)}${r.extra ? ' <em>(added)</em>' : ''}</span>
-          <input class="size-input qty" type="number" step="any" value="${r.qty !== undefined ? r.qty : r.original}" />
+          <input class="size-input qty" ${r.type === 'Ingredient' ? 'type="text" inputmode="decimal" style="width:96px" title="One bag: 1600. Two bags: 900+700. Chicken: 7pcs 980g + 1pc 150g"' : 'type="number" step="any"'} value="${r.qty !== undefined ? r.qty : r.original}" />
           <span class="recipe-qty unit-cell">${escapeHtml(unitLabel)}</span>
           <span class="recipe-price">${priceTxt}</span>
           <span class="recipe-qty line-cost"></span>
           ${r.type === 'Ingredient' ? `<span class="row-actions"><button class="stock-count-button free-btn" type="button">${r.free ? 'Undo free' : 'Free ฿0'}</button><button class="stock-count-button swap-btn" type="button">Swap</button><button class="stock-count-button del-btn" type="button">${r.removed ? 'Restore' : 'Delete'}</button></span>` : ''}
         </div>`);
       const inp = node.querySelector('.qty');
-      inp.addEventListener('input', () => { r.qty = inp.value === '' ? '' : Number(inp.value); r.edited = true; refresh(); });
+      inp.addEventListener('input', () => {
+        if (r.type === 'Ingredient') { const q = parseQtyText(inp.value); r.qty = q.qty; r.text = q.text; } else r.qty = inp.value === '' ? '' : Number(inp.value);
+        r.edited = true; refresh();
+      });
       (r.type === 'Ingredient' ? ingBox : otherBox).appendChild(node);
       if (r.type === 'Ingredient') {
         // Swap: "instead of 2 cans of Spacecraft I used 1 Chiangmai Winter". The old line goes to 0 and the new one is added in its place.
@@ -767,7 +771,7 @@ function renderCookForm(container, recipe, dateInput, onLogged) {
 
   $('logBatch').addEventListener('click', async () => {
     const res = $('batchResult');
-    const lines = rows.filter((r) => r.type === 'Ingredient' && r.edited && (r.extra || r.free || Number(r.qty) !== r.original)).map((r) => ({ name: r.name, qty: r.qty, unit: r.unit, free: r.free ? true : undefined }));
+    const lines = rows.filter((r) => r.type === 'Ingredient' && r.edited && (r.extra || r.free || r.text || Number(r.qty) !== r.original)).map((r) => ({ name: r.name, qty: r.qty, unit: r.unit, free: r.free ? true : undefined, text: r.text }));
     const packaging = rows.filter((r) => r.type === 'Packaging' && r.edited).map((r) => ({ name: r.name, qty: qtyOf(r) }));
     const body = {
       dish: recipe.tab, date: dateInput.value,
@@ -876,6 +880,54 @@ async function stockPost(url, body) {
   return data;
 }
 
+// Bags typed in one box: "1600" is one bag, "900+700" is two bags, "7pcs 980g + 1pc 150g" is chicken by the bag (pieces name the bag, grams set the cost).
+function parseQtyText(v) {
+  const t = String(v || '').trim();
+  if (t === '') return { qty: '' };
+  const N = '\\d+(?:[.,]\\d+)?';
+  if (new RegExp(`^${N}$`).test(t)) return { qty: Number(t.replace(',', '.')) };
+  if (new RegExp(`^${N}(?:\\s*\\+\\s*${N})+$`).test(t)) return { qty: t.split('+').reduce((a, n) => a + Number(n.trim().replace(',', '.')), 0), text: t };
+  let sum = 0;
+  for (const seg of t.split('+')) {
+    const m = seg.trim().match(new RegExp(`^(\\d+)\\s*(?:pcs?|pieces?)(?:\\s*of\\s*\\d+)?\\s*(${N})\\s*(kg|g)?$`, 'i'));
+    if (!m) return { qty: NaN };
+    sum += Number(m[2].replace(',', '.')) * (/kg/i.test(m[3] || '') ? 1000 : 1);
+  }
+  return { qty: sum, text: t };
+}
+
+// Before cooking: says so when the raw meat on the Stock page cannot cover the dish.
+async function showMeatCheck(area, tab) {
+  try {
+    const r = await fetch(`/api/stock/meat-check?dish=${encodeURIComponent(tab)}`);
+    const d = await r.json();
+    const short = (d.meats || []).filter((m) => !m.enough);
+    if (!short.length) return;
+    const unit = (m) => (m.name && /chicken/i.test(m.name) ? ' pcs' : 'g');
+    const box = el(`<div class="result-card" style="background:var(--bg-danger,#fdecea)"><div class="error-item">${short.map((m) => `${escapeHtml(m.name)}: need ${Math.round(m.need).toLocaleString()}${unit(m)}, only ${Math.round(m.have).toLocaleString()}${unit(m)} left. Buy before cooking.`).join('<br>')}</div></div>`);
+    area.prepend(box);
+  } catch (err) { /* the check is a help, never a blocker */ }
+}
+
+// Stock page: cooks that never took their meat off. Shows what would come off, and one button does it.
+async function showMeatCatchUp(box) {
+  try {
+    const r = await fetch('/api/stock/meat-catch-up');
+    const d = await r.json();
+    if (!r.ok || !(d.batches || []).length) { box.innerHTML = ''; return; }
+    box.innerHTML = `<div class="result-card" style="background:var(--bg-warning,#fff6e0)">
+      <div class="subheading">${d.batches.length} cook${d.batches.length === 1 ? '' : 's'} never took meat off</div>
+      ${d.batches.map((b) => `<div style="padding:6px 0;border-top:1px solid rgba(0,0,0,.08)"><b>${escapeHtml(b.dish)} ${escapeHtml(b.date.slice(0, 5))}</b><br><span style="font-size:13px">${b.lines.map(escapeHtml).join('<br>')}</span></div>`).join('')}
+      <div style="font-size:12px;margin:6px 0">Bags are a best guess for cooks logged before you typed bags. Recount after.</div>
+      <button class="stock-count-button" id="meatCatchApply" type="button">Apply all</button></div>`;
+    box.querySelector('#meatCatchApply').addEventListener('click', async (e) => {
+      e.target.disabled = true; e.target.textContent = 'Applying…';
+      await fetch('/api/stock/meat-catch-up/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      renderStock();
+    });
+  } catch (err) { box.innerHTML = ''; }
+}
+
 async function renderStock() {
   main.innerHTML = '<div class="loading">Loading stock…</div>';
   let stock = []; let ingredients = []; let blends = []; let swaps = [];
@@ -919,6 +971,7 @@ async function renderStock() {
         <h1 class="intro-title">Stock Counts</h1>
         <p class="intro-body">Tap any row to edit its name, quantity, unit or category. Red means none left, or less than a week of cooking left at the recent rate of use (a 450g bottle of pepper is fine at 1). Red goes first on the shopping list.</p>
       </div>
+      <div id="meatCatchUp"></div>
       <div id="stockRed"></div>
       <div id="stockCats"></div>
       <div class="intro" style="margin-top:18px">
@@ -980,6 +1033,7 @@ async function renderStock() {
     </section>
   `);
   main.appendChild(section);
+  showMeatCatchUp(section.querySelector('#meatCatchUp'));
 
   // ---- rows
   function drawRow(r, redRow) {

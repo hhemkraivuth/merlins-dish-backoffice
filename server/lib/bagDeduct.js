@@ -20,6 +20,7 @@ const round = (n) => Math.round(n * 100) / 100;
 const bangkokDay = (ts) => { const t = new Date(ts); return Number.isNaN(t.getTime()) ? '' : new Date(t.getTime() + 7 * 3600000).toISOString().slice(0, 10); };
 const isoDay = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d || '').slice(0, 10));
 const g = (n) => `${Math.round(n).toLocaleString('en-AU')}g`;
+const pc = (n) => `${Math.round(n)} pc${Math.round(n) === 1 ? '' : 's'}`;
 
 function takeBags(bags, use) {
   const left = bags.slice();
@@ -31,7 +32,8 @@ function takeBags(bags, use) {
 // cookDate: Date or YYYY-MM-DD. Each typed bag ("900+700" is two bags, "1600" is one) is matched to a bag of that weight on the card.
 // A weight with no matching bag is reported and nothing is taken for it, so a card never empties by guesswork.
 // guess: for batches logged before bags were typed, pick the fewest bags that cover the grams (shown to Lily first, never silent).
-function planBagUse(lines, items, cookDate, links = {}, { guess = false } = {}) {
+function planBagUse(lines, items, cookDate, links = {}, opts = {}) {
+  const { guess = false } = opts;
   const ing = (lines || []).filter((l) => l.type === 'Ingredient' && l.name);
   if (!ing.length || !items.length) return { used: [], skipped: [] };
   const needs = [...new Map(ing.map((l) => [normName(l.name), { key: normName(l.name), name: l.name }])).values()];
@@ -41,6 +43,27 @@ function planBagUse(lines, items, cookDate, links = {}, { guess = false } = {}) 
   for (const it of items) {
     const need = assign.get(it.key);
     if (!need) continue;
+    if (/^(pcs?|pieces?)$/i.test(String(it.unit || ''))) {
+      // Counted in pieces per bag (chicken thigh). Typed "7pcs 980g + 1pc 150g" names the bags; typed nothing means one piece per portion.
+      const lns = ing.filter((x) => normName(x.name) === need);
+      const typed = lns.flatMap((x) => x.pieces || []);
+      // One piece per portion is chicken soup's rule only. Any other piece counted meat needs the pieces typed.
+      const wantedPcs = typed.length ? typed : (/chicken/i.test(it.name) && opts.yield > 0 ? [{ n: Math.round(opts.yield), of: 0 }] : []);
+      if (!wantedPcs.length) { skipped.push({ name: it.name, reason: `It is counted in ${it.unit}, not grams. Type the pieces and grams like 2pcs 1900g, or recount it. Nothing was taken off.` }); continue; }
+      const counted = it.countedAt ? bangkokDay(it.countedAt) : '';
+      if (counted && cook && counted >= cook) { skipped.push({ name: it.name, reason: `You counted this on ${counted.split('-').reverse().join('/')}, on or after this cook, so your count already includes it.` }); continue; }
+      let left = it.bags.slice(); const removed = []; const missing = [];
+      for (const w of wantedPcs) {
+        const at = left.indexOf(w.of || w.n);
+        if (at < 0) { missing.push(w.of ? `${w.n} from a ${w.of}` : `${w.n}`); continue; }
+        if (w.of) { left[at] = w.of - w.n; removed.push(w.n); } else { removed.push(left[at]); left.splice(at, 1); }
+      }
+      if (missing.length) skipped.push({ name: it.name, reason: `no ${missing.join(' or ')} piece bag on the card, so ${removed.length ? 'only the other bags were taken off' : 'nothing was taken off'}. Type the bags like 7pcs 980g + 1pc 150g, or recount the card.` });
+      if (!removed.length) continue;
+      const leftTotal = left.reduce((a, b) => a + b, 0);
+      used.push({ key: it.key, name: it.name, grams: removed.reduce((a, b) => a + b, 0), removed, left: leftTotal, short: 0, bagsAfter: left, belowBatch: it.batch > 0 && leftTotal < it.batch, batch: it.batch || 0, pieces: true });
+      continue;
+    }
     const wanted = []; let unmeasured = false;
     for (const l of ing.filter((x) => normName(x.name) === need)) {
       const f = UNIT_FACTORS[String(l.unit || '').trim().toLowerCase()];
@@ -72,8 +95,8 @@ function planBagUse(lines, items, cookDate, links = {}, { guess = false } = {}) 
 
 function reportLines(plan) {
   const out = [];
-  if (plan.used.length) out.push(`Meat bags used: ${plan.used.map((u) => `${u.name} ${u.removed.map(g).join(' + ')}, ${g(u.left)} left`).join('; ')}`);
-  for (const u of plan.used) if (u.belowBatch) out.push(`BUY ${u.name}: ${g(u.left)} left, less than one batch (${g(u.batch)}).`);
+  if (plan.used.length) out.push(`Meat bags used: ${plan.used.map((u) => `${u.name} ${u.removed.map(u.pieces ? pc : g).join(' + ')}, ${u.pieces ? pc(u.left) : g(u.left)} left`).join('; ')}`);
+  for (const u of plan.used) if (u.belowBatch) out.push(`BUY ${u.name}: ${u.pieces ? pc(u.left) : g(u.left)} left, less than one batch (${u.pieces ? pc(u.batch) : g(u.batch)}).`);
   for (const s of plan.skipped) out.push(`${s.name}: ${s.reason}`);
   return out;
 }
@@ -86,7 +109,7 @@ async function deductForBatch(result, key, io = realIo(), opts = {}) {
     const row = names.get(k) || {};
     return { key: k, name: row.itemName || k, unit: map[k].unit || 'g', bags: map[k].bags || [], batch: map[k].batch || 0, countedAt: (row.lastUpdatedBy && row.lastUpdatedBy !== 'Auto' ? row.lastUpdated : '') || map[k].countedAt || '' };
   }).filter((i) => i.bags.length || names.has(i.key));
-  const plan = planBagUse(result.lines, items, result.date, await io.loadLinks(), opts);
+  const plan = planBagUse(result.lines, items, result.date, await io.loadLinks(), { ...opts, yield: opts.yield || result.yield });
   if (!plan.used.length) return reportLines(plan);
   const usage = [];
   for (const u of plan.used) {
@@ -133,7 +156,7 @@ async function loggedBatches(io, today, days = 30) {
   for (const r of [...log.slice(1), ...rd.slice(1)]) {
     const date = parseDate(r[1]); const key = String(r[0] || '');
     if (!date || !key || usage[key] || daysBetween(today, date) > days || daysBetween(today, date) < 0) continue;
-    out.push({ key, dish: String(r[2] || '').trim(), date, lines: byKey.get(key) || [] });
+    out.push({ key, dish: String(r[2] || '').trim(), date, yield: Number(r[3]) || 0, lines: byKey.get(key) || [] });
   }
   return out.sort((a, b) => a.date - b.date);
 }
@@ -149,7 +172,7 @@ async function catchUpPreview(io = realIo(), today = require('./dates').bangkokT
   const items = await bagItems(io); const links = await io.loadLinks();
   const rows = [];
   for (const b of batches) {
-    const plan = planBagUse(b.lines, items, b.date, links, { guess: true });
+    const plan = planBagUse(b.lines, items, b.date, links, { guess: true, yield: b.yield });
     for (const u of plan.used) { const it = items.find((i) => i.key === u.key); it.bags = u.bagsAfter; }
     if (plan.used.length) rows.push({ ...b, plan });
   }
@@ -160,7 +183,7 @@ async function catchUpApply(io = realIo(), today = require('./dates').bangkokTod
   const batches = await loggedBatches(io, today);
   const lines = [];
   for (const b of batches) {
-    const r = await deductForBatch({ lines: b.lines, date: b.date }, b.key, io, { guess: true });
+    const r = await deductForBatch({ lines: b.lines, date: b.date, yield: b.yield }, b.key, io, { guess: true });
     if (r.length) lines.push(`${b.dish} ${require('./dates').formatDMY(b.date)}: ${r.join(' ')}`);
   }
   return lines;
@@ -197,6 +220,22 @@ async function precheck(recipeLines, io = realIo()) {
   return out;
 }
 
+// Chicken thigh is counted as pieces per bag (2, 3, 1, 7, 7, 7, 7), but its card was saved in grams, so it showed "34g".
+// Switch it to pieces once. The date of her last real count is kept.
+async function migratePieceCards(io = realIo()) {
+  const map = await io.loadBags(); const names = await io.stockNames(); let changed = 0;
+  for (const k of Object.keys(map)) {
+    const row = names.get(k) || {};
+    const bags = map[k].bags || [];
+    if (!/chicken/i.test(row.itemName || k) || String(map[k].unit || 'g') !== 'g' || !bags.length || bags.some((b) => b > 30)) continue;
+    map[k] = { ...map[k], unit: 'pcs', countedAt: (row.lastUpdatedBy && row.lastUpdatedBy !== 'Auto' ? row.lastUpdated : '') || map[k].countedAt || undefined };
+    await io.setCount(row.itemName || k, bags.reduce((a, b) => a + b, 0), 'pcs');
+    changed += 1;
+  }
+  if (changed) await io.saveBags(map);
+  return changed;
+}
+
 function realIo() {
   const appState = require('./appState');
   const sc = require('./stockCounts');
@@ -214,4 +253,4 @@ function realIo() {
   };
 }
 
-module.exports = { precheck, loggedBatches, bagItems, catchUpPreview, catchUpApply, processCatchUp, planBagUse, reportLines, deductForBatch, restoreForBatch, takeBags, USAGE_KEY };
+module.exports = { migratePieceCards, precheck, loggedBatches, bagItems, catchUpPreview, catchUpApply, processCatchUp, planBagUse, reportLines, deductForBatch, restoreForBatch, takeBags, USAGE_KEY };

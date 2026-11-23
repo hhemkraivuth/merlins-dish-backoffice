@@ -148,7 +148,14 @@ function createCook(getDeps, getCommandDeps = () => require('./line').getDefault
       for (const l of b.lines || []) {
         const q = num(l.qty);
         if (!l.name || !(q >= 0)) { bad.push(`Ingredient "${l.name || '?'}" has no valid quantity`); continue; }
-        lines.push({ token: String(l.name), qty: q, unit: String(l.unit || 'g').trim().slice(0, 12) || 'g', free: l.free === true });
+        const line = { token: String(l.name), qty: q, unit: String(l.unit || 'g').trim().slice(0, 12) || 'g', free: l.free === true };
+        const typed = l.text ? String(l.text).trim() : '';
+        if (typed) {
+          const pb = require('../lib/bagText').parsePieceBags(typed);
+          if (pb) { line.pieces = pb.pieces; line.qty = pb.grams; line.unit = 'g'; }
+          else if (/^[\d.,]+(\s*\+\s*[\d.,]+)+$/.test(typed)) { line.parts = typed.split('+').map((n) => Number(n.trim().replace(',', '.'))); line.qty = line.parts.reduce((a, n) => a + n, 0); }
+        }
+        lines.push(line);
       }
       const packagingQty = {};
       for (const p of b.packaging || []) {
