@@ -227,9 +227,9 @@ async function migratePieceCards(io = realIo()) {
   for (const k of Object.keys(map)) {
     const row = names.get(k) || {};
     const bags = map[k].bags || [];
-    if (!/chicken/i.test(row.itemName || k) || String(map[k].unit || 'g') !== 'g' || !bags.length || bags.some((b) => b > 30)) continue;
+    if (!/chicken/i.test(row.itemName || k) || (String(map[k].unit || 'g') !== 'g' && /^pcs?$/i.test(String(row.unit || ''))) || !bags.length || bags.some((b) => b > 30)) continue;
     map[k] = { ...map[k], unit: 'pcs', countedAt: (row.lastUpdatedBy && row.lastUpdatedBy !== 'Auto' ? row.lastUpdated : '') || map[k].countedAt || undefined };
-    await io.setCount(row.itemName || k, bags.reduce((a, b) => a + b, 0), 'pcs');
+    await io.setCount(row.itemName || k, bags.reduce((a, b) => a + b, 0), 'pcs', true);
     changed += 1;
   }
   if (changed) await io.saveBags(map);
@@ -245,7 +245,7 @@ function realIo() {
     saveBags: (m) => bagsLib.saveAll(m),
     stockNames: async () => new Map((await sc.getAllStock()).map((r) => [normName(r.itemName), r])),
     loadLinks: async () => { try { return JSON.parse((await appState.getState('stock_links')) || '{}'); } catch (err) { return {}; } },
-    setCount: (name, count, unit) => sc.setStockCount(name, count, unit, 'Auto'),
+    setCount: (name, count, unit, changeUnit = false) => sc.setStockCount(name, count, unit, 'Auto', '', changeUnit),
     loadUsage: readUsage,
     saveUsage: async (key, entries) => { const all = await readUsage(); all[key] = entries; await appState.setState(USAGE_KEY, JSON.stringify(all)); },
     readTab: (t) => require('./sheets').readTab(t),

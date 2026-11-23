@@ -127,3 +127,12 @@ test('the piece parser and the note parser read 7pcs 980g + 1pc 150g', () => {
   const line = out.batches.length ? out.batches[0].lines[0] : null;
   assert.ok(line && line.pieces && line.pieces.length === 2 && line.qty === 1130, JSON.stringify(out.problems));
 });
+
+test('the chicken card is switched to pieces once, keeping the date of the last real count', async () => {
+  const { migratePieceCards } = require('../lib/bagDeduct');
+  const st = { map: { chickenthigh: { bags: [2, 3, 1, 7, 7, 7, 7], unit: 'pcs', batch: 0 } }, set: [] };
+  const io = { loadBags: async () => st.map, saveBags: async (m) => { st.map = m; }, stockNames: async () => new Map([['chickenthigh', { itemName: 'Chicken thigh', unit: 'g', lastUpdatedBy: 'Manual', lastUpdated: '2026-11-08T15:07:21.295Z' }]]), setCount: async (n, c, u, ch) => { st.set.push([n, c, u, ch]); } };
+  assert.strictEqual(await migratePieceCards(io), 1);
+  assert.deepStrictEqual(st.set[0], ['Chicken thigh', 34, 'pcs', true]);
+  assert.strictEqual(st.map.chickenthigh.countedAt, '2026-11-08T15:07:21.295Z');
+});
