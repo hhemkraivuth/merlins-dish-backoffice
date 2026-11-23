@@ -167,6 +167,10 @@ async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LI
   await deps.writeBatch(result, key, source);
   const stockLines = await deductPackaging(result, deps);
   stockLines.push(...await deductLots(result, key, lotBook, deps));
+  if (deps.deductBags && !batch.rd) {
+    try { stockLines.push(...await deps.deductBags(result, key)); }
+    catch (err) { stockLines.push(`The batch is logged, but the Meat cards could not be updated (${err.message}). Please recount the meat used.`); }
+  }
   if (batch.rd) {
     stockLines.unshift(`${result.yield} portions are not added to sellable stock. The ${baht(result.total)} counts as R&D cost.`);
     return { status: 'logged', result, key, text: formatBatchReply(result, 'R&D batch logged to the R&D Log.', stockLines).replace(/^/, 'R&D batch: ') };

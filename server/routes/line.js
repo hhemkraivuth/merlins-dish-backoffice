@@ -61,6 +61,7 @@ function defaultDeps() {
       writeBatch: cookLog.writeBatch,
       tidy: cookLog.tidyCookLogs,
       deductStock,
+      deductBags: (result, key) => require('../lib/bagDeduct').deductForBatch(result, key),
       loadLotBook: lotDeps.loadLotBook,
       saveLots: lotDeps.saveLots,
       openBatches: require('../lib/openBatches').api(),

@@ -19,7 +19,7 @@ const LOTS = 'Ingredient Lots';
 
 function realIo() {
   const s = require('./sheets');
-  return { readTab: s.readTab, updateRow: s.updateRow, deleteRowsWhere: s.deleteRowsWhere, restoreStock: (name, qty) => require('./stockCounts').deductStock(name, -qty) };
+  return { readTab: s.readTab, updateRow: s.updateRow, deleteRowsWhere: s.deleteRowsWhere, restoreStock: (name, qty) => require('./stockCounts').deductStock(name, -qty), restoreBags: (key) => require('./bagDeduct').restoreForBatch(key) };
 }
 
 // Returns { status: 'undone' | 'none' | 'many', text }
@@ -85,10 +85,14 @@ async function removeBatch(hit, dmy, io) {
     }
   }
 
+  let bagsBack = [];
+  if (io.restoreBags) { try { bagsBack = await io.restoreBags(key); } catch (err) { bagsBack = [`Meat bags could not be put back (${err.message}). Please recount the meat.`]; } }
+
   for (const tab of [COOK_LOG, COOK_LINES, COOK_SIZES, RD_LOG, RD_LINES, RD_SIZES, USAGE]) {
     try { await io.deleteRowsWhere(tab, (r) => r[0] === key); } catch (err) { /* a tab that never existed has nothing to remove */ }
   }
   const parts = [`Undone: ${dish}, ${dmy}, ${hits[0][3]} serves. It is out of the Cook Log${restored ? ` and ${restored} stock lot${restored === 1 ? ' has' : 's have'} got its quantity back` : ''}.`, 'Send the cook note again to log it.'];
+  parts.push(...bagsBack);
   if (packBack.length) parts.push(`Packaging put back: ${packBack.join(', ')}.`);
   else if (hadPackaging) parts.push('Packaging stock counts were not put back. Send "stock" to check them.');
   return { status: 'undone', text: parts.join('\n') };
