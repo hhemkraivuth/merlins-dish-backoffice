@@ -1,35 +1,33 @@
 // Pinned notes for the team report pop up. A pinned note cannot be marked Noted or dismissed. It stays on the pop up, the Home strip and the
 // Team report button every day between `from` and `to` (inclusive), then drops off by itself. Add new ones to PINNED.
+const { SEASONS, END_NOTE, OFF_FROM, dmy } = require('./visualMerch');
 
 const PINNED = [
   {
     id: 'xmas-web-2026',
-    team: 'Marketing',
-    from: '2026-11-23',
-    to: '2027-01-15',
-    title: 'Order web decorations (Christmas and New Year)',
-    phases: [
-      { from: '2026-11-23', to: '2026-12-12', text: 'Christmas decorations' },
-      { from: '2026-12-13', to: '2026-12-25', text: 'Christmas and New Year together' },
-      { from: '2026-12-26', to: '2027-01-15', text: 'New Year only, Christmas is off' },
-    ],
-    after: 'From 16/01/2027 all decorations switch off by themselves.',
-    footer: 'Preview any day: add ?xmas=1, ?xmas=both, ?xmas=ny or ?xmas=0 to the order web address.',
+    team: 'Visual Merchandise',
+    from: SEASONS[0].from,
+    to: SEASONS[SEASONS.length - 1].to,
+    title: 'Order web decorations',
+    seasons: SEASONS,
+    after: END_NOTE,
   },
 ];
 
-const dmy = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
+const dm = (iso) => dmy(iso).slice(0, 5);
 
-// todayIso "YYYY-MM-DD" -> [{ key, team, title, lines }] for the notes that apply today.
+// todayIso "YYYY-MM-DD" -> [{ key, team, title, until, now, later, lines }] for the notes that apply today.
+// now: one short line. later: one short line of what changes next. lines: the full list (used by the handover and tests).
 function pinnedFor(todayIso) {
   return PINNED.filter((p) => todayIso >= p.from && todayIso <= p.to).map((p) => {
-    const now = (p.phases || []).find((ph) => todayIso >= ph.from && todayIso <= ph.to);
+    const cur = p.seasons.find((s) => todayIso >= s.from && todayIso <= s.to);
+    const upcoming = p.seasons.filter((s) => s.from > todayIso);
     const lines = [];
-    if (now) lines.push(`Now: ${now.text}.`);
-    (p.phases || []).forEach((ph) => lines.push(`${dmy(ph.from)} to ${dmy(ph.to)}: ${ph.text}${now === ph ? ' (now)' : ''}`));
+    if (cur) lines.push(`Now: ${cur.text}.`);
+    p.seasons.forEach((s) => lines.push(`${dmy(s.from)} to ${dmy(s.to)}: ${s.text}${cur === s ? ' (now)' : ''}`));
     if (p.after) lines.push(p.after);
-    if (p.footer) lines.push(p.footer);
-    return { key: `pin|${p.id}`, team: p.team, title: p.title, until: dmy(p.to), lines };
+    const later = [...upcoming.map((s) => `${dm(s.from)} ${s.short}`), `off ${dm(OFF_FROM)}/${OFF_FROM.slice(0, 4)}`].join(', ');
+    return { key: `pin|${p.id}`, team: p.team, title: p.title, until: dmy(p.to), now: cur ? cur.short : '', later, lines };
   });
 }
 

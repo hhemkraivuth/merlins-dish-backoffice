@@ -147,7 +147,7 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   } else mk.updates.push('No marketing notes logged yet.');
   const drafts = notes.filter((n) => n.kind === 'Ad draft' && n.status.toLowerCase() === 'draft');
 
-  // Strategy: the month's bet (a "Bet" note) and the latest weekly move. Content: the social content plan, posts waiting for Lily's approval. Paid Media: ad drafts waiting for approval.
+  // Strategy: the month's bet (a "Bet" note) and the latest weekly move. Content: the social content plan, posts waiting for Lily's approval. Visual Merchandise: what the order web is wearing and what changes next.
   const bet = notes.find((n) => n.kind === 'Bet');
   const move = notes.find((n) => n.kind === 'Move');
   const strategy = { name: 'Strategy', key: 'Strategy', channel: null, updates: [] };
@@ -158,14 +158,14 @@ function buildPit({ today, ledger = [], cookBatches = [], purchases = [], expens
   if (move) strategy.updates.push(`Latest move (${move.date}): ${move.title}.`);
 
   const creative = { name: 'Content', key: 'Content', channel: null, updates: [] };
-  const paid = { name: 'Paid Media', key: 'Paid Media', channel: null, updates: [] };
-  paid.top = plural(drafts.length, 'ad draft'); paid.line = 'waiting for approval'; paid.headline = paid.top;
-  paid.updates.push(drafts.length ? `${plural(drafts.length, 'ad draft')} waiting for approval.` : 'No ad drafts waiting.');
+  const vm = require('./visualMerch').pitCard(formatDMY(today).split('/').reverse().join('-'));
 
-  const teams = [app, direct, ops, buy, mk, strategy, creative, paid];
+  const teams = [app, direct, ops, buy, mk, strategy, creative, vm];
   for (const t of teams) t.open = open.filter(involves(t.key || t.name) );
   // Handoffs raised before the rename still say Creative.
   creative.open = open.filter((h) => involves('Content')(h) || involves('Creative')(h));
+  // Handoffs raised for the old Paid Media desk now land on Visual Merchandise.
+  vm.open = open.filter((h) => involves('Visual Merchandise')(h) || involves('Paid Media')(h));
   for (const t of teams) t.openShort = compactHandoffs(t.open);
   creative.top = 'Content plan'; creative.line = 'posts for you to approve'; creative.headline = creative.top;
   creative.updates.push('No content plan read yet.');

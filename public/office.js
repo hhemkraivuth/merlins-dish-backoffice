@@ -3,7 +3,7 @@
 // Plain SVG. Desk name plates are HTML on top so they stay sharp and tappable.
 (function () {
   const W = 192, H = 120, LANE = 54;
-  const DESKS = [[10, 16], [48, 16], [148, 16], [86, 16], [16, 72], [48, 72], [80, 72], [112, 72], [144, 72]]; // top-left of each desk, 28 x 12. Top row: Grab, Direct, Operations (kitchen), Purchasing. Bottom row: the marketing island (Marketing, Strategy, Creative, Paid Media) pushed together, clear of the plants
+  const DESKS = [[10, 16], [48, 16], [148, 16], [86, 16], [16, 72], [48, 72], [80, 72], [112, 72], [144, 72]]; // top-left of each desk, 28 x 12. Top row: Grab, Direct, Operations (kitchen), Purchasing. Bottom row: the marketing island (Marketing, Strategy, Creative, Visual Merchandise) pushed together, clear of the plants
   const TOP_ROW = 4;
   const KITCHEN = 2; // Operations
   const SPOTS = [[14, 108], [170, 108], [8, 40]]; // standing spots on the floor, so every character can always move

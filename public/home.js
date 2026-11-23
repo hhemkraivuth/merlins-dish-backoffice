@@ -3,7 +3,7 @@ const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const slug = (n) => String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 // Where each team's card leads. Top line only here, the detail lives on the team's own page.
-const PAGE = { 'Grab sales': 'reports.html', 'Direct sales': 'reports.html', Audit: 'audit.html', Operations: '/#batchcook', Purchasing: '/#receipts', Marketing: 'marketing.html', Strategy: 'marketing.html', Content: 'content-plan.html', 'Paid Media': 'marketing.html' };
+const PAGE = { 'Grab sales': 'reports.html', 'Direct sales': 'reports.html', Audit: 'audit.html', Operations: '/#batchcook', Purchasing: '/#receipts', Marketing: 'marketing.html', Strategy: 'marketing.html', Content: 'content-plan.html', 'Visual Merchandise': 'https://merlins-dish-bot-production.up.railway.app/' };
 
 // One short line per team message: first sentence only, names shortened, year dropped.
 const TEAM = (v) => esc(String(v).replace('App sales, Direct sales', 'Sales').replace('App sales', 'Grab sales'));

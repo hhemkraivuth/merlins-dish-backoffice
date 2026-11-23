@@ -87,7 +87,8 @@ test('teamForHandoff maps the receiving team onto a to do team', () => {
   assert.strictEqual(b.teamForHandoff('App sales, Direct sales'), 'Grab sales');
   assert.strictEqual(b.teamForHandoff('Direct sales'), 'Direct sales');
   assert.strictEqual(b.teamForHandoff('Lily'), 'Me');
-  assert.strictEqual(b.teamForHandoff('Paid Media'), 'Paid Media');
+  assert.strictEqual(b.teamForHandoff('Paid Media'), 'Visual Merchandise');
+  assert.strictEqual(b.teamForHandoff('Visual Merchandise'), 'Visual Merchandise');
 });
 
 const pitWith = (...open) => ({ teams: [{ name: 'Operations', open }] });

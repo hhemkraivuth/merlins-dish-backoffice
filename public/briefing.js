@@ -28,7 +28,9 @@
   .bf-bul{list-style:disc;margin:2px 0 0;padding-left:18px}
   .bf-bul li{padding:6px 0;border-top:1px solid var(--line,#e6e0d4)}
   .bf-bul li:first-child{border-top:0;padding-top:2px}
-  .bf-rep.pin{border-left-color:#e0a800;background:#fff8d6}
+  .bf-rep.pin{border-left-color:#e0a800;background:#fff8d6;padding:6px 10px;margin-bottom:6px}
+  .bf-rep.pin b{margin-bottom:0}
+  .bf-rep.pin p{margin:0;font-size:13px}
   .bf-rep.pin small{display:block;margin-top:4px;color:var(--muted,#666)}
   .bf-rep a{color:var(--blue,#2b4c9b);font-weight:600}
   .bf-none{font-size:14px;color:var(--muted,#666);margin:0 0 6px}
@@ -105,7 +107,7 @@
   function pinnedHtml() {
     const list = data.pinned || [];
     if (!list.length) return '';
-    return `<h3>Pinned, stays until it ends</h3>${list.map((p) => `<div class="bf-rep pin"><b>${esc(p.team)}</b><p><strong>${esc(p.title)}</strong></p><ul class="bf-bul">${p.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><small>Pinned until ${esc(p.until)}. It cannot be dismissed.</small></div>`).join('')}`;
+    return list.map((p) => `<div class="bf-rep pin"><b>Pinned, ${esc(p.team)}</b><p><strong>${esc(p.title)}: ${esc(p.now)} now.</strong> ${esc(p.later)}.</p></div>`).join('');
   }
 
   async function noted() {

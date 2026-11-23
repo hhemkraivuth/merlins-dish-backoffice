@@ -399,7 +399,7 @@ async function addMarketingNote({ kind, title, note, status }) {
 }
 
 // A note from one marketing desk to another, shown as team chatter on the home page. Key is left empty on purpose.
-const CHATTER_TEAMS = ['Marketing', 'Strategy', 'Creative', 'Paid Media', 'Lily'];
+const CHATTER_TEAMS = ['Marketing', 'Strategy', 'Creative', 'Visual Merchandise', 'Lily'];
 async function addHandoff({ from, to, message }) {
   if (!CHATTER_TEAMS.includes(from) || !CHATTER_TEAMS.includes(to)) throw Object.assign(new Error(`From and To must be one of ${CHATTER_TEAMS.join(', ')}.`), { status: 400 });
   const text = String(message || '').trim();
