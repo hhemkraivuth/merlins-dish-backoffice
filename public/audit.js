@@ -10,25 +10,32 @@ let FINDINGS = [];
 function draw(v) {
   FINDINGS = v.findings;
   $('light').innerHTML = `<span class="dot ${v.light}"></span><div><b>${esc(v.text)}</b><span>${v.baht >= 1 ? esc(baht(v.baht)) + ' at risk. ' : ''}${v.ranAt ? 'Last checked ' + esc(when(v.ranAt)) + '.' : 'Not checked yet. Press Check now.'}${v.ignored ? ' ' + v.ignored + ' ignored.' : ''}</span></div>`;
-  $('list').innerHTML = v.findings.length ? v.findings.map(find).join('') : `<div class="clear">${v.never ? '' : 'Nothing to review. The books look right.'}</div>`;
+  $('list').innerHTML = v.findings.length ? group(v.findings) : `<div class="clear">${v.never ? '' : 'Nothing to review. The books look right.'}</div>`;
+}
+// Findings of the same kind share one box, so the list stays short. Each keeps its own text, buttons and Ignore.
+function group(list) {
+  const by = new Map();
+  for (const f of list) { if (!by.has(f.check)) by.set(f.check, []); by.get(f.check).push(f); }
+  return [...by].map(([check, fs]) => `<div class="grp"><div class="gtag">${esc(check)}${fs.length > 1 ? ` <span>${fs.length}</span>` : ''}</div>${fs.map(find).join('')}</div>`).join('');
 }
 // One finding: what it is, the money, and where or how to fix it, right on the card when possible.
 function find(f) {
   const a = f.action || {};
+  const ign = '<button type="button" data-ignore>Ignore</button>';
   const typed = a.type === 'cost'
-    ? `<div class="fixrow"><label>Cost per portion (฿)<input type="number" inputmode="decimal" min="0" step="any" data-val placeholder="for example 25.50"></label><button type="button" class="primary" data-fix>Save cost</button></div>`
+    ? `<div class="fixrow"><label>Cost per portion (฿)<input type="number" inputmode="decimal" min="0" step="any" data-val placeholder="for example 25.50"></label><button type="button" class="primary" data-fix>Save cost</button>${ign}</div>`
     : a.type === 'split'
-      ? `<div class="fixrow"><label>What was in the order?<input type="text" data-val value="${esc(a.text || '')}" placeholder="${esc(a.hint || 'Dark Beer Stew + Tubetti')}"></label><button type="button" class="primary" data-fix>Save items</button></div>`
+      ? `<div class="fixrow"><label>What was in the order?<input type="text" data-val value="${esc(a.text || '')}" placeholder="${esc(a.hint || 'Dark Beer Stew + Tubetti')}"></label><button type="button" class="primary" data-fix>Save items</button>${ign}</div>`
       : a.type === 'customer'
-        ? `<div class="fixrow"><label>Customer name<input type="text" data-val placeholder="as shown on the Grab order"></label><button type="button" class="primary" data-fix>Save name</button></div>`
+        ? `<div class="fixrow"><label>Customer name<input type="text" data-val placeholder="as shown on the Grab order"></label><button type="button" class="primary" data-fix>Save name</button>${ign}</div>`
         : a.type === 'gap'
-          ? `<div class="chips">${['cook:Cook not logged', 'bought:Purchase not logged', 'wasted:Wasted', 'free:Given away', 'miscount:Earlier count wrong', 'lost:Lost'].map((x) => `<button type="button" class="rsn" data-gap="${x.split(':')[0]}">${x.split(':')[1]}</button>`).join('')}</div>`
+          ? `<div class="chips">${['cook:Cook not logged', 'bought:Purchase not logged', 'wasted:Wasted', 'free:Given away', 'miscount:Earlier count wrong', 'lost:Lost'].map((x) => `<button type="button" class="rsn" data-gap="${x.split(':')[0]}">${x.split(':')[1]}</button>`).join('')}${ign}</div>`
           : a.type === 'close'
-          ? `<div class="fixrow"><label>Reason the shop was shut (optional)<input type="text" data-val placeholder="for example rain, no riders"></label></div><div class="fixrow">${a.days.length ? `<button type="button" class="primary" data-closeday>Shop shut: ${a.days.map((d) => d.slice(0, 5)).join(', ')}</button>` : ''}${a.others.length ? `<button type="button" class="primary" data-noorders>Open, no ${esc(a.channel)} orders: ${a.others.map((d) => d.slice(0, 5)).join(', ')}</button>` : ''}</div>`
+          ? `<div class="fixrow"><label>Reason (optional)<input type="text" data-val placeholder="for example rain, no riders"></label><button type="button" class="primary" data-savedays>Save</button>${ign}</div>`
             : a.type === 'meatcatch'
-              ? `<div class="fixrow"><button type="button" class="primary" data-meat>Catch up meat now</button></div>`
+              ? `<div class="fixrow"><button type="button" class="primary" data-meat>Catch up meat now</button>${ign}</div>`
               : a.type === 'drinkmap'
-                ? `<div class="fixrow"><label>Which stock item is it?<select data-val>${(a.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}<option value="ignore">${esc(a.ignoreLabel || 'Not in stock')}</option></select></label><button type="button" class="primary" data-drink>Save</button></div>`
+                ? `<div class="fixrow"><label>Which stock item is it?<select data-val>${(a.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}<option value="ignore">${esc(a.ignoreLabel || 'Not in stock')}</option></select></label><button type="button" class="primary" data-drink>Save</button>${ign}</div>`
                 : '';
   const go = !typed && f.fix ? `<a href="${esc(f.fix)}">${esc(f.fixLabel || 'Open')}</a>` : '';
   const bul = (f.bullets || []).length ? `<ul class="bul">${f.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : '';
@@ -42,7 +49,7 @@ function find(f) {
     return `<div class="itm" data-n="${n}"><div class="t">${esc(it.text)}</div><div class="row2">${ctl}</div><div class="m" data-m></div></div>`;
   }).join('');
   const head = f.text ? `<p><b>${esc(f.title || '')}</b><br>${esc(f.text)}</p>` : `<p>${esc(f.line)}${f.baht >= 1 && !f.hideBaht ? ` <span class="at">${esc(baht(f.baht))}</span>` : ''}</p>`;
-  return `<div class="find" data-id="${esc(f.id)}"><span class="tagc">${esc(f.check)}</span>${head}${bul}${how}${chips}${typed}${items}<div class="acts">${go}${links}<button type="button" data-ignore>Ignore</button></div><div class="fmsg" data-msg></div></div>`;
+  return `<div class="find" data-id="${esc(f.id)}"><span class="tagc">${esc(f.check)}</span>${head}${bul}${how}${chips}${typed}${items}<div class="acts">${go}${links}${typed ? '' : ign}</div><div class="fmsg" data-msg></div></div>`;
 }
 async function call(url, body) {
   const res = await fetch(url, body === undefined ? undefined : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -78,13 +85,15 @@ $('list').addEventListener('click', async (e) => {
     catch (err) { msg.textContent = err.message; card.querySelectorAll('[data-gap]').forEach((b) => { b.disabled = false; }); }
     return;
   }
-  const cd = e.target.closest('[data-closeday]');
+  const cd = e.target.closest('[data-savedays]');
   if (cd) {
     const card = cd.closest('.find'); const f = FINDINGS.find((x) => x.id === card.dataset.id); const why = card.querySelector('[data-val]').value.trim(); const msg = card.querySelector('[data-msg]');
     cd.disabled = true; msg.textContent = 'Saving…';
     try {
-      for (const d of f.action.days) await call('/api/cook/note', { text: `close ${d.slice(0, 5)}${/\d{4}$/.test(d) ? '/' + d.slice(6) : ''} ${why}`.trim() });
-      draw(await call('/api/audit/run', {})); $('status').className = 'status'; $('status').textContent = `Marked closed: ${f.action.days.map((d) => d.slice(0, 5)).join(', ')}.`;
+      // A day with no orders on either channel is a shut day. A day the other channel sold on was open: it is noted as no orders.
+      for (const d of f.action.days) await call('/api/cook/note', { text: `close ${d.slice(0, 5)}/${d.slice(6)} ${why}`.trim() });
+      if (f.action.others.length) await call('/api/audit/noorders', { channel: f.action.channel, days: f.action.others, reason: why });
+      draw(await call('/api/audit/run', {})); $('status').className = 'status'; $('status').textContent = `Saved: ${[...f.action.days, ...f.action.others].map((d) => d.slice(0, 5)).join(', ')}.`;
     } catch (err) { msg.textContent = err.message; cd.disabled = false; }
     return;
   }
@@ -93,14 +102,6 @@ $('list').addEventListener('click', async (e) => {
     const card = dk.closest('.find'); const f = FINDINGS.find((x) => x.id === card.dataset.id); const msg = card.querySelector('[data-msg]'); dk.disabled = true; msg.textContent = 'Saving…';
     try { const out = await call('/api/audit/drinkmap', { sale: f.action.sale, stock: card.querySelector('[data-val]').value }); draw(out.audit); $('status').className = 'status'; $('status').textContent = `Saved: ${f.action.sale} counts against that drink from now.`; }
     catch (err) { msg.textContent = err.message; dk.disabled = false; }
-    return;
-  }
-  const no = e.target.closest('[data-noorders]');
-  if (no) {
-    const card = no.closest('.find'); const f = FINDINGS.find((x) => x.id === card.dataset.id); const msg = card.querySelector('[data-msg]');
-    card.querySelectorAll('button[data-noorders],button[data-closeday]').forEach((b) => { b.disabled = true; }); msg.textContent = 'Saving…';
-    try { const out = await call('/api/audit/noorders', { channel: f.action.channel, days: f.action.others }); draw(out.audit); $('status').className = 'status'; $('status').textContent = `Noted: open, no ${f.action.channel} orders on ${f.action.others.map((d) => d.slice(0, 5)).join(', ')}.`; }
-    catch (err) { msg.textContent = err.message; card.querySelectorAll('button[data-noorders],button[data-closeday]').forEach((b) => { b.disabled = false; }); }
     return;
   }
   const mt = e.target.closest('[data-meat]');

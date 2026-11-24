@@ -103,7 +103,7 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   // 4. Days with no import. Grab arrives up to 2 days late, LINE up to 1.
   const have = { Grab: new Set(), LINE: new Set() };
   for (const r of ledger) if (have[r.channel]) have[r.channel].add(iso(r.date));
-  const noOrd = new Set(noOrders);
+  const noOrd = new Set(noOrders.map((x) => String(x).split('|').slice(0, 2).join('|')));
   for (const [ch, lag] of [['Grab', 3], ['LINE', 2]]) {
     if (!have[ch].size) continue;
     const gaps = []; const gapDays = []; const closable = [];
@@ -239,10 +239,10 @@ async function view(result, store = require('./appState')) {
 }
 
 // days: DD/MM/YYYY list. The shop was open, that channel had no orders. Stops the Missing days check naming them again.
-async function noOrders(channel, days, { store = require('./appState') } = {}) {
+async function noOrders(channel, days, { store = require('./appState'), reason = '' } = {}) {
   if (!['Grab', 'LINE'].includes(channel) || !Array.isArray(days) || !days.length) throw new Error('Say which channel and days.');
   const cur = parse(await store.getState(NOORD_KEY), []);
-  for (const d of days) { const p = parseDate(String(d)); if (!p) throw new Error(`I could not read the day ${d}.`); const k = `${channel}|${iso(p)}`; if (!cur.includes(k)) cur.push(k); }
+  for (const d of days) { const p = parseDate(String(d)); if (!p) throw new Error(`I could not read the day ${d}.`); const k = `${channel}|${iso(p)}`; if (!cur.some((x) => String(x).split('|').slice(0, 2).join('|') === k)) cur.push(reason ? `${k}|${String(reason).replace(/\|/g, ' ').slice(0, 80)}` : k); }
   await store.setState(NOORD_KEY, JSON.stringify(cur.slice(-400)));
   return cur;
 }
