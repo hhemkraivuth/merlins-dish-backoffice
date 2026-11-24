@@ -24,13 +24,14 @@ function find(f) {
         : a.type === 'gap'
           ? `<div class="chips">${['cook:Cook not logged', 'bought:Purchase not logged', 'wasted:Wasted', 'free:Given away', 'miscount:Earlier count wrong', 'lost:Lost'].map((x) => `<button type="button" class="rsn" data-gap="${x.split(':')[0]}">${x.split(':')[1]}</button>`).join('')}</div>`
           : a.type === 'close'
-            ? `<div class="fixrow"><label>Why was the shop shut? (optional)<input type="text" data-val placeholder="for example rain, no riders"></label><button type="button" class="primary" data-closeday>Mark closed</button></div>`
+          ? `<div class="fixrow"><label>Reason the shop was shut (optional)<input type="text" data-val placeholder="for example rain, no riders"></label></div><div class="fixrow">${a.days.length ? `<button type="button" class="primary" data-closeday>Shop shut: ${a.days.map((d) => d.slice(0, 5)).join(', ')}</button>` : ''}${a.others.length ? `<button type="button" class="primary" data-noorders>Open, no ${esc(a.channel)} orders: ${a.others.map((d) => d.slice(0, 5)).join(', ')}</button>` : ''}</div>`
             : a.type === 'meatcatch'
               ? `<div class="fixrow"><button type="button" class="primary" data-meat>Catch up meat now</button></div>`
               : a.type === 'drinkmap'
-                ? `<div class="fixrow"><label>Which stock item is it?<select data-val>${(a.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}</select></label><button type="button" class="primary" data-drink>Save</button></div>`
+                ? `<div class="fixrow"><label>Which stock item is it?<select data-val>${(a.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}<option value="ignore">${esc(a.ignoreLabel || 'Not in stock')}</option></select></label><button type="button" class="primary" data-drink>Save</button></div>`
                 : '';
   const go = !typed && f.fix ? `<a href="${esc(f.fix)}">${esc(f.fixLabel || 'Open')}</a>` : '';
+  const bul = (f.bullets || []).length ? `<ul class="bul">${f.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : '';
   const how = f.how ? `<div class="how">${esc(f.how)}</div>` : '';
   const chips = (f.chips || []).length ? `<div class="chips">${f.chips.map((c) => `<a href="${esc(c.href)}">${esc(c.label)}</a>`).join('')}</div>` : '';
   const links = (f.links || []).map((l) => `<a href="${esc(l.href)}"${l.ext ? ' target="_blank" rel="noopener"' : ''}>${esc(l.label)}</a>`).join('');
@@ -41,7 +42,7 @@ function find(f) {
     return `<div class="itm" data-n="${n}"><div class="t">${esc(it.text)}</div><div class="row2">${ctl}</div><div class="m" data-m></div></div>`;
   }).join('');
   const head = f.text ? `<p><b>${esc(f.title || '')}</b><br>${esc(f.text)}</p>` : `<p>${esc(f.line)}${f.baht >= 1 && !f.hideBaht ? ` <span class="at">${esc(baht(f.baht))}</span>` : ''}</p>`;
-  return `<div class="find" data-id="${esc(f.id)}"><span class="tagc">${esc(f.check)}</span>${head}${how}${chips}${typed}${items}<div class="acts">${go}${links}<button type="button" data-ignore>Ignore</button></div><div class="fmsg" data-msg></div></div>`;
+  return `<div class="find" data-id="${esc(f.id)}"><span class="tagc">${esc(f.check)}</span>${head}${bul}${how}${chips}${typed}${items}<div class="acts">${go}${links}<button type="button" data-ignore>Ignore</button></div><div class="fmsg" data-msg></div></div>`;
 }
 async function call(url, body) {
   const res = await fetch(url, body === undefined ? undefined : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -92,6 +93,14 @@ $('list').addEventListener('click', async (e) => {
     const card = dk.closest('.find'); const f = FINDINGS.find((x) => x.id === card.dataset.id); const msg = card.querySelector('[data-msg]'); dk.disabled = true; msg.textContent = 'Saving…';
     try { const out = await call('/api/audit/drinkmap', { sale: f.action.sale, stock: card.querySelector('[data-val]').value }); draw(out.audit); $('status').className = 'status'; $('status').textContent = `Saved: ${f.action.sale} counts against that drink from now.`; }
     catch (err) { msg.textContent = err.message; dk.disabled = false; }
+    return;
+  }
+  const no = e.target.closest('[data-noorders]');
+  if (no) {
+    const card = no.closest('.find'); const f = FINDINGS.find((x) => x.id === card.dataset.id); const msg = card.querySelector('[data-msg]');
+    card.querySelectorAll('button[data-noorders],button[data-closeday]').forEach((b) => { b.disabled = true; }); msg.textContent = 'Saving…';
+    try { const out = await call('/api/audit/noorders', { channel: f.action.channel, days: f.action.others }); draw(out.audit); $('status').className = 'status'; $('status').textContent = `Noted: open, no ${f.action.channel} orders on ${f.action.others.map((d) => d.slice(0, 5)).join(', ')}.`; }
+    catch (err) { msg.textContent = err.message; card.querySelectorAll('button[data-noorders],button[data-closeday]').forEach((b) => { b.disabled = false; }); }
     return;
   }
   const mt = e.target.closest('[data-meat]');

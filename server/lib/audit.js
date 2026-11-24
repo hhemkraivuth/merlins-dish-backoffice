@@ -8,6 +8,7 @@ const { parseDate, formatDMY, daysBetween, bangkokToday } = require('./dates');
 
 const RESULT_KEY = 'audit_latest';
 const IGNORE_KEY = 'audit_ignored';
+const NOORD_KEY = 'audit_noorders'; // 'LINE|2026-11-17': the shop was open and that channel simply had no orders
 const FOOD_COST_LIMIT = 0.4;
 // Lily pulls the bank statement once a month, by the 5th of the next month, so the balance is only late after that.
 const BANK_DUE_DAY = 5;
@@ -30,7 +31,7 @@ const list = (a, max = 3) => (a.length <= max ? a.join(', ') : `${a.slice(0, max
 // ledger: ledgerObjects (already pasta costed). expenseRows: Expense Log rows (header optional).
 // stock: [{ dish, remaining, oldestAgeDays }]. cookBatches: [{ date, dish, portions }]. closed: Map iso -> reason.
 // pastaCards: [{ card, cost }] where cost is pastaCosts.costCard. bank: { amount, asOf "DD/MM/YYYY" }.
-function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [], meatGaps = [], stockGaps = [], drinkUnmapped = [], drinkItems = [] } = {}) {
+function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [], meatGaps = [], stockGaps = [], drinkUnmapped = [], drinkItems = [], noOrders = [] } = {}) {
   const out = [];
   const add = (f) => out.push({ baht: 0, ...f });
   const recent = ledger.filter((r) => daysBetween(today, r.date) <= WINDOW);
@@ -102,21 +103,24 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   // 4. Days with no import. Grab arrives up to 2 days late, LINE up to 1.
   const have = { Grab: new Set(), LINE: new Set() };
   for (const r of ledger) if (have[r.channel]) have[r.channel].add(iso(r.date));
+  const noOrd = new Set(noOrders);
   for (const [ch, lag] of [['Grab', 3], ['LINE', 2]]) {
     if (!have[ch].size) continue;
-    const gaps = []; const gapDays = [];
+    const gaps = []; const gapDays = []; const closable = [];
     for (let back = lag; back <= 14; back += 1) {
       const d = new Date(today.getTime() - back * 86400000);
-      if (closed.has(iso(d)) || have[ch].has(iso(d))) continue;
+      if (closed.has(iso(d)) || have[ch].has(iso(d)) || noOrd.has(`${ch}|${iso(d)}`)) continue;
       // Saturday and Sunday are closed. A weekend counts as open only when sales show up that day on either channel.
       if (isWeekend(d) && !have.Grab.has(iso(d)) && !have.LINE.has(iso(d))) continue;
       gaps.push(formatDMY(d).slice(0, 5)); gapDays.push(formatDMY(d));
+      // Only a day with no orders on either channel can be a shut day. If the other channel sold, the shop was open.
+      if (!have.Grab.has(iso(d)) && !have.LINE.has(iso(d))) closable.push(formatDMY(d));
     }
     if (gaps.length) {
       const how = ch === 'Grab'
-        ? "Upload that day's Grab screenshots to Drive (Daily Screenshots, the month folder, a folder named like 15/11). The 16:05 run sends each finished day to BOH. If the shop was shut, mark the days closed below."
-        : 'Press Sync LINE orders under Tools on Numbers. If the shop was shut, mark the days closed below.';
-      add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}.`, how, action: { type: 'close', days: gapDays }, chips: gapDays.map((x) => ({ label: x.slice(0, 5), href: `reports.html?from=${encodeURIComponent(x)}&to=${encodeURIComponent(x)}` })), links: ch === 'Grab' ? [driveLink] : [], fix: ch === 'Grab' ? undefined : 'reports.html#tools', fixLabel: ch === 'Grab' ? undefined : 'Open Numbers tools' });
+        ? "Upload that day's Grab screenshots to Drive (Daily Screenshots, the month folder, a folder named like 15/11). The 16:05 run sends each finished day to BOH. If the shop was shut or there were simply no orders, say so below."
+        : 'Press Sync LINE orders under Tools on Numbers. If the shop was open and there were simply no LINE orders, say so below.';
+      add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}.`, how, action: { type: 'close', days: closable, channel: ch, others: gapDays.filter((x) => !closable.includes(x)) }, chips: gapDays.map((x) => ({ label: x.slice(0, 5), href: `reports.html?from=${encodeURIComponent(x)}&to=${encodeURIComponent(x)}` })), links: ch === 'Grab' ? [driveLink] : [], fix: ch === 'Grab' ? undefined : 'reports.html#tools', fixLabel: ch === 'Grab' ? undefined : 'Open Numbers tools' });
     }
   }
 
@@ -181,13 +185,14 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   }
 
   // 9. A batch used bagged meat but the Meat card on the Stock page never went down.
-  for (const g of meatGaps) add({ id: `meatgap:${g.key}`, check: 'Stock', line: `${g.dish} on ${g.dmy.slice(0, 5)} used ${g.names.join(', ')}, but the Meat card on the Stock page never went down.`, how: 'Catch up takes every unlogged batch off the Meat card in one go.', action: { type: 'meatcatch' }, fix: '/#stock', fixLabel: 'Open Stock' });
+  if (meatGaps.length === 1) { const g = meatGaps[0]; add({ id: `meatgap:${g.key}`, check: 'Stock', line: `${g.dish} on ${g.dmy.slice(0, 5)} used ${g.names.join(', ')}, but the Meat card on the Stock page never went down.`, action: { type: 'meatcatch' }, fix: '/#stock', fixLabel: 'Open Stock' }); }
+  else if (meatGaps.length) add({ id: `meatgap:${meatGaps.map((g) => g.key).join('+')}`, check: 'Stock', line: `${meatGaps.length} cooks never took their meat off the Meat card.`, bullets: meatGaps.map((g) => `${g.dish}, ${g.dmy.slice(0, 5)}: ${g.names.join(', ')}`), action: { type: 'meatcatch' }, fix: '/#stock', fixLabel: 'Open Stock' });
 
   // 10. A count came out different from what the system believed, and nobody has said why yet.
   for (const f of require('./stockGaps').auditFindings(stockGaps)) add(f);
 
   // 11. A drink sold under a name that is not matched to a stock item, so its cans never come off the shelf count.
-  for (const u of drinkUnmapped) add({ id: `drinkmap:${loose(u.name)}`, check: 'Drinks', line: `${u.name} sold ${plural(u.qty, 'time')} and is not matched to a drink in Stock, so those cans never come off the count.`, how: 'Pick the stock item it is, once. It is remembered.', action: { type: 'drinkmap', sale: u.name, options: drinkItems } });
+  for (const u of drinkUnmapped) add({ id: `drinkmap:${loose(u.name)}`, check: 'Drinks', line: `${u.name} sold ${plural(u.qty, 'time')} and is not matched to a drink in Stock, so those cans never come off the count.`, how: 'Pick the stock item it is, once. It is remembered.', action: { type: 'drinkmap', sale: u.name, options: drinkItems, ignoreLabel: 'Not in stock, ignore it' } });
 
   return out;
 }
@@ -217,7 +222,8 @@ async function run({ store = require('./appState') } = {}) {
   let meatGaps = []; try { const bd = require('./bagDeduct'); meatGaps = (await bd.catchUpPreview(undefined, today)).map((r) => ({ key: r.key, dish: r.dish, dmy: formatDMY(r.date), names: r.plan.used.map((u) => u.name) })); } catch (err) { /* skip */ }
   let stockGaps = []; try { const sg = require('./stockGaps'); stockGaps = sg.gapsFrom(await sg.defaultDeps().readRows()); } catch (err) { /* skip */ }
   let drinkUnmapped = []; let drinkItems = []; try { const ds = require('./drinkSales'); const sc = require('./stockCounts'); const items = (await sc.getAllStock()).filter(ds.isDrinkItem); drinkItems = items.map((i) => i.itemName); drinkUnmapped = ds.matchSales({ drinks: items, ledger: d.ledger, links: await ds.loadLinks() }).unmapped; } catch (err) { /* skip */ }
-  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals, meatGaps, stockGaps, drinkUnmapped, drinkItems });
+  let noOrders = []; try { noOrders = JSON.parse((await store.getState(NOORD_KEY)) || '[]'); } catch (err) { noOrders = []; }
+  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals, meatGaps, stockGaps, drinkUnmapped, drinkItems, noOrders });
   const result = { ranAt: new Date().toISOString(), findings: all };
   await store.setState(RESULT_KEY, JSON.stringify(result));
   return view(result, store);
@@ -230,6 +236,15 @@ async function view(result, store = require('./appState')) {
   const ignored = new Set(parse(await store.getState(IGNORE_KEY), []));
   const findings = res.findings.filter((f) => !ignored.has(f.id));
   return { ranAt: res.ranAt, findings, ignored: res.findings.length - findings.length, ...summarise(findings) };
+}
+
+// days: DD/MM/YYYY list. The shop was open, that channel had no orders. Stops the Missing days check naming them again.
+async function noOrders(channel, days, { store = require('./appState') } = {}) {
+  if (!['Grab', 'LINE'].includes(channel) || !Array.isArray(days) || !days.length) throw new Error('Say which channel and days.');
+  const cur = parse(await store.getState(NOORD_KEY), []);
+  for (const d of days) { const p = parseDate(String(d)); if (!p) throw new Error(`I could not read the day ${d}.`); const k = `${channel}|${iso(p)}`; if (!cur.includes(k)) cur.push(k); }
+  await store.setState(NOORD_KEY, JSON.stringify(cur.slice(-400)));
+  return cur;
 }
 
 async function ignore(id, { store = require('./appState') } = {}) {
@@ -248,4 +263,4 @@ function sundayLine(v) {
   return `Audit: ${v.count} to review${v.baht >= 1 ? `, ${baht(v.baht)} at risk` : ''}. First up: ${top.line}`;
 }
 
-module.exports = { runChecks, run, view, ignore, summarise, sundayLine, RESULT_KEY, IGNORE_KEY };
+module.exports = { runChecks, run, view, ignore, noOrders, summarise, sundayLine, RESULT_KEY, IGNORE_KEY };

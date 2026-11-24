@@ -245,6 +245,7 @@ app.post('/api/item-cost/save', async (req, res) => {
 });
 app.post('/api/audit/gap', async (req, res) => { try { const b = req.body || {}; const message = await require('./lib/stockGaps').closeGap(b.at, b.item, b.reason); res.json({ message, audit: await audit.run() }); } catch (err) { res.status(400).json({ error: err.message }); } });
 app.post('/api/audit/drinkmap', async (req, res) => { try { const b = req.body || {}; await require('./lib/drinkSales').saveLink(b.sale, b.stock); res.json({ audit: await audit.run() }); } catch (err) { res.status(400).json({ error: err.message }); } });
+app.post('/api/audit/noorders', async (req, res) => { try { const b = req.body || {}; await audit.noOrders(b.channel, b.days); res.json({ audit: await audit.run() }); } catch (err) { res.status(400).json({ error: err.message }); } });
 app.get('/api/audit', async (req, res) => { try { res.json(await audit.view()); } catch (err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/audit/run', async (req, res) => { try { res.json(await audit.run()); } catch (err) { res.status(500).json({ error: `The check could not run: ${err.message}` }); } });
 app.post('/api/audit/ignore', async (req, res) => { try { res.json(await audit.ignore((req.body || {}).id)); } catch (err) { res.status(400).json({ error: err.message }); } });

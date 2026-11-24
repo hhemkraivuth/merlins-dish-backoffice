@@ -9,6 +9,7 @@ const { normName } = require('./priceBook');
 const { guessCategory } = require('./stockCounts');
 
 const KEY = 'drink_map';
+const NOT_STOCKED = require('./stockLink').IGNORE;
 const isDrinkItem = (i) => (i.category || i.guess || guessCategory(i.itemName)) === 'Drinks' || (!i.category && guessCategory(i.itemName) === 'Drinks');
 const looksLikeDrink = (name) => guessCategory(name) === 'Drinks' && !/\b(stew|ragu|bolognese|braise|soup|pasta)\b/i.test(name);
 
@@ -49,7 +50,7 @@ function soldSince(item, match) {
 async function loadLinks(store = require('./appState')) { try { return JSON.parse((await store.getState(KEY)) || '{}'); } catch (err) { return {}; } }
 async function saveLink(saleName, stockName, store = require('./appState')) {
   if (!saleName || !stockName) throw new Error('Pick the sale name and the stock item.');
-  const cur = await loadLinks(store); cur[normName(saleName)] = stockName;
+  const cur = await loadLinks(store); cur[normName(saleName)] = stockName === 'ignore' ? NOT_STOCKED : stockName;
   await store.setState(KEY, JSON.stringify(cur)); return cur;
 }
 
