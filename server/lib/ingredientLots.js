@@ -157,7 +157,7 @@ class LotBook {
       const lot = { id: newLotId(date), rowIndex: null, name: last.name, date, source: 'Count adjust', qty: extra, unit: last.unit, remaining: extra, total: extra * last.unitCost, unitCost: last.unitCost, seq: 1e9 };
       this.added.push(lot);
     }
-    return { before, after: target, unit: lots[0].unit, name: lots[0].name };
+    return { before, after: target, unit: lots[0].unit, name: lots[0].name, price: lots[lots.length - 1].unitCost };
   }
 }
 
