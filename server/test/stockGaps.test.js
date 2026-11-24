@@ -82,3 +82,22 @@ test('only a day with no orders on either channel can be marked shut', () => {
   assert.ok(!(line.action && line.action.days.includes('17/11/2026')), 'a day Grab sold on is never offered as shut');
   assert.ok(line.action && line.action.days.includes('18/11/2026'), 'a day with no orders at all can be marked shut');
 });
+
+test('open days with no orders on one channel can be noted, and stop being named', async () => {
+  const day = (iso, ch) => ({ key: `${ch}${iso}`, channel: ch, date: new Date(`${iso}T00:00:00Z`), dmy: iso, type: 'Order', desc: 'x', moneyIn: 100, qty: 1 });
+  const ledger = [day('2026-11-17', 'Grab'), day('2026-11-19', 'Grab'), day('2026-11-19', 'LINE'), day('2026-11-18', 'Grab')];
+  const base = { today: new Date('2026-11-23T00:00:00Z'), ledger };
+  const before = runChecks(base).find((x) => x.id.startsWith('gap:LINE'));
+  assert.deepStrictEqual(before.action.others.sort(), ['17/11/2026', '18/11/2026']);
+  const store = (() => { const m = new Map(); return { getState: async (k) => m.get(k) || null, setState: async (k, v) => { m.set(k, v); } }; })();
+  const a = require('../lib/audit');
+  await a.noOrders('LINE', before.action.others, { store });
+  const noOrders = JSON.parse(await store.getState('audit_noorders'));
+  const after = runChecks({ ...base, noOrders }).find((x) => x.id.startsWith('gap:LINE'));
+  assert.ok(!after || !after.action.others.length);
+});
+
+test('the meat card lists each cook as its own bullet', () => {
+  const f = runChecks({ today: new Date('2026-11-23T00:00:00Z'), meatGaps: [{ key: 'a', dish: 'Noir Ragu', dmy: '12/11/2026', names: ['Brisket'] }, { key: 'b', dish: 'Tuscan Pork Braise', dmy: '23/11/2026', names: ['Pork shoulder'] }] }).find((x) => x.bullets);
+  assert.deepStrictEqual(f.bullets, ['Noir Ragu, 12/11: Brisket', 'Tuscan Pork Braise, 23/11: Pork shoulder']);
+});
