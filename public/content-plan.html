@@ -43,9 +43,6 @@
     .story .sp { border-top: 1px solid var(--line); padding: 10px 0 2px; margin-top: 10px; }
     .story .sp b { font-size: 15px; }
     .story .sp p { margin: 4px 0 6px; font-size: 15px; line-height: 1.5; }
-    .card.post { padding: 0; gap: 0; }
-    .card.post > summary { list-style: none; }
-    .card.post > summary::-webkit-details-marker { display: none; }
     .ph { display: flex; align-items: center; gap: 8px; padding: 8px 12px; min-height: 52px; cursor: pointer; }
     .ph .pd { font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; }
     .ph .pt { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -53,6 +50,27 @@
     .ph .chev { font-size: 22px; color: var(--muted); transition: transform .15s; }
     details.post[open] > .ph .chev { transform: rotate(90deg); }
     .pill.sm { font-size: 12px; padding: 2px 8px; margin: 0; }
+    .card.post { padding: 12px; gap: 10px; }
+    .card.post.published { opacity: 1; }
+    .prow { display: flex; gap: 12px; }
+    .thumb { position: relative; width: 96px; height: 120px; flex: none; border-radius: 10px; background: #3A2418; overflow: hidden; display: flex; align-items: flex-end; padding: 0; color: #FFEEDE; font-size: 12px; font-weight: 600; }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb.none { padding: 8px; box-sizing: border-box; line-height: 1.3; }
+    .thumb em { position: absolute; left: 6px; bottom: 6px; font-style: normal; font-size: 11px; font-weight: 700; background: rgba(27,37,89,.85); color: #fff; border-radius: 6px; padding: 1px 6px; }
+    .thumb em.n { left: auto; right: 6px; }
+    .pmain { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
+    .sched { display: flex; gap: 8px; }
+    .sched label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); flex: 1; min-width: 0; }
+    .sched select { min-height: 44px; border: 1px solid #8C93BA; border-radius: 10px; padding: 0 6px; font: inherit; font-size: 14px; color: var(--ink); background: #fff; width: 100%; }
+    .chip.st { margin: 0; font-weight: 700; }
+    .chip.st.warn { background: #FFF1B8; color: #5C4800; }
+    .chip.st.dark { background: #1B2559; color: #fff; }
+    .chip.st.ok { background: #DDF3E6; color: #14532D; }
+    .chip.st.bad { background: #FBD9D2; color: #7A1D0B; }
+    .chip.st.grey { background: #ECECF2; color: #3F4663; }
+    .warn { font-size: 14px; line-height: 1.4; background: #FBD9D2; color: #7A1D0B; border-radius: 10px; padding: 8px 10px; }
+    .card.post .btns { margin-top: 0; }
+
     .pb { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; border-top: 1px solid var(--line); padding-top: 10px; }
     .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .meta .pill, .meta .chip { margin: 0; }
@@ -121,7 +139,7 @@
         <a class="logo-mark" href="home.html" aria-label="Merlin's Dish, go to The Pit"><img src="logo.png?v=33" alt="Merlin's Dish" /></a>
         <div>
           <div class="title">Content Plan</div>
-          <div class="subtitle">Proposed posts. Approve to shoot, dismiss to drop.</div>
+          <div class="subtitle">Approve a post and it goes out at the time shown.</div>
         </div>
       </div>
     </header>
@@ -147,11 +165,13 @@
       <h2 class="sec">Calendar</h2>
       <div id="cal"></div>
       <div id="footer"></div>
-      <h2 class="sec">Shoot list (approved)</h2>
-      <div class="stack" id="shoot"></div>
       <h2 class="sec">To review</h2>
       <div class="stack" id="review"></div>
-      <h2 class="sec">Dismissed and published</h2>
+      <h2 class="sec">Approved and scheduled</h2>
+      <div class="stack" id="shoot"></div>
+      <h2 class="sec">Published</h2>
+      <div id="pubd"></div>
+      <h2 class="sec">Dismissed</h2>
       <div id="gone"></div>
       <h2 class="sec">Research behind the plan</h2>
       <div id="why"></div>

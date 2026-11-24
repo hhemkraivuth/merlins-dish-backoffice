@@ -5,7 +5,11 @@
 const seed = require('../data/contentPlan.json');
 const { readTab } = require('./sheets');
 const { setState, TAB } = require('./appState');
+const queue = require('./contentQueue');
 
+const SCHED_KEY = 'content_plan_sched';
+const DEFAULT_TIME = '17:00';
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PLAN_KEY = 'content_plan_json';
 const STATUS_KEY = 'content_plan_status';
 const EDIT_KEY = 'content_plan_edits';
@@ -25,22 +29,42 @@ function pick(rs, key) {
 }
 
 // Plan text plus each proposal's saved status.
-function merge(plan, status, edits) {
+// sched holds Lily's own date and time choices, kept apart from the plan so a new weekly plan never wipes them.
+// qmap is the Content Queue tab: when the 17:00 task has posted a post, the page shows it as published with its links.
+function merge(plan, status, edits, sched, qmap) {
   const st = status || {};
   const ed = edits || {};
+  const sc = sched || {};
+  const qm = qmap || {};
   const proposals = (plan.proposals || []).map((p) => {
     const s = st[p.id] || {};
+    const c = sc[p.id] || {};
+    const q = qm[p.id] || {};
     const edited = typeof ed[p.id] === 'string' && ed[p.id].trim();
-    return { ...p, caption: edited ? ed[p.id] : p.caption, edited: !!edited, status: STATUSES.includes(s.status) ? s.status : 'proposed', decided: s.at || '' };
+    let status = STATUSES.includes(s.status) ? s.status : 'proposed';
+    if (q.status === 'published' && status === 'approved') status = 'published';
+    const date = DMY.test(c.date || '') ? c.date : p.date;
+    const time = HHMM.test(c.time || '') ? c.time : (HHMM.test(p.time || '') ? p.time : DEFAULT_TIME);
+    return {
+      ...p, date, time, media: cleanMedia(p.media), caption: edited ? ed[p.id] : p.caption, edited: !!edited, status, decided: s.at || '',
+      igUrl: q.igUrl || '', fbUrl: q.fbUrl || '', queueStatus: q.status || '', queueNote: q.note || '',
+    };
   });
   return { ...plan, proposals };
 }
 
+const cleanMedia = (m) => (Array.isArray(m) ? m : []).map((x) => ({ id: String((x && x.id) || '').trim(), name: String((x && x.name) || '').trim().slice(0, 120), kind: (x && x.kind) === 'video' ? 'video' : 'image' })).filter((x) => x.id).slice(0, 10);
+
 async function load() {
   const rs = await rows();
   const { bangkokToday, formatDMY } = require('./dates');
-  return { ...merge(pick(rs, PLAN_KEY) || seed, pick(rs, STATUS_KEY), pick(rs, EDIT_KEY)), footer: pick(rs, FOOTER_KEY) || seed.footer, briefs: pick(rs, BRIEF_KEY) || [], pillars: seed.pillars, today: formatDMY(bangkokToday()) };
+  let qmap = {};
+  try { qmap = await queue.readQueue(); } catch (e) { qmap = {}; }
+  return { ...merge(pick(rs, PLAN_KEY) || seed, pick(rs, STATUS_KEY), pick(rs, EDIT_KEY), pick(rs, SCHED_KEY), qmap), footer: pick(rs, FOOTER_KEY) || seed.footer, briefs: pick(rs, BRIEF_KEY) || [], pillars: seed.pillars, today: formatDMY(bangkokToday()) };
 }
+
+// What goes to Instagram and Facebook: her caption, then the footer.
+const fullCaptionOf = (p, footer) => `${String(p.caption || '').trim()}\n\n${footer || ''}`.trim();
 
 async function setStatus({ id, status }, now = new Date()) {
   const sid = String(id || '').trim();
@@ -49,9 +73,46 @@ async function setStatus({ id, status }, now = new Date()) {
   const plan = pick(rs, PLAN_KEY) || seed;
   if (!(plan.proposals || []).some((p) => p.id === sid)) throw fail('That proposal is not in the plan.', 404);
   const st = pick(rs, STATUS_KEY) || {};
+  // Approving puts the post on the queue first. If the queue cannot be written the approval is not saved, so nothing is approved but never posted.
+  if (status === 'approved') {
+    const merged = merge(plan, st, pick(rs, EDIT_KEY), pick(rs, SCHED_KEY)).proposals.find((p) => p.id === sid);
+    await queue.upsert({ ...merged, fullCaption: fullCaptionOf(merged, pick(rs, FOOTER_KEY) || seed.footer) }, 'approved', merged.media.length ? '' : 'No file attached yet', now);
+  } else if (status === 'proposed' || status === 'dismissed') {
+    await queue.cancel(sid, now);
+  }
   if (status === 'proposed') delete st[sid]; else st[sid] = { status, at: now.toISOString() };
   await setState(STATUS_KEY, JSON.stringify(st));
   return { ok: true, id: sid, status };
+}
+
+// Lily picks another day or time for a post. If it is already approved, the queue row follows.
+async function setSchedule({ id, date, time }, now = new Date()) {
+  const sid = String(id || '').trim();
+  const d = String(date || '').trim();
+  const t = String(time || '').trim();
+  const q = DMY.exec(d);
+  if (!q || new Date(Date.UTC(+q[3], +q[2] - 1, +q[1])).getUTCDate() !== +q[1]) throw fail('Pick a real date.');
+  if (!HHMM.test(t)) throw fail('Pick a time like 17:00.');
+  const rs = await rows();
+  const plan = pick(rs, PLAN_KEY) || seed;
+  if (!(plan.proposals || []).some((p) => p.id === sid)) throw fail('That proposal is not in the plan.', 404);
+  const sc = pick(rs, SCHED_KEY) || {};
+  const st = pick(rs, STATUS_KEY) || {};
+  if ((st[sid] || {}).status === 'published') throw fail('That post is already published.');
+  sc[sid] = { date: d, time: t };
+  if ((st[sid] || {}).status === 'approved') {
+    const merged = merge(plan, st, pick(rs, EDIT_KEY), sc).proposals.find((p) => p.id === sid);
+    await queue.upsert({ ...merged, fullCaption: fullCaptionOf(merged, pick(rs, FOOTER_KEY) || seed.footer) }, 'approved', merged.media.length ? '' : 'No file attached yet', now);
+  }
+  await setState(SCHED_KEY, JSON.stringify(sc));
+  return { ok: true, id: sid, date: d, time: t };
+}
+
+// The preview route may only serve a file that a post in the plan names.
+async function mediaAllowed(fileId) {
+  const rs = await rows();
+  const plan = pick(rs, PLAN_KEY) || seed;
+  return (plan.proposals || []).some((p) => cleanMedia(p.media).some((m) => m.id === String(fileId)));
 }
 
 // Lily edits a caption by hand. The edit is kept apart from the plan, so a new weekly plan never wipes it. Empty text resets to the original.
@@ -64,6 +125,11 @@ async function setCaption({ id, caption }) {
   if (!(plan.proposals || []).some((p) => p.id === sid)) throw fail('That proposal is not in the plan.', 404);
   const ed = pick(rs, EDIT_KEY) || {};
   if (text) ed[sid] = text; else delete ed[sid];
+  const st = pick(rs, STATUS_KEY) || {};
+  if ((st[sid] || {}).status === 'approved') {
+    const merged = merge(plan, st, ed, pick(rs, SCHED_KEY)).proposals.find((p) => p.id === sid);
+    await queue.upsert({ ...merged, fullCaption: fullCaptionOf(merged, pick(rs, FOOTER_KEY) || seed.footer) }, 'approved', merged.media.length ? '' : 'No file attached yet');
+  }
   await setState(EDIT_KEY, JSON.stringify(ed));
   return { ok: true, id: sid, edited: !!text };
 }
@@ -127,6 +193,8 @@ function check(p, pillarNames) {
   const text = [p.title, p.hook, p.visual, p.caption, p.why].join(' ');
   for (const [re, msg] of BANNED) if (re.test(text)) out.push(`${p.id}: ${msg}`);
   if (/link in (the last line|bio)|order direct|made with magic|#merlinsdish/i.test(p.caption)) out.push(`${p.id}: the footer adds the order line, write only the caption`);
+  if (p.time != null && !HHMM.test(String(p.time))) out.push(`${p.id}: time must be HH:MM, for example 17:00`);
+  if (p.media != null && (!Array.isArray(p.media) || p.media.some((m) => !m || !String(m.id || '').trim()))) out.push(`${p.id}: media must be a list of { id, name } with the Drive file id`);
   if (/%/.test(p.caption)) out.push(`${p.id}: no percentages in captions`);
   if (/ [-\u2013\u2014] /.test(p.caption + ' ' + p.hook)) out.push(`${p.id}: no dash joining clauses`);
   return out;
@@ -180,4 +248,4 @@ async function savePlan(body) {
   return { ok: true, proposals: plan.proposals.length };
 }
 
-module.exports = { load, setStatus, setCaption, setFooter, addBrief, updateBrief, CHANNELS, savePlan, addWeek, check, merge, STATUSES };
+module.exports = { load, setStatus, setSchedule, mediaAllowed, fullCaptionOf, cleanMedia, setCaption, setFooter, addBrief, updateBrief, CHANNELS, savePlan, addWeek, check, merge, STATUSES };

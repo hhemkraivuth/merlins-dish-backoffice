@@ -147,6 +147,8 @@ const contentPlanRoute = require('./routes/contentPlan');
 app.get('/api/content-plan', contentPlanRoute.get);
 app.post('/api/content-plan/status', contentPlanRoute.status);
 app.post('/api/content-plan/caption', contentPlanRoute.caption);
+app.post('/api/content-plan/schedule', contentPlanRoute.schedule);
+app.get('/api/content-plan/media/:id', contentPlanRoute.media);
 app.post('/api/content-plan/footer', contentPlanRoute.footer);
 app.post('/api/content-plan/brief', contentPlanRoute.brief);
 app.post('/api/content-plan/brief/update', contentPlanRoute.briefUpdate);
