@@ -30,7 +30,7 @@ const list = (a, max = 3) => (a.length <= max ? a.join(', ') : `${a.slice(0, max
 // ledger: ledgerObjects (already pasta costed). expenseRows: Expense Log rows (header optional).
 // stock: [{ dish, remaining, oldestAgeDays }]. cookBatches: [{ date, dish, portions }]. closed: Map iso -> reason.
 // pastaCards: [{ card, cost }] where cost is pastaCosts.costCard. bank: { amount, asOf "DD/MM/YYYY" }.
-function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [], meatGaps = [] } = {}) {
+function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [], meatGaps = [], stockGaps = [] } = {}) {
   const out = [];
   const add = (f) => out.push({ baht: 0, ...f });
   const recent = ledger.filter((r) => daysBetween(today, r.date) <= WINDOW);
@@ -183,6 +183,9 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   // 9. A batch used bagged meat but the Meat card on the Stock page never went down.
   for (const g of meatGaps) add({ id: `meatgap:${g.key}`, check: 'Stock', line: `${g.dish} on ${g.dmy.slice(0, 5)} used ${g.names.join(', ')}, but the Meat card on the Stock page never went down.`, how: 'In the BOH LINE group send: catch up meat (shows what would change), then: catch up meat apply.', fix: '/#stock', fixLabel: 'Open Stock' });
 
+  // 10. A count came out different from what the system believed, and nobody has said why yet.
+  for (const f of require('./stockGaps').auditFindings(stockGaps)) add(f);
+
   return out;
 }
 
@@ -209,7 +212,8 @@ async function run({ store = require('./appState') } = {}) {
   let bank = null; try { bank = await require('./borrowed').loadBank(); } catch (err) { /* skip */ }
   let grabTotals = []; try { grabTotals = require('./grabTotals').totalsFrom(await svc.readOrEmpty(require('./grabTotals').TAB)); } catch (err) { /* skip */ }
   let meatGaps = []; try { const bd = require('./bagDeduct'); meatGaps = (await bd.catchUpPreview(undefined, today)).map((r) => ({ key: r.key, dish: r.dish, dmy: formatDMY(r.date), names: r.plan.used.map((u) => u.name) })); } catch (err) { /* skip */ }
-  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals, meatGaps });
+  let stockGaps = []; try { const sg = require('./stockGaps'); stockGaps = sg.gapsFrom(await sg.defaultDeps().readRows()); } catch (err) { /* skip */ }
+  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals, meatGaps, stockGaps });
   const result = { ranAt: new Date().toISOString(), findings: all };
   await store.setState(RESULT_KEY, JSON.stringify(result));
   return view(result, store);

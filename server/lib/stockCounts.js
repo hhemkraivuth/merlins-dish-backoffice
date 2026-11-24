@@ -77,6 +77,8 @@ async function setStockCount(itemName, newCount, unit, by = 'Manual', category =
   const now = new Date().toISOString();
   if (existing) {
     await updateRow(STOCK_COUNTS_TAB, existing.rowIndex, [existing.itemName, changeUnit && unit ? unit : existing.unit, newCount, now, by, CATEGORIES.includes(category) ? category : existing.category || '']);
+    // A count that differs from what the system believed is a gap (see stockGaps.js). Saving it never blocks the count.
+    if (!changeUnit && (by === 'Manual' || by === 'LINE')) await require('./stockGaps').recordStock(existing, newCount, by === 'LINE' ? 'LINE stock' : 'Stock page');
     return { itemName: existing.itemName, currentCount: newCount, created: false };
   }
   await appendRows(STOCK_COUNTS_TAB, [[itemName, unit || '', newCount, now, by, CATEGORIES.includes(category) ? category : '']]);
@@ -106,6 +108,7 @@ async function editStock({ oldName, newName, unit, count, category }, by = 'Manu
   if (!Number.isFinite(n)) throw new Error('The count must be a number.');
   const cat = CATEGORIES.includes(category) ? category : existing.category || '';
   await updateRow(STOCK_COUNTS_TAB, existing.rowIndex, [name, unit == null ? existing.unit : String(unit).trim(), n, new Date().toISOString(), by, cat]);
+  if (n !== existing.currentCount && (unit == null || String(unit).trim() === existing.unit)) await require('./stockGaps').recordStock(existing, n, 'Stock page edit');
   return { itemName: name, unit: unit == null ? existing.unit : String(unit).trim(), currentCount: n, category: cat };
 }
 

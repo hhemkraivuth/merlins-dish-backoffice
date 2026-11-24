@@ -187,6 +187,7 @@ async function countIngredientPacks(req, res) {
       if (!Number.isFinite(b) || b < 0) return res.status(400).json({ error: `Send ${unit} as a number of zero or more.` });
       const r0 = book.countTo(name, b, today);
       await lots.saveLotBook(book, []);
+      await require('../lib/stockGaps').recordLot(r0, 'Stock page lots');
       return res.json({ name: r0.name, before: r0.before, after: r0.after, unit: r0.unit });
     }
     let entry = (await ps.loadPackSizes()).get(normName(name));
@@ -201,6 +202,7 @@ async function countIngredientPacks(req, res) {
     if (entry.unit !== unit) return res.status(400).json({ error: `${name} is counted in ${unit} but its pack size is in ${entry.unit}.` });
     const r = book.countTo(name, ps.packsToBase(n, entry), today);
     await lots.saveLotBook(book, []);
+    await require('../lib/stockGaps').recordLot(r, 'Stock page lots');
     res.json({ name: r.name, before: r.before, after: r.after, unit: r.unit, pack: ps.packView(r.after, r.unit, entry) });
   } catch (err) {
     console.error(err);
@@ -222,6 +224,7 @@ async function saveBags(req, res) {
     await bagsLib.saveAll(map);
     const existing = await sc.findStockRow(nm);
     await sc.setStockCount(nm, bagsLib.total(list), map[k].unit, 'Manual', category || (existing && existing.category) || 'Meat', true);
+    if (existing && existing.unit === map[k].unit) await require('../lib/stockGaps').recordStock(existing, bagsLib.total(list), 'Meat bags');
     res.json({ name: nm, bags: list, total: bagsLib.total(list), batch: map[k].batch, unit: map[k].unit });
   } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 }

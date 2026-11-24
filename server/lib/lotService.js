@@ -238,6 +238,7 @@ async function processLots(text, messageDate, deps) {
     if (!base || base.unit !== unit) return [`Nothing changed. ${m.name} is counted in ${unit}.`];
     const r = book.countTo(m.name, base.qty, messageDate);
     await deps.saveLots(book, []);
+    await require('./stockGaps').recordLot(r, 'LINE count');
     const note = r.after < r.before ? 'Oldest lots reduced.' : r.after > r.before ? 'Extra added as an adjustment lot at the newest price.' : 'No change.';
     return [`${r.name}: ${qtyText(r.before, r.unit)} on the books, now ${qtyText(r.after, r.unit)}. ${note}`];
   }
