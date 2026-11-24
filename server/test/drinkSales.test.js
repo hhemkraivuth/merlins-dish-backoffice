@@ -50,3 +50,26 @@ test('audit lists an unmatched drink with a picker', () => {
   const f = runChecks({ drinkUnmapped: [{ key: 'x', name: 'Mystery Soda Water', qty: 3 }], drinkItems: ['Coke Zero Zero'] });
   assert.strictEqual(f[0].action.type, 'drinkmap'); assert.deepStrictEqual(f[0].action.options, ['Coke Zero Zero']);
 });
+
+const cards = [{ name: 'Tubetti', boxG: 500, dryG: 77, pack: 'Packaging Box (carb600ml)', packQty: 1 }, { name: 'Rigatoni', boxG: 500, dryG: 92, pack: 'Packaging Box (carb600ml)', packQty: 1 }];
+const nl = [row('2026-11-10', 'Pasta - Tubetti', 2), row('2026-11-11', 'Dark Beer Stew + Rigatoni', 1), row('2026-11-07', 'Pasta - Tubetti', 9)];
+
+test('each noodle sold takes one carb box off, counted after the count day', () => {
+  const box = { itemName: 'Packaging Box (carb600ml)', lastUpdated: '2026-11-08T05:00:00Z' };
+  assert.strictEqual(ds.noodleUse(box, nl, cards).sold, 3);
+});
+
+test('noodle bags go down by dry grams over bag size', () => {
+  const it = { itemName: 'Tubetti', lastUpdated: '2026-11-08T05:00:00Z' };
+  assert.ok(Math.abs(ds.noodleUse(it, nl, cards).sold - 2 * 77 / 500) < 1e-9);
+});
+
+test('an item that is not a noodle item is left alone', () => assert.strictEqual(ds.noodleUse({ itemName: 'Coke Original', lastUpdated: '2026-11-08T05:00:00Z' }, nl, cards), null));
+
+test('carb box recount becomes a tracked gap', async () => {
+  const box = { itemName: 'Packaging Box (carb600ml)', unit: 'Set', category: 'Packaging', currentCount: 350, lastUpdated: '2026-11-08T05:00:00Z', lastUpdatedBy: 'Manual' };
+  const rows = [g.HEADERS]; const deps = { ensure: async () => {}, append: async (r) => { rows.push(r); } };
+  await g.recordStock(box, 340, 'Stock page', deps, { drinks: async () => [], ledger: async () => ({ ledger: nl }), links: async () => ({}), cards: async () => cards });
+  const [x] = g.gapsFrom(rows);
+  assert.deepStrictEqual([x.before, x.counted, x.gap, x.status], [347, 340, -7, 'Open']);
+});

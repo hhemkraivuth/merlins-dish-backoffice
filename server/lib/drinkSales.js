@@ -53,14 +53,43 @@ async function saveLink(saleName, stockName, store = require('./appState')) {
   await store.setState(KEY, JSON.stringify(cur)); return cur;
 }
 
+// Noodles. Every noodle portion sold takes one carb box off and dryG of dry pasta (dryG / boxG of a bag) from that pasta's bags.
+// cards: [{ name, boxG, dryG, pack, packQty }]. Rows that name a card (Pasta - Tubetti, Tubetti (bundle), Stew + Tubetti) count.
+const escRe = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function noodleRows(ledger, cards) {
+  const out = [];
+  for (const r of ledger) {
+    if (r.type !== 'Order' || !r.desc) continue;
+    for (const c of cards) if (new RegExp(`\\b${escRe(c.name)}\\b`, 'i').test(r.desc)) out.push({ date: r.date, qty: r.qty || 1, card: c });
+  }
+  return out;
+}
+const sinceCutoff = (item) => {
+  const day = new Date(item.lastUpdated);
+  return Number.isNaN(day.getTime()) ? null : Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + (day.getUTCHours() >= 17 ? 1 : 0));
+};
+// What a noodle related stock item should have lost since its last count: { sold, unit } or null when it is not a noodle item.
+function noodleUse(item, ledger, cards) {
+  const cutoff = sinceCutoff(item); if (cutoff === null) return null;
+  const rows = noodleRows(ledger, cards).filter((r) => r.date.getTime() > cutoff);
+  const name = normName(item.itemName);
+  const card = cards.find((c) => normName(c.name) === name || normName(`Pasta - ${c.name}`) === name);
+  if (card) return { sold: rows.filter((r) => r.card === card).reduce((a, r) => a + r.qty * (card.dryG / card.boxG), 0) };
+  const boxes = cards.filter((c) => normName(c.pack || 'Packaging Box (carb600ml)') === name);
+  if (boxes.length) return { sold: rows.filter((r) => boxes.includes(r.card)).reduce((a, r) => a + r.qty * (r.card.packQty || 1), 0) };
+  return null;
+}
+
 // The expected count for a drink, or null when it cannot be known honestly. Only a clean hand count is a baseline:
 // a receipt resets the number without taking the sales before it off, so after one the next count is history only.
-async function expectedFor(existing, { ledger, drinks, links }) {
+async function expectedFor(existing, { ledger, drinks, links, cards = [] }) {
   if (!existing || !['Manual', 'LINE'].includes(existing.lastUpdatedBy)) return null;
+  const nu = cards.length ? noodleUse(existing, ledger, cards) : null;
+  if (nu) return { before: Math.round((existing.currentCount - nu.sold) * 100) / 100, sold: Math.round(nu.sold * 100) / 100 };
   const match = matchSales({ drinks, ledger, links });
   if (match.unmapped.length) return null;
   const sold = soldSince(existing, match);
   return sold === null ? null : { before: existing.currentCount - sold, sold };
 }
 
-module.exports = { KEY, matchSales, soldSince, expectedFor, loadLinks, saveLink, isDrinkItem, looksLikeDrink };
+module.exports = { noodleRows, noodleUse, KEY, matchSales, soldSince, expectedFor, loadLinks, saveLink, isDrinkItem, looksLikeDrink };

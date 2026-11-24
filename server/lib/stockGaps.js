@@ -114,20 +114,21 @@ async function record(entry, deps = defaultDeps()) {
 // Count made on the Stock Counts tab. existing: the row before the change. Packaging that comes off on each cook is tracked.
 const isTracked = (existing) => Boolean(existing && existing.lastUpdatedBy === 'Auto');
 
-// A drink: before is the last hand count minus the cans sold since (from the Ledger). Runs after the count is saved and never
-// blocks it. With an unmatched sale name, or after a receipt, the change is kept as history only.
+// A drink, a noodle bag or the carb box: before is the last hand count minus the cans sold since (from the Ledger). Runs after the count is saved and never
+// blocks it. With an unmatched sale name, or after a receipt, the change is kept as history only. Noodles and boxes use the pasta cards (dry grams and box per portion).
 async function recordDrink(existing, counted, source, deps, io) {
   try {
     const ds = require('./drinkSales');
     const svc = require('./ledgerService'); const sc = require('./stockCounts');
     const [all, d, links] = await Promise.all([io && io.drinks ? io.drinks() : sc.getAllStock(), io && io.ledger ? io.ledger() : svc.loadAll(), io && io.links ? io.links() : ds.loadLinks()]);
     const drinks = all.filter(ds.isDrinkItem);
-    const exp = await ds.expectedFor(existing, { ledger: d.ledger || d, drinks, links });
+    let cards = []; try { cards = io && io.cards ? await io.cards() : (await require('./pastaCosts').loadCards(require('../data/pastaSeed.json'))).map((c) => c.card); } catch (err) { cards = []; }
+    const exp = await ds.expectedFor(existing, { ledger: d.ledger || d, drinks, links, cards });
     if (!exp) return record({ item: existing.itemName, unit: existing.unit, before: existing.currentCount, counted, source, tracked: false }, deps);
     return record({ item: existing.itemName, unit: existing.unit, before: exp.before, counted, source: `${source}, ${exp.sold} sold since`, tracked: true }, deps);
   } catch (err) { console.error('Drink gap not saved:', err.message); return null; }
 }
-const recordStock = (existing, counted, source = 'Stock page', deps, io) => (existing && (existing.category || existing.guess) === 'Drinks' && !(deps && deps.noDrinks)
+const recordStock = (existing, counted, source = 'Stock page', deps, io) => (existing && (['Drinks', 'Pasta noodles'].includes(existing.category || existing.guess) || /carb600ml/i.test(existing.itemName)) && !(deps && deps.noDrinks)
   ? recordDrink(existing, counted, source, deps, io) : existing
   ? record({ item: existing.itemName, unit: existing.unit, before: existing.currentCount, counted, source, tracked: isTracked(existing) }, deps) : null);
 // Count made on ingredient lots. r: { name, before, after, unit }. price: latest unit price in baht per base unit.
