@@ -136,3 +136,26 @@ test('the chicken card is switched to pieces once, keeping the date of the last 
   assert.deepStrictEqual(st.set[0], ['Chicken thigh', 34, 'pcs', true]);
   assert.strictEqual(st.map.chickenthigh.countedAt, '2026-11-08T15:07:21.295Z');
 });
+
+test('a guessed cook only loses the grams cooked, the rest of the last bag goes back as its own bag', async () => {
+  const p = planBagUse([ing('Beef - chuck', 1825)], [chuck()], new Date('2026-11-20T00:00:00Z'), {}, { guess: true });
+  assert.strictEqual(p.used[0].left, 6610 - 1825);
+  assert.strictEqual(p.used[0].grams, 1825);
+  assert.ok(p.used[0].added.length === 1 && p.used[0].added[0] > 0);
+  const bacon = planBagUse([ing('Bacon slice', 240)], [{ key: 'baconslice', name: 'Bacon slice', unit: 'g', bags: [220, 220, 220, 220, 220], countedAt: '' }], new Date('2026-11-20T00:00:00Z'), {}, { guess: true });
+  assert.strictEqual(bacon.used[0].left, 860);
+  assert.match(reportLines(p).join(' '), /not cooked, back as a bag/);
+});
+
+test('deleting a batch takes the put back bag away again, so nothing is counted twice', async () => {
+  const state = { bags: { beefchuck: { bags: [1810, 1600, 1600, 1600], unit: 'g', batch: 0 } }, usage: {}, counts: {} };
+  const io = {
+    loadBags: async () => JSON.parse(JSON.stringify(state.bags)), saveBags: async (m) => { state.bags = JSON.parse(JSON.stringify(m)); },
+    stockNames: async () => new Map([['beefchuck', { itemName: 'Beef - chuck' }]]), loadLinks: async () => ({}), setCount: async (n, c) => { state.counts[n] = c; },
+    loadUsage: async () => JSON.parse(JSON.stringify(state.usage)), saveUsage: async (k, e) => { state.usage[k] = e; }, saveAllUsage: async (a) => { state.usage = a; },
+  };
+  await deductForBatch({ lines: [ing('Beef - chuck', 1825)], date: new Date('2026-11-20T00:00:00Z'), yield: 10 }, 'k1', io, { guess: true });
+  assert.strictEqual(state.bags.beefchuck.bags.reduce((a, b) => a + b, 0), 6610 - 1825);
+  await restoreForBatch('k1', io);
+  assert.deepStrictEqual(state.bags.beefchuck.bags.slice().sort((a, b) => a - b), [1600, 1600, 1600, 1810]);
+});

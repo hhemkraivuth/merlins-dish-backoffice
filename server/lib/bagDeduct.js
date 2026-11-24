@@ -76,26 +76,30 @@ function planBagUse(lines, items, cookDate, links = {}, opts = {}) {
     if (String(it.unit || 'g').toLowerCase() !== 'g') { skipped.push({ name: it.name, reason: `It is counted in ${it.unit}, not grams, so I did not take ${g(grams)} off. Please recount it.` }); continue; }
     const counted = it.countedAt ? bangkokDay(it.countedAt) : '';
     if (counted && cook && counted >= cook) { skipped.push({ name: it.name, reason: `You counted this raw meat on ${counted.split('-').reverse().join('/')}, on or after this cook, so your count already includes it.` }); continue; }
-    let left = it.bags.slice(); const removed = []; const missing = [];
+    let left = it.bags.slice(); const removed = []; const missing = []; const added = [];
     for (const w of wanted) {
       const at = left.findIndex((b) => Math.abs(b - w.g) <= 1);
       if (at >= 0) { removed.push(left[at]); left.splice(at, 1); } else missing.push(w.g);
     }
     if (missing.length && guess && !wanted.some((w) => w.typed)) {
       const s = bagsLib.suggest(it.bags, grams);
-      if (!s.short) { left = takeBags(it.bags, s.use); removed.length = 0; removed.push(...s.use); missing.length = 0; }
+      if (!s.short) {
+        left = takeBags(it.bags, s.use); removed.length = 0; removed.push(...s.use); missing.length = 0;
+        // Whole bags cover the cook, but only the grams cooked are gone. What was not cooked from the last bag goes back as a bag of its own, so the card never loses grams it still has.
+        if (s.over > 0.5) { left.push(s.over); added.push(s.over); }
+      }
     }
     if (missing.length) skipped.push({ name: it.name, reason: `no ${missing.map(g).join(' or ')} bag on the card, so ${removed.length ? 'only the other bags were taken off' : 'nothing was taken off'}. Type the bags you used like 900+700 (each one a bag on the card), or recount the card.` });
     if (!removed.length) continue;
     const leftTotal = bagsLib.total(left);
-    used.push({ key: it.key, name: it.name, grams: round(removed.reduce((a, b) => a + b, 0)), removed, left: leftTotal, short: 0, bagsAfter: left, belowBatch: it.batch > 0 && leftTotal < it.batch, batch: it.batch || 0 });
+    used.push({ key: it.key, name: it.name, grams: round(removed.reduce((a, b) => a + b, 0) - added.reduce((a, b) => a + b, 0)), removed, added, left: leftTotal, short: 0, bagsAfter: left, belowBatch: it.batch > 0 && leftTotal < it.batch, batch: it.batch || 0 });
   }
   return { used, skipped };
 }
 
 function reportLines(plan) {
   const out = [];
-  if (plan.used.length) out.push(`Meat bags used: ${plan.used.map((u) => `${u.name} ${u.removed.map(u.pieces ? pc : g).join(' + ')}, ${u.pieces ? pc(u.left) : g(u.left)} left`).join('; ')}`);
+  if (plan.used.length) out.push(`Meat bags used: ${plan.used.map((u) => `${u.name} ${u.removed.map(u.pieces ? pc : g).join(' + ')}${u.added && u.added.length ? ` (${u.added.map(g).join(' + ')} not cooked, back as a bag)` : ''}, ${u.pieces ? pc(u.left) : g(u.left)} left`).join('; ')}`);
   for (const u of plan.used) if (u.belowBatch) out.push(`BUY ${u.name}: ${u.pieces ? pc(u.left) : g(u.left)} left, less than one batch (${u.pieces ? pc(u.batch) : g(u.batch)}).`);
   for (const s of plan.skipped) out.push(`${s.name}: ${s.reason}`);
   return out;
@@ -116,7 +120,7 @@ async function deductForBatch(result, key, io = realIo(), opts = {}) {
     const it = items.find((i) => i.key === u.key);
     map[u.key] = { ...map[u.key], bags: u.bagsAfter, unit: it.unit, countedAt: it.countedAt || undefined };
     await io.setCount(u.name, u.left, it.unit);
-    usage.push({ key: u.key, name: u.name, bags: u.removed });
+    usage.push({ key: u.key, name: u.name, bags: u.removed, added: u.added || [] });
   }
   await io.saveBags(map);
   await io.saveUsage(key, usage);
@@ -132,7 +136,7 @@ async function restoreForBatch(key, io = realIo()) {
   const out = [];
   for (const e of entries) {
     const cur = map[e.key] || { bags: [], unit: 'g', batch: 0 };
-    const bags = [...(cur.bags || []), ...e.bags];
+    const bags = takeBags(cur.bags || [], e.added || []).concat(e.bags);
     map[e.key] = { ...cur, bags };
     await io.setCount(e.name, bagsLib.total(bags), cur.unit || 'g');
     out.push(`${e.name} ${g(e.bags.reduce((a, b) => a + b, 0))}`);
