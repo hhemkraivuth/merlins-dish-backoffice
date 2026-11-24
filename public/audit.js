@@ -21,7 +21,15 @@ function find(f) {
       ? `<div class="fixrow"><label>What was in the order?<input type="text" data-val value="${esc(a.text || '')}" placeholder="${esc(a.hint || 'Dark Beer Stew + Tubetti')}"></label><button type="button" class="primary" data-fix>Save items</button></div>`
       : a.type === 'customer'
         ? `<div class="fixrow"><label>Customer name<input type="text" data-val placeholder="as shown on the Grab order"></label><button type="button" class="primary" data-fix>Save name</button></div>`
-        : '';
+        : a.type === 'gap'
+          ? `<div class="chips">${['cook:Cook not logged', 'bought:Purchase not logged', 'wasted:Wasted', 'free:Given away', 'miscount:Earlier count wrong', 'lost:Lost'].map((x) => `<button type="button" class="rsn" data-gap="${x.split(':')[0]}">${x.split(':')[1]}</button>`).join('')}</div>`
+          : a.type === 'close'
+            ? `<div class="fixrow"><label>Why was the shop shut? (optional)<input type="text" data-val placeholder="for example rain, no riders"></label><button type="button" class="primary" data-closeday>Mark closed</button></div>`
+            : a.type === 'meatcatch'
+              ? `<div class="fixrow"><button type="button" class="primary" data-meat>Catch up meat now</button></div>`
+              : a.type === 'drinkmap'
+                ? `<div class="fixrow"><label>Which stock item is it?<select data-val>${(a.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}</select></label><button type="button" class="primary" data-drink>Save</button></div>`
+                : '';
   const go = !typed && f.fix ? `<a href="${esc(f.fix)}">${esc(f.fixLabel || 'Open')}</a>` : '';
   const how = f.how ? `<div class="how">${esc(f.how)}</div>` : '';
   const chips = (f.chips || []).length ? `<div class="chips">${f.chips.map((c) => `<a href="${esc(c.href)}">${esc(c.label)}</a>`).join('')}</div>` : '';
@@ -59,6 +67,38 @@ $('list').addEventListener('click', async (e) => {
       else await call('/api/receipts/item/edit', { ref: it.ref, date: it.kind === 'date' ? val : it.row.date, item: it.row.item, qty: it.row.qty, price: it.row.price, shop: it.kind === 'shop' ? val : it.row.shop });
       draw(await call('/api/audit/run', {})); $('status').className = 'status'; $('status').textContent = it.kind === 'delete' ? 'Deleted that receipt line.' : 'Saved that receipt line.';
     } catch (err) { m.textContent = err.message; im.disabled = false; }
+    return;
+  }
+  const gp = e.target.closest('[data-gap]');
+  if (gp) {
+    const card = gp.closest('.find'); const f = FINDINGS.find((x) => x.id === card.dataset.id); const msg = card.querySelector('[data-msg]');
+    card.querySelectorAll('[data-gap]').forEach((b) => { b.disabled = true; }); msg.textContent = 'Saving…';
+    try { const out = await call('/api/audit/gap', { at: f.action.at, item: f.action.item, reason: gp.dataset.gap }); draw(out.audit); $('status').className = 'status'; $('status').textContent = out.message; }
+    catch (err) { msg.textContent = err.message; card.querySelectorAll('[data-gap]').forEach((b) => { b.disabled = false; }); }
+    return;
+  }
+  const cd = e.target.closest('[data-closeday]');
+  if (cd) {
+    const card = cd.closest('.find'); const f = FINDINGS.find((x) => x.id === card.dataset.id); const why = card.querySelector('[data-val]').value.trim(); const msg = card.querySelector('[data-msg]');
+    cd.disabled = true; msg.textContent = 'Saving…';
+    try {
+      for (const d of f.action.days) await call('/api/cook/note', { text: `close ${d.slice(0, 5)}${/\d{4}$/.test(d) ? '/' + d.slice(6) : ''} ${why}`.trim() });
+      draw(await call('/api/audit/run', {})); $('status').className = 'status'; $('status').textContent = `Marked closed: ${f.action.days.map((d) => d.slice(0, 5)).join(', ')}.`;
+    } catch (err) { msg.textContent = err.message; cd.disabled = false; }
+    return;
+  }
+  const dk = e.target.closest('[data-drink]');
+  if (dk) {
+    const card = dk.closest('.find'); const f = FINDINGS.find((x) => x.id === card.dataset.id); const msg = card.querySelector('[data-msg]'); dk.disabled = true; msg.textContent = 'Saving…';
+    try { const out = await call('/api/audit/drinkmap', { sale: f.action.sale, stock: card.querySelector('[data-val]').value }); draw(out.audit); $('status').className = 'status'; $('status').textContent = `Saved: ${f.action.sale} counts against that drink from now.`; }
+    catch (err) { msg.textContent = err.message; dk.disabled = false; }
+    return;
+  }
+  const mt = e.target.closest('[data-meat]');
+  if (mt) {
+    const msg = mt.closest('.find').querySelector('[data-msg]'); mt.disabled = true; msg.textContent = 'Taking the meat off the Stock card…';
+    try { await call('/api/stock/meat-catch-up/apply', {}); draw(await call('/api/audit/run', {})); $('status').className = 'status'; $('status').textContent = 'Meat caught up.'; }
+    catch (err) { msg.textContent = err.message; mt.disabled = false; }
     return;
   }
   const fx = e.target.closest('[data-fix]');

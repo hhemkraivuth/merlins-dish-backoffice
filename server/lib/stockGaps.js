@@ -48,8 +48,17 @@ function gapLine(g) {
 function auditFindings(gaps) {
   return openGaps(gaps).map((g) => ({
     id: `stockgap:${g.at}:${loose(g.item)}`, check: 'Stock gap', line: gapLine(g), baht: g.gap < 0 ? Math.abs(g.baht) : 0,
-    how: `Say why in the BOH LINE group: gap ${g.item} cook, bought, wasted, free, miscount or lost.`, fix: '/#stock', fixLabel: 'Open Stock',
+    action: { type: 'gap', at: g.at, item: g.item }, how: 'Pick why. Lost is the only one that counts as lost cost.', fix: '/#stock', fixLabel: 'Open Stock',
   }));
+}
+
+// Closes the open gap logged at `at` for `item`. Used by the Audit buttons. Returns the reply text.
+async function closeGap(at, item, reason, deps = defaultDeps()) {
+  if (!REASONS[reason]) throw new Error('Pick one of: ' + Object.keys(REASONS).join(', ') + '.');
+  const g = openGaps(gapsFrom(await deps.readRows())).find((x) => x.at === String(at) && x.item === String(item));
+  if (!g) throw new Error('That gap is already closed or no longer there.');
+  await deps.closeRow(g.rowIndex, g, reason);
+  return `${g.item}: gap of ${qty(g.gap, g.unit)} closed as ${REASONS[reason]}.${reason === 'lost' && g.baht ? ` It counts as ${baht(Math.abs(g.baht))} lost.` : ''}`;
 }
 
 // "gap tomato paste lost" closes the newest open gap for that item. "gap" alone lists what is open.
@@ -104,9 +113,24 @@ async function record(entry, deps = defaultDeps()) {
 
 // Count made on the Stock Counts tab. existing: the row before the change. Packaging that comes off on each cook is tracked.
 const isTracked = (existing) => Boolean(existing && existing.lastUpdatedBy === 'Auto');
-const recordStock = (existing, counted, source = 'Stock page', deps) => (existing
+
+// A drink: before is the last hand count minus the cans sold since (from the Ledger). Runs after the count is saved and never
+// blocks it. With an unmatched sale name, or after a receipt, the change is kept as history only.
+async function recordDrink(existing, counted, source, deps, io) {
+  try {
+    const ds = require('./drinkSales');
+    const svc = require('./ledgerService'); const sc = require('./stockCounts');
+    const [all, d, links] = await Promise.all([io && io.drinks ? io.drinks() : sc.getAllStock(), io && io.ledger ? io.ledger() : svc.loadAll(), io && io.links ? io.links() : ds.loadLinks()]);
+    const drinks = all.filter(ds.isDrinkItem);
+    const exp = await ds.expectedFor(existing, { ledger: d.ledger || d, drinks, links });
+    if (!exp) return record({ item: existing.itemName, unit: existing.unit, before: existing.currentCount, counted, source, tracked: false }, deps);
+    return record({ item: existing.itemName, unit: existing.unit, before: exp.before, counted, source: `${source}, ${exp.sold} sold since`, tracked: true }, deps);
+  } catch (err) { console.error('Drink gap not saved:', err.message); return null; }
+}
+const recordStock = (existing, counted, source = 'Stock page', deps, io) => (existing && (existing.category || existing.guess) === 'Drinks' && !(deps && deps.noDrinks)
+  ? recordDrink(existing, counted, source, deps, io) : existing
   ? record({ item: existing.itemName, unit: existing.unit, before: existing.currentCount, counted, source, tracked: isTracked(existing) }, deps) : null);
 // Count made on ingredient lots. r: { name, before, after, unit }. price: latest unit price in baht per base unit.
 const recordLot = (r, source = 'Lots count', deps) => (r ? record({ item: r.name, unit: r.unit, before: r.before, counted: r.after, unitPrice: r.price || 0, source, tracked: true }, deps) : null);
 
-module.exports = { TAB, HEADERS, REASONS, buildGap, gapsFrom, openGaps, lostCost, gapLine, auditFindings, processGap, defaultDeps, record, recordStock, recordLot, isTracked };
+module.exports = { closeGap, TAB, HEADERS, REASONS, buildGap, gapsFrom, openGaps, lostCost, gapLine, auditFindings, processGap, defaultDeps, record, recordStock, recordDrink, recordLot, isTracked };
