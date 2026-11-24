@@ -91,7 +91,7 @@ test('open days with no orders on one channel can be noted, and stop being named
   assert.deepStrictEqual(before.action.others.sort(), ['17/11/2026', '18/11/2026']);
   const store = (() => { const m = new Map(); return { getState: async (k) => m.get(k) || null, setState: async (k, v) => { m.set(k, v); } }; })();
   const a = require('../lib/audit');
-  await a.noOrders('LINE', before.action.others, { store });
+  await a.noOrders('LINE', before.action.others, { store, reason: 'no riders' });
   const noOrders = JSON.parse(await store.getState('audit_noorders'));
   const after = runChecks({ ...base, noOrders }).find((x) => x.id.startsWith('gap:LINE'));
   assert.ok(!after || !after.action.others.length);
