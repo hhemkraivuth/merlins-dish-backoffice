@@ -151,7 +151,11 @@ async function runBatch(batch, deps, shorthand, priceBook, { today, source = 'LI
     catch (err) { extraFlags.push(`Stock lots could not be read (${err.message}), so latest prices were used.`); }
   }
 
-  const result = costBatch({ batch, recipe, shorthand, priceBook, lotBook });
+  let inHand = null;
+  if (deps.meatInHand) { try { inHand = await deps.meatInHand(recipe.ingredients.map((i) => i.name)); } catch (err) { inHand = null; } }
+  let hidden = null;
+  try { hidden = require('./stockHidden').setOf(await require('./stockHidden').load()); } catch (err) { hidden = null; }
+  const result = costBatch({ batch, recipe, shorthand, priceBook, lotBook, inHand, hidden });
   result.flags.unshift(...extraFlags);
   result.rd = !!batch.rd;
 

@@ -60,7 +60,7 @@ function applySwaps(recipe, shorthand, batch, notes) {
   return { ...recipe, ingredients };
 }
 
-function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = null, usualYieldRatio = 0.75 }) {
+function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = null, usualYieldRatio = 0.75, inHand = null, hidden = null }) {
   const flags = [];
   const notes = [];
   const recipe = applySwaps(recipeIn, shorthand, batch, notes);
@@ -92,6 +92,8 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
     }
   }
 
+  // Hidden fresh produce still costs, but a short lot does not nag about stock Lily is not tracking.
+  const isHiddenItem = (n) => Boolean(hidden && hidden.has(require('./stockHidden').key(n)));
   const lines = [];
   const lotUse = []; // what this batch takes from stock lots, for the audit trail and the stock deduction
 
@@ -101,7 +103,7 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
     const { parts, short } = lotBook.allocate(name, qty, unit, date);
     if (!parts.length) {
       const hadStock = lotBook.lotsFor(name).some((l) => l.date <= date);
-      if (hadStock) flags.push(`${name}: no stock left in the lots, so it was costed at the latest price. Log the purchase if you have bought more.`);
+      if (hadStock && !isHiddenItem(name)) flags.push(`${name}: no stock left in the lots, so it was costed at the latest price. Log the purchase if you have bought more.`);
       return false;
     }
     let cost = parts.reduce((sum, x) => sum + x.qty * x.unitCost, 0);
@@ -109,7 +111,7 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
       const p = priceBook.lookup(name, date);
       const fallback = p && !p.missing ? p.cost : parts[parts.length - 1].unitCost;
       cost += short * fallback;
-      flags.push(`${name}: only ${Math.round((qty - short) * 100) / 100}${unit || ''} was left in stock lots. The other ${Math.round(short * 100) / 100}${unit || ''} was costed at the latest price (${fallback.toFixed(3)}). Log the purchase or send a count.`);
+      if (!isHiddenItem(name)) flags.push(`${name}: only ${Math.round((qty - short) * 100) / 100}${unit || ''} was left in stock lots. The other ${Math.round(short * 100) / 100}${unit || ''} was costed at the latest price (${fallback.toFixed(3)}). Log the purchase or send a count.`);
     }
     const unitCost = cost / qty;
     // A blend (for example thyme, half one brand and half another) says so, and names the brand each part came from.
@@ -208,7 +210,8 @@ function costBatch({ batch, recipe: recipeIn, shorthand, priceBook, lotBook = nu
   // Old prices only matter on lines that carry real weight in the batch cost; pantry items
   // bought rarely (thyme, nutmeg, cups) would otherwise bury the useful warnings.
   for (const l of lines) {
-    if (l.staleDays && total > 0 && l.lineCost / total >= 0.10) {
+    // Bulk buys are normal: while bagged stock of it is still on a Meat card, an old price is the right price, so no warning.
+    if (l.staleDays && total > 0 && l.lineCost / total >= 0.10 && !(inHand && inHand.has(normName(l.name)))) {
       flags.push(`${l.name}: latest price is ${l.staleDays} days old (${l.priceDate}) and is ${Math.round((l.lineCost / total) * 100)}% of the batch cost.`);
     }
   }

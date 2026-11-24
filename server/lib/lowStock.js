@@ -132,7 +132,9 @@ async function loadUrgent() {
   const usage = await loadUsage(bangkokToday()).catch(() => null);
   const [manual, ingredients] = await Promise.all([getAllStock().catch(() => []), ingredientStockItems(usage).catch(() => [])]);
   let bags = {}; try { bags = await require('./stockBags').load(); } catch (err) { bags = {}; }
-  return buildUrgent({ manual, ingredients, usage, bags });
+  // Hidden fresh produce never shows as running out.
+  const hid = require('./stockHidden'); const hiddenSet = hid.setOf(await hid.load().catch(() => []));
+  return buildUrgent({ manual: manual.filter((i) => !hid.isHidden(i.itemName, hiddenSet)), ingredients: ingredients.filter((i) => !hid.isHidden(i.name, hiddenSet)), usage, bags });
 }
 
 module.exports = { RED_BELOW, RED_DAYS, isRed, statusOf, daysLeft, sizeFromName, baseKey, usageFromLines, loadUsage, buildUrgent, ingredientStockItems, loadUrgent };

@@ -930,13 +930,13 @@ async function showMeatCatchUp(box) {
 
 async function renderStock() {
   main.innerHTML = '<div class="loading">Loading stock…</div>';
-  let stock = []; let ingredients = []; let blends = []; let swaps = [];
+  let stock = []; let ingredients = []; let blends = []; let swaps = []; let hiddenNames = [];
   try {
     const get = async (url) => { const r = await fetch(url); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Could not load ${url}`); return d; };
     // Once only: sets up the bagged meat items (Brisket, Chuck...) in the Meat category. Does nothing after the first time.
     await fetch('/api/stock/seed-meat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => null);
     const [s, ing, bl] = await Promise.all([get('/api/stock'), get('/api/stock/ingredients').catch(() => ({ items: [] })), get('/api/blends').catch(() => ({ blends: [] }))]);
-    stock = s.stock || []; blends = bl.blends || [];
+    stock = s.stock || []; blends = bl.blends || []; hiddenNames = s.hidden || [];
     if (Array.isArray(s.categories) && s.categories.length) STOCK_CATS = s.categories;
     // Bagged meat is counted in grams as one item, so the receipts based row for the same meat is hidden.
     const bagged = new Set(stock.filter((x) => x.bags).map((x) => plainName(x.itemName)));
@@ -974,6 +974,7 @@ async function renderStock() {
       <div id="meatCatchUp"></div>
       <div id="stockRed"></div>
       <div id="stockCats"></div>
+      <div id="stockHidden"></div>
       <div class="intro" style="margin-top:18px">
         <h1 class="intro-title" style="font-size:18px">Add stock <button class="small-button" id="addCategoryBtn" type="button" style="margin-left:8px;font-weight:600">Add category</button></h1>
         <p class="intro-body">Name, count, unit, category and brand, then Add. For a can, bottle, tin or jar, also type how much is in one (ml or g). The form stays open for the next item. A name that already exists updates its count.</p>
@@ -1241,6 +1242,17 @@ async function renderStock() {
     const list = el('<div class="stock-list"></div>');
     red.forEach((r) => list.appendChild(drawRow(r, true)));
     redBox.appendChild(list);
+  }
+
+  // One quiet line for the fresh produce that is off this page. Tap a name to bring it back.
+  const hiddenBox = section.querySelector('#stockHidden');
+  if (hiddenNames.length) {
+    hiddenBox.appendChild(el(`<div class="stock-meta" style="margin:14px 2px 0;line-height:2">Hidden for now: ${hiddenNames.map((n) => `<button type="button" class="small-button" data-back="${escapeHtml(n)}" style="margin:0 4px 4px 0">${escapeHtml(n)}</button>`).join('')}<span> Tap one to bring it back.</span></div>`));
+    hiddenBox.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', async () => {
+      b.disabled = true;
+      await fetch('/api/stock/hidden', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ show: b.dataset.back }) }).catch(() => null);
+      renderStock();
+    }));
   }
 
   const catBox = section.querySelector('#stockCats');

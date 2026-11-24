@@ -140,3 +140,22 @@ test('a bank balance that covers last month is not late, even if 16 days old', (
   const ok = runChecks({ today, ledger: [], bank: { amount: 1, asOf: '05/11/2026' } });
   assert.ok(!ok.some((x) => x.check === 'Bank'));
 });
+
+test('Saturday and Sunday are closed days, not missing days, unless sales show up that day', () => {
+  // today is Sat 21/11/2026. Sat 14/11 and Sun 15/11 have no sales on either channel. Fri 13/11 is a weekday with none.
+  const ledger = [row({ channel: 'Grab', date: d('2026-11-10') }), row({ channel: 'LINE', date: d('2026-11-19') })];
+  const gaps = runChecks({ today, ledger }).filter((x) => x.check === 'Missing days').map((x) => x.line).join(' ');
+  assert.ok(!/14\/11|15\/11/.test(gaps), gaps);
+  assert.ok(/13\/11/.test(gaps), gaps);
+  // A weekend with sales on one channel is an open day, so the other channel is checked for it.
+  const open = [...ledger, row({ channel: 'LINE', date: d('2026-11-14'), dmy: '14/11/2026' })];
+  const grab = runChecks({ today, ledger: open }).filter((x) => x.check === 'Missing days' && /^Grab/.test(x.line)).map((x) => x.line).join(' ');
+  assert.ok(/14\/11/.test(grab), grab);
+});
+
+test('a receipt line at 0 baht is flagged, each one can be ignored on its own', () => {
+  const expenseRows = [['Date', 'Ingredient', 'Price'], ['10/11/2026', 'Knorr cube - pork', '0', '48pcs', '', '', 'Receipt R261110-170628'], ['10/11/2026', 'Butter', '90', '', '', 'Tops']];
+  const f = runChecks({ today, expenseRows }).filter((x) => /logged at ฿0/.test(x.line));
+  assert.strictEqual(f.length, 1);
+  assert.match(f[0].id, /^rcpt-zero:2026-11-10\|knorrcubepork$/);
+});

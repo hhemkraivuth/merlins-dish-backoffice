@@ -166,6 +166,19 @@ async function bagItems(io) {
   return Object.keys(map).map((k) => { const row = names.get(k) || {}; return { key: k, name: row.itemName || k, unit: map[k].unit || 'g', bags: (map[k].bags || []).slice(), batch: map[k].batch || 0, countedAt: (row.lastUpdatedBy && row.lastUpdatedBy !== 'Auto' ? row.lastUpdated : '') || map[k].countedAt || '' }; });
 }
 
+// Which of these ingredient names still have bagged stock on a Meat card. A price from an old bulk buy is normal while the bags last,
+// so cooks only warn about an old price once that stock is gone. Returns a Set of normalised ingredient names.
+async function inHand(names, io = realIo()) {
+  const out = new Set();
+  try {
+    const items = await bagItems(io); const links = await io.loadLinks();
+    const needs = (names || []).map((n) => ({ key: normName(n), name: n }));
+    const { assign } = linkStock(needs, items.map((i) => ({ key: i.key, name: i.name })), { links });
+    for (const it of items) { const need = assign.get(it.key); if (need && it.bags.reduce((a, b) => a + b, 0) > 0) out.add(need); }
+  } catch (err) { /* no card data: nothing is treated as in hand, so the old price warning still shows */ }
+  return out;
+}
+
 // What a catch up would do, batch by batch, against bags that move as it goes. Nothing is written.
 async function catchUpPreview(io = realIo(), today = require('./dates').bangkokToday()) {
   const batches = await loggedBatches(io, today);
@@ -253,4 +266,4 @@ function realIo() {
   };
 }
 
-module.exports = { migratePieceCards, precheck, loggedBatches, bagItems, catchUpPreview, catchUpApply, processCatchUp, planBagUse, reportLines, deductForBatch, restoreForBatch, takeBags, USAGE_KEY };
+module.exports = { inHand, migratePieceCards, precheck, loggedBatches, bagItems, catchUpPreview, catchUpApply, processCatchUp, planBagUse, reportLines, deductForBatch, restoreForBatch, takeBags, USAGE_KEY };

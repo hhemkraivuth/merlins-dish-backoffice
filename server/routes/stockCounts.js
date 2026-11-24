@@ -4,12 +4,14 @@ async function listStock(req, res) {
   try {
     const ls = require('../lib/lowStock');
     const { bangkokToday } = require('../lib/dates');
-    const stock = await getAllStock();
+    const hiddenNames = await require('../lib/stockHidden').load().catch(() => []);
+    const hiddenSet = require('../lib/stockHidden').setOf(hiddenNames);
+    const stock = (await getAllStock()).filter((i) => !require('../lib/stockHidden').isHidden(i.itemName, hiddenSet));
     const { brands, sizes } = await loadMeta();
     const usage = await ls.loadUsage(bangkokToday()).catch(() => null);
     const bagMap = await require('../lib/stockBags').load().catch(() => ({}));
     const categories = await require('../lib/stockCounts').loadCategories();
-    res.json({ categories, stock: stock.map((i) => {
+    res.json({ hidden: hiddenNames, categories, stock: stock.map((i) => {
       const category = i.category || i.guess || '';
       const days = ls.daysLeft({ name: i.itemName, count: i.currentCount, unit: i.unit, usage });
       const nk = normKey(i.itemName); const sz = sizes[nk] || {};
@@ -66,7 +68,8 @@ async function listIngredientStock(req, res) {
     const { guessCategory, CATEGORIES } = require('../lib/stockCounts');
     const { normName } = require('../lib/priceBook');
     const usage = await ls.loadUsage(bangkokToday()).catch(() => null);
-    const items = await ls.ingredientStockItems(usage);
+    const hid = require('../lib/stockHidden'); const hiddenSet = hid.setOf(await hid.load().catch(() => []));
+    const items = (await ls.ingredientStockItems(usage)).filter((i) => !hid.isHidden(i.name, hiddenSet));
     let over = {};
     try { over = JSON.parse((await require('../lib/appState').getState(CAT_KEY)) || '{}'); } catch (err) { /* no overrides */ }
     let brands = {};
@@ -336,4 +339,14 @@ async function deleteLot(req, res) {
 
 const wrapInv = (fn) => async (req, res) => { const done = res.json.bind(res); res.json = (b) => { if (res.statusCode < 400) { try { require('../lib/shoppingService').invalidate(); } catch (e) { /* ignore */ } } return done(b); }; return fn(req, res); };
 
-module.exports = { ingredientLots, addPurchase: wrapInv(addPurchase), editLot: wrapInv(editLot), deleteLot: wrapInv(deleteLot), listStock, updateStock: wrapInv(updateStock), editStockRoute: wrapInv(editStockRoute), seedPackagingRoute, listIngredientStock, countIngredientPacks: wrapInv(countIngredientPacks), listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand, setItemMeta: wrapInv(setItemMeta), saveBags: wrapInv(saveBags), suggestBags, addCategoryRoute, seedMeat: wrapInv(seedMeat) };
+async function hiddenList(req, res) { try { res.json({ hidden: await require('../lib/stockHidden').load() }); } catch (err) { res.status(500).json({ error: err.message }); } }
+async function hiddenChange(req, res) {
+  try {
+    const hid = require('../lib/stockHidden'); const { show, hide } = req.body || {};
+    if (show) await hid.bringBack(show === 'all' ? 'all' : [].concat(show));
+    if (hide) await hid.hide([].concat(hide));
+    res.json({ hidden: await hid.load() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+}
+
+module.exports = { hiddenList, hiddenChange, ingredientLots, addPurchase: wrapInv(addPurchase), editLot: wrapInv(editLot), deleteLot: wrapInv(deleteLot), listStock, updateStock: wrapInv(updateStock), editStockRoute: wrapInv(editStockRoute), seedPackagingRoute, listIngredientStock, countIngredientPacks: wrapInv(countIngredientPacks), listBlends, saveBlendRoute, deleteBlendRoute, setIngredientCategory, setIngredientBrand, setItemMeta: wrapInv(setItemMeta), saveBags: wrapInv(saveBags), suggestBags, addCategoryRoute, seedMeat: wrapInv(seedMeat) };

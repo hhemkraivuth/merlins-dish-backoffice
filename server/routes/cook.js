@@ -28,6 +28,7 @@ function defaultDeps() {
     tidy: cookLog.tidyCookLogs,
     deductStock,
     deductBags: (result, key) => require('../lib/bagDeduct').deductForBatch(result, key),
+    meatInHand: (names) => require('../lib/bagDeduct').inHand(names),
     loadLotBook: () => lots.loadLotBook(bangkokToday()),
     saveLots: lots.saveLots,
     openBatches: require('../lib/openBatches').api(),

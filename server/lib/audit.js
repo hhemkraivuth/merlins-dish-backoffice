@@ -24,6 +24,7 @@ const loose = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9฀-๿]+/g,
 const baht = (n) => `฿${Math.round(n || 0).toLocaleString('en-AU')}`;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
 const iso = (d) => d.toISOString().slice(0, 10);
+const isWeekend = (d) => { const w = d.getUTCDay(); return w === 0 || w === 6; };
 const list = (a, max = 3) => (a.length <= max ? a.join(', ') : `${a.slice(0, max).join(', ')} and ${a.length - max} more`);
 
 // ledger: ledgerObjects (already pasta costed). expenseRows: Expense Log rows (header optional).
@@ -107,6 +108,8 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
     for (let back = lag; back <= 14; back += 1) {
       const d = new Date(today.getTime() - back * 86400000);
       if (closed.has(iso(d)) || have[ch].has(iso(d))) continue;
+      // Saturday and Sunday are closed. A weekend counts as open only when sales show up that day on either channel.
+      if (isWeekend(d) && !have.Grab.has(iso(d)) && !have.LINE.has(iso(d))) continue;
       gaps.push(formatDMY(d).slice(0, 5)); gapDays.push(formatDMY(d));
     }
     if (gaps.length) {
@@ -126,6 +129,7 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   // 6. Receipts: no shop or no date, and the same line twice. Each bad line is listed so it can be fixed right on the card.
   const seen = new Map(); let noShop = 0, noShopBaht = 0, noDate = 0; let dup = 0, dupBaht = 0;
   const lines = { noDate: [], noShop: [], dup: [] };
+  const zeros = []; // lines bought or received at 0 baht in the last 30 days
   expenseRows.forEach((r, i) => {
     if (i === 0 && /date/i.test(String(r[0] || ''))) return; // the header row ("Shopping Date")
     const name = String(r[1] || '').trim(); if (!name) return;
@@ -137,6 +141,7 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
     const text = `${row.date || 'No date'}, ${name}${row.qty ? ' ' + row.qty : ''}, ${baht(price)}${row.shop ? ' at ' + row.shop : ''}`;
     if (!date) { noDate += 1; lines.noDate.push({ text, ref, row }); return; }
     if (daysBetween(today, date) > WINDOW) return;
+    if (String(r[2] ?? '').trim() !== '' && price === 0) zeros.push({ text, key: `${iso(date)}|${loose(name)}`, name });
     if (!row.shop) { noShop += 1; noShopBaht += price; lines.noShop.push({ text, ref, row }); }
     const k = `${iso(date)}|${loose(name)}|${price}|${loose(row.shop)}`;
     // The same line several times inside ONE receipt is several of the item (three bottles). Only a repeat from another receipt is a double entry.
@@ -147,6 +152,9 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   if (noDate) add({ id: `rcpt-nodate:${noDate}`, check: 'Receipts', line: `${plural(noDate, 'receipt line')} ${noDate === 1 ? 'has' : 'have'} no readable date, so ${noDate === 1 ? 'it does' : 'they do'} not show in the receipts list.`, items: rcptItems(lines.noDate, 'date'), ...rcptMore(noDate) });
   if (noShop) add({ id: `rcpt-noshop:${noShop}`, check: 'Receipts', line: `${plural(noShop, 'receipt line')} in the last 30 days ${noShop === 1 ? 'has' : 'have'} no shop.`, baht: noShopBaht, items: rcptItems(lines.noShop, 'shop'), ...rcptMore(noShop) });
   if (dup) add({ id: `rcpt-dup:${dup}:${Math.round(dupBaht)}`, check: 'Receipts', line: `${plural(dup, 'receipt line')} ${dup === 1 ? 'looks' : 'look'} entered twice (same day, item, price and shop). The second copy is listed. Delete it if it is a repeat.`, baht: dupBaht, items: rcptItems(lines.dup, 'delete'), ...rcptMore(dup) });
+
+  // Received at 0 baht. Fine when it was free, so each line can be ignored and stays ignored. If it was not free, the batches that used it are costed too low.
+  for (const z of zeros) add({ id: `rcpt-zero:${z.key}`, check: 'Receipts', line: `${z.text} was logged at ฿0. Fine if it was free, so ignore it. If not, enter the price, because batches using it are costed at ฿0.`, fix: '/#receipts', fixLabel: 'Open Purchasing Receipts' });
 
   // 6b. Grab's own daily totals (the PDF) against what the Ledger holds for that day.
   for (const x of require('./grabTotals').checkTotals(ledger, grabTotals)) {

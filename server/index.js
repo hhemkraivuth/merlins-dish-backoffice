@@ -79,6 +79,8 @@ app.post('/api/cook/note', cookRoute.note);
 // Mode 4: Stock Counts
 app.get('/api/stock', stockCountsRoute.listStock);
 app.get('/api/stock/ingredients', stockCountsRoute.listIngredientStock);
+app.get('/api/stock/hidden', stockCountsRoute.hiddenList);
+app.post('/api/stock/hidden', stockCountsRoute.hiddenChange);
 app.post('/api/stock/update', stockCountsRoute.updateStock);
 app.post('/api/stock/edit', stockCountsRoute.editStockRoute);
 app.post('/api/stock/ingredient-category', stockCountsRoute.setIngredientCategory);
