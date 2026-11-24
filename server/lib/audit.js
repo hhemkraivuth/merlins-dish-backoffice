@@ -30,7 +30,7 @@ const list = (a, max = 3) => (a.length <= max ? a.join(', ') : `${a.slice(0, max
 // ledger: ledgerObjects (already pasta costed). expenseRows: Expense Log rows (header optional).
 // stock: [{ dish, remaining, oldestAgeDays }]. cookBatches: [{ date, dish, portions }]. closed: Map iso -> reason.
 // pastaCards: [{ card, cost }] where cost is pastaCosts.costCard. bank: { amount, asOf "DD/MM/YYYY" }.
-function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [], meatGaps = [], stockGaps = [] } = {}) {
+function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [], meatGaps = [], stockGaps = [], drinkUnmapped = [], drinkItems = [] } = {}) {
   const out = [];
   const add = (f) => out.push({ baht: 0, ...f });
   const recent = ledger.filter((r) => daysBetween(today, r.date) <= WINDOW);
@@ -114,9 +114,9 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
     }
     if (gaps.length) {
       const how = ch === 'Grab'
-        ? "Upload that day's Grab screenshots to Drive (Daily Screenshots, the month folder, a folder named like 15/11). The 16:05 run sends each finished day to BOH. If the shop was shut, type close 15/11 and a reason in the BOH LINE group."
-        : 'Press Sync LINE orders under Tools on Numbers. If the shop was shut, type close 15/11 and a reason in the BOH LINE group.';
-      add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}.`, how, chips: gapDays.map((x) => ({ label: x.slice(0, 5), href: `reports.html?from=${encodeURIComponent(x)}&to=${encodeURIComponent(x)}` })), links: ch === 'Grab' ? [driveLink] : [], fix: ch === 'Grab' ? undefined : 'reports.html#tools', fixLabel: ch === 'Grab' ? undefined : 'Open Numbers tools' });
+        ? "Upload that day's Grab screenshots to Drive (Daily Screenshots, the month folder, a folder named like 15/11). The 16:05 run sends each finished day to BOH. If the shop was shut, mark the days closed below."
+        : 'Press Sync LINE orders under Tools on Numbers. If the shop was shut, mark the days closed below.';
+      add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}.`, how, action: { type: 'close', days: gapDays }, chips: gapDays.map((x) => ({ label: x.slice(0, 5), href: `reports.html?from=${encodeURIComponent(x)}&to=${encodeURIComponent(x)}` })), links: ch === 'Grab' ? [driveLink] : [], fix: ch === 'Grab' ? undefined : 'reports.html#tools', fixLabel: ch === 'Grab' ? undefined : 'Open Numbers tools' });
     }
   }
 
@@ -181,10 +181,13 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   }
 
   // 9. A batch used bagged meat but the Meat card on the Stock page never went down.
-  for (const g of meatGaps) add({ id: `meatgap:${g.key}`, check: 'Stock', line: `${g.dish} on ${g.dmy.slice(0, 5)} used ${g.names.join(', ')}, but the Meat card on the Stock page never went down.`, how: 'In the BOH LINE group send: catch up meat (shows what would change), then: catch up meat apply.', fix: '/#stock', fixLabel: 'Open Stock' });
+  for (const g of meatGaps) add({ id: `meatgap:${g.key}`, check: 'Stock', line: `${g.dish} on ${g.dmy.slice(0, 5)} used ${g.names.join(', ')}, but the Meat card on the Stock page never went down.`, how: 'Catch up takes every unlogged batch off the Meat card in one go.', action: { type: 'meatcatch' }, fix: '/#stock', fixLabel: 'Open Stock' });
 
   // 10. A count came out different from what the system believed, and nobody has said why yet.
   for (const f of require('./stockGaps').auditFindings(stockGaps)) add(f);
+
+  // 11. A drink sold under a name that is not matched to a stock item, so its cans never come off the shelf count.
+  for (const u of drinkUnmapped) add({ id: `drinkmap:${loose(u.name)}`, check: 'Drinks', line: `${u.name} sold ${plural(u.qty, 'time')} and is not matched to a drink in Stock, so those cans never come off the count.`, how: 'Pick the stock item it is, once. It is remembered.', action: { type: 'drinkmap', sale: u.name, options: drinkItems } });
 
   return out;
 }
@@ -213,7 +216,8 @@ async function run({ store = require('./appState') } = {}) {
   let grabTotals = []; try { grabTotals = require('./grabTotals').totalsFrom(await svc.readOrEmpty(require('./grabTotals').TAB)); } catch (err) { /* skip */ }
   let meatGaps = []; try { const bd = require('./bagDeduct'); meatGaps = (await bd.catchUpPreview(undefined, today)).map((r) => ({ key: r.key, dish: r.dish, dmy: formatDMY(r.date), names: r.plan.used.map((u) => u.name) })); } catch (err) { /* skip */ }
   let stockGaps = []; try { const sg = require('./stockGaps'); stockGaps = sg.gapsFrom(await sg.defaultDeps().readRows()); } catch (err) { /* skip */ }
-  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals, meatGaps, stockGaps });
+  let drinkUnmapped = []; let drinkItems = []; try { const ds = require('./drinkSales'); const sc = require('./stockCounts'); const items = (await sc.getAllStock()).filter(ds.isDrinkItem); drinkItems = items.map((i) => i.itemName); drinkUnmapped = ds.matchSales({ drinks: items, ledger: d.ledger, links: await ds.loadLinks() }).unmapped; } catch (err) { /* skip */ }
+  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals, meatGaps, stockGaps, drinkUnmapped, drinkItems });
   const result = { ranAt: new Date().toISOString(), findings: all };
   await store.setState(RESULT_KEY, JSON.stringify(result));
   return view(result, store);
