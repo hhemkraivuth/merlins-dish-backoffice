@@ -24,11 +24,11 @@ function find(f) {
         : a.type === 'gap'
           ? `<div class="chips">${['cook:Cook not logged', 'bought:Purchase not logged', 'wasted:Wasted', 'free:Given away', 'miscount:Earlier count wrong', 'lost:Lost'].map((x) => `<button type="button" class="rsn" data-gap="${x.split(':')[0]}">${x.split(':')[1]}</button>`).join('')}</div>`
           : a.type === 'close'
-            ? `<div class="fixrow"><label>Why was the shop shut? (optional)<input type="text" data-val placeholder="for example rain, no riders"></label><button type="button" class="primary" data-closeday>Mark closed</button></div>`
+            ? `<div class="fixrow"><label>Why was the shop shut on ${a.days.map((d) => d.slice(0, 5)).join(', ')}? (optional)<input type="text" data-val placeholder="for example rain, no riders"></label><button type="button" class="primary" data-closeday>Save as shut: ${a.days.map((d) => d.slice(0, 5)).join(', ')}</button></div>`
             : a.type === 'meatcatch'
               ? `<div class="fixrow"><button type="button" class="primary" data-meat>Catch up meat now</button></div>`
               : a.type === 'drinkmap'
-                ? `<div class="fixrow"><label>Which stock item is it?<select data-val>${(a.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}</select></label><button type="button" class="primary" data-drink>Save</button></div>`
+                ? `<div class="fixrow"><label>Which stock item is it?<select data-val>${(a.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}<option value="ignore">${esc(a.ignoreLabel || 'Not in stock')}</option></select></label><button type="button" class="primary" data-drink>Save</button></div>`
                 : '';
   const go = !typed && f.fix ? `<a href="${esc(f.fix)}">${esc(f.fixLabel || 'Open')}</a>` : '';
   const how = f.how ? `<div class="how">${esc(f.how)}</div>` : '';

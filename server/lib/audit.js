@@ -104,19 +104,21 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   for (const r of ledger) if (have[r.channel]) have[r.channel].add(iso(r.date));
   for (const [ch, lag] of [['Grab', 3], ['LINE', 2]]) {
     if (!have[ch].size) continue;
-    const gaps = []; const gapDays = [];
+    const gaps = []; const gapDays = []; const closable = [];
     for (let back = lag; back <= 14; back += 1) {
       const d = new Date(today.getTime() - back * 86400000);
       if (closed.has(iso(d)) || have[ch].has(iso(d))) continue;
       // Saturday and Sunday are closed. A weekend counts as open only when sales show up that day on either channel.
       if (isWeekend(d) && !have.Grab.has(iso(d)) && !have.LINE.has(iso(d))) continue;
       gaps.push(formatDMY(d).slice(0, 5)); gapDays.push(formatDMY(d));
+      // Only a day with no orders on either channel can be a shut day. If the other channel sold, the shop was open.
+      if (!have.Grab.has(iso(d)) && !have.LINE.has(iso(d))) closable.push(formatDMY(d));
     }
     if (gaps.length) {
       const how = ch === 'Grab'
         ? "Upload that day's Grab screenshots to Drive (Daily Screenshots, the month folder, a folder named like 15/11). The 16:05 run sends each finished day to BOH. If the shop was shut, mark the days closed below."
-        : 'Press Sync LINE orders under Tools on Numbers. If the shop was shut, mark the days closed below.';
-      add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}.`, how, action: { type: 'close', days: gapDays }, chips: gapDays.map((x) => ({ label: x.slice(0, 5), href: `reports.html?from=${encodeURIComponent(x)}&to=${encodeURIComponent(x)}` })), links: ch === 'Grab' ? [driveLink] : [], fix: ch === 'Grab' ? undefined : 'reports.html#tools', fixLabel: ch === 'Grab' ? undefined : 'Open Numbers tools' });
+        : 'Press Sync LINE orders under Tools on Numbers. If there were simply no LINE orders those days, tap Ignore.';
+      add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}.`, how, ...(closable.length ? { action: { type: 'close', days: closable } } : {}), chips: gapDays.map((x) => ({ label: x.slice(0, 5), href: `reports.html?from=${encodeURIComponent(x)}&to=${encodeURIComponent(x)}` })), links: ch === 'Grab' ? [driveLink] : [], fix: ch === 'Grab' ? undefined : 'reports.html#tools', fixLabel: ch === 'Grab' ? undefined : 'Open Numbers tools' });
     }
   }
 
@@ -181,13 +183,14 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
   }
 
   // 9. A batch used bagged meat but the Meat card on the Stock page never went down.
-  for (const g of meatGaps) add({ id: `meatgap:${g.key}`, check: 'Stock', line: `${g.dish} on ${g.dmy.slice(0, 5)} used ${g.names.join(', ')}, but the Meat card on the Stock page never went down.`, how: 'Catch up takes every unlogged batch off the Meat card in one go.', action: { type: 'meatcatch' }, fix: '/#stock', fixLabel: 'Open Stock' });
+  if (meatGaps.length === 1) { const g = meatGaps[0]; add({ id: `meatgap:${g.key}`, check: 'Stock', line: `${g.dish} on ${g.dmy.slice(0, 5)} used ${g.names.join(', ')}, but the Meat card on the Stock page never went down.`, action: { type: 'meatcatch' }, fix: '/#stock', fixLabel: 'Open Stock' }); }
+  else if (meatGaps.length) add({ id: `meatgap:${meatGaps.map((g) => g.key).join('+')}`, check: 'Stock', line: `${meatGaps.length} cooks never took their meat off the Meat card: ${meatGaps.map((g) => `${g.dish} ${g.dmy.slice(0, 5)} (${g.names.join(', ')})`).join('; ')}.`, action: { type: 'meatcatch' }, fix: '/#stock', fixLabel: 'Open Stock' });
 
   // 10. A count came out different from what the system believed, and nobody has said why yet.
   for (const f of require('./stockGaps').auditFindings(stockGaps)) add(f);
 
   // 11. A drink sold under a name that is not matched to a stock item, so its cans never come off the shelf count.
-  for (const u of drinkUnmapped) add({ id: `drinkmap:${loose(u.name)}`, check: 'Drinks', line: `${u.name} sold ${plural(u.qty, 'time')} and is not matched to a drink in Stock, so those cans never come off the count.`, how: 'Pick the stock item it is, once. It is remembered.', action: { type: 'drinkmap', sale: u.name, options: drinkItems } });
+  for (const u of drinkUnmapped) add({ id: `drinkmap:${loose(u.name)}`, check: 'Drinks', line: `${u.name} sold ${plural(u.qty, 'time')} and is not matched to a drink in Stock, so those cans never come off the count.`, how: 'Pick the stock item it is, once. It is remembered.', action: { type: 'drinkmap', sale: u.name, options: drinkItems, ignoreLabel: 'Not in stock, ignore it' } });
 
   return out;
 }

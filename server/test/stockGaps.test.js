@@ -66,3 +66,19 @@ test('gap command: list, unknown item, bad reason, not a gap command', async () 
   assert.match((await g.processGap('gap', d))[0], /Rice: the system said 5 g, you counted 1 g/);
   assert.strictEqual(await g.processGap('gapless thing', d), null);
 });
+
+test('several unlogged meat cooks make one card, not one each', () => {
+  const f = runChecks({ today: new Date('2026-11-23T00:00:00Z'), meatGaps: [{ key: 'a', dish: 'Noir Ragu', dmy: '12/11/2026', names: ['Brisket'] }, { key: 'b', dish: 'Tuscan Pork Braise', dmy: '23/11/2026', names: ['Pork shoulder'] }] });
+  const m = f.filter((x) => x.action && x.action.type === 'meatcatch');
+  assert.strictEqual(m.length, 1); assert.match(m[0].line, /2 cooks never took their meat off/);
+});
+
+test('only a day with no orders on either channel can be marked shut', () => {
+  const day = (iso, ch) => ({ key: `${ch}${iso}`, channel: ch, date: new Date(`${iso}T00:00:00Z`), dmy: iso, type: 'Order', desc: 'x', moneyIn: 100, qty: 1 });
+  const ledger = [day('2026-11-17', 'Grab'), day('2026-11-19', 'LINE'), day('2026-11-19', 'Grab'), day('2026-11-16', 'LINE'), day('2026-11-16', 'Grab'), day('2026-11-13', 'LINE'), day('2026-11-13', 'Grab')];
+  const f = runChecks({ today: new Date('2026-11-23T00:00:00Z'), ledger });
+  const line = f.find((x) => x.id.startsWith('gap:LINE'));
+  assert.ok(line, 'LINE gap listed');
+  assert.ok(!(line.action && line.action.days.includes('17/11/2026')), 'a day Grab sold on is never offered as shut');
+  assert.ok(line.action && line.action.days.includes('18/11/2026'), 'a day with no orders at all can be marked shut');
+});
