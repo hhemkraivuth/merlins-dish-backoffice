@@ -18,30 +18,69 @@ function detail(p) {
     <b>Audience</b><p>${esc(p.audience)}</p>
   </div></details>`;
 }
+const h12 = (t) => { const [h, m] = String(t || '17:00').split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+const TIMES = []; for (let h = 7; h <= 21; h++) for (const m of ['00', '30']) TIMES.push(`${String(h).padStart(2, '0')}:${m}`);
+function dateOptions(current) {
+  const t = ymd(PLAN.today) || { y: new Date().getFullYear(), m: new Date().getMonth(), d: new Date().getDate() };
+  const out = [];
+  for (let i = 0; i < 28; i++) {
+    const x = new Date(Date.UTC(t.y, t.m, t.d + i));
+    out.push(`${String(x.getUTCDate()).padStart(2, '0')}/${String(x.getUTCMonth() + 1).padStart(2, '0')}/${x.getUTCFullYear()}`);
+  }
+  if (current && !out.includes(current)) out.unshift(current);
+  return out;
+}
+function thumb(p, big) {
+  const m = (p.media || [])[0];
+  const cls = big ? 'thumb' : 'thumb sm';
+  if (!m) return `<div class="${cls} none"><span>No file yet</span></div>`;
+  return `<div class="${cls}"><img src="/api/content-plan/media/${esc(m.id)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('none');this.replaceWith(document.createTextNode('${m.kind === 'video' ? 'Video' : 'Photo'}: ' + this.parentNode.dataset.name))" />${m.kind === 'video' ? '<em>Video</em>' : ''}${(p.media || []).length > 1 ? `<em class="n">+${p.media.length - 1}</em>` : ''}</div>`.replace('<div class="' + cls + '">', `<div class="${cls}" data-name="${esc(m.name)}">`);
+}
+const STATUS_CHIP = { proposed: ['To review', 'warn'], approved: ['Approved', 'dark'], published: ['Published', 'ok'], dismissed: ['Dismissed', 'grey'] };
 function card(p) {
   const pl = pillarOf(p.pillar);
   const id = esc(p.id);
+  const locked = p.status === 'published' || p.status === 'dismissed';
+  const [chipText, chipCls] = p.queueStatus === 'failed' ? ['Failed to post', 'bad'] : STATUS_CHIP[p.status] || STATUS_CHIP.proposed;
+  const dsel = `<select data-sched="date" data-pid="${id}" aria-label="Date" ${locked ? 'disabled' : ''}>${dateOptions(p.date).map((d) => `<option value="${esc(d)}" ${d === p.date ? 'selected' : ''}>${esc(dayLabel(d))}</option>`).join('')}</select>`;
+  const tsel = `<select data-sched="time" data-pid="${id}" aria-label="Time" ${locked ? 'disabled' : ''}>${(TIMES.includes(p.time) ? TIMES : [p.time, ...TIMES]).map((t) => `<option value="${t}" ${t === p.time ? 'selected' : ''}>${h12(t)}</option>`).join('')}</select>`;
   const btns = p.status === 'approved'
-    ? `<button class="done" data-id="${id}" data-s="published">Mark published</button><button class="no" data-id="${id}" data-s="proposed">Undo</button>`
+    ? `<button class="no" data-id="${id}" data-s="proposed">Undo approval</button>`
     : p.status === 'dismissed'
       ? `<button class="no" data-id="${id}" data-s="proposed">Bring back</button>`
-      : `<button class="yes" data-id="${id}" data-s="approved">Approve</button><button class="no" data-id="${id}" data-s="dismissed">Dismiss</button>`;
-  const tick = p.status === 'approved' ? '<span class="ok">Approved</span>' : '';
-  return `<details class="card post ${esc(p.status)}" id="post-${id}"${COLLAPSED.has(p.id) ? '' : ' open'}><summary class="ph"><span class="pd">${esc(dayLabel(p.date))}</span><span class="pill sm" style="background:${esc(pl.color)}">${esc(pl.short)}</span><span class="pt">${esc(p.title)}</span>${tick}<span class="chev" aria-hidden="true">&rsaquo;</span></summary>
-    <div class="pb">
-      <div class="meta"><span class="pill" style="background:${esc(pl.color)}">${esc(p.pillar)}</span><span class="chip">${esc(p.format)}</span><span class="chip">5:00 PM</span></div>
-      <div class="hook"><b>Hook:</b> ${esc(p.hook)}</div>
-      <div class="cap"><div class="caph"><b>Caption${p.edited ? ' (edited)' : ''}</b><button type="button" class="mini" data-copy="${id}">Copy all</button></div>
+      : p.status === 'published' ? '' : `<button class="yes" data-id="${id}" data-s="approved">Approve</button><button class="no" data-id="${id}" data-s="dismissed">Dismiss</button>`;
+  const line = p.status === 'approved' ? `<div class="when">Posts ${esc(dayLabel(p.date))} at ${esc(h12(p.time))}, Instagram then Facebook</div>`
+    : p.status === 'published' ? `<div class="when">Posted ${esc(dayLabel(p.date))} at ${esc(h12(p.time))}${p.igUrl ? ` · <a href="${esc(p.igUrl)}" target="_blank" rel="noopener">Instagram</a>` : ''}${p.fbUrl ? ` · <a href="${esc(p.fbUrl)}" target="_blank" rel="noopener">Facebook</a>` : ''}</div>` : '';
+  const warn = p.queueStatus === 'failed' ? `<div class="warn">Did not post: ${esc(p.queueNote || 'see the Content Queue tab')}. Undo approval and approve again to retry.</div>`
+    : (p.status === 'approved' && !(p.media || []).length) ? '<div class="warn">No file attached yet, so this cannot post. Tell Claude which Drive file to use.</div>' : '';
+  const capBlock = p.status === 'published' ? `<div class="cap"><div class="foot" style="margin:0;color:inherit">${esc(p.caption)}</div></div>` : `<div class="cap"><div class="caph"><b>Caption${p.edited ? ' (edited)' : ''}</b><button type="button" class="mini" data-copy="${id}">Copy all</button></div>
         <textarea class="capin" data-cap="${id}" rows="4" aria-label="Caption, editable">${esc(p.caption)}</textarea>
         <div class="capact" hidden><button type="button" class="mini main" data-save="${id}">Save edit</button><button type="button" class="mini" data-undo="${id}">Cancel</button></div>
         <div class="foot">${esc(PLAN.footer || '')}</div>
         ${p.edited ? `<button type="button" class="mini link" data-reset="${id}">Reset to original caption</button>` : ''}
+      </div>`;
+  return `<div class="card post ${esc(p.status)}" id="post-${id}">
+    <div class="prow">${thumb(p, true)}
+      <div class="pmain">
+        <div class="meta"><span class="pill sm" style="background:${esc(pl.color)}">${esc(p.pillar)}</span><span class="chip st ${chipCls}">${esc(chipText)}</span></div>
+        <div class="name">${esc(p.title)}</div>
+        ${locked ? line || `<div class="when">${esc(dayLabel(p.date))}, ${esc(h12(p.time))}</div>` : `<div class="sched"><label>Date${dsel}</label><label>Time${tsel}</label></div>${line}`}
       </div>
-      <div class="why"><b>Why:</b> ${esc(p.why)}</div>
-      <div class="pdef"><b>${esc(pl.name)}:</b> ${esc(pl.job)}</div>
-      ${detail(p)}
-      <div class="btns">${btns}</div>
-    </div></details>`;
+    </div>
+    ${warn}
+    ${capBlock}
+    ${btns ? `<div class="btns">${btns}</div>` : ''}
+    ${p.status === 'approved' ? `<button type="button" class="mini link" data-id="${id}" data-s="published">Mark published by hand</button>` : ''}
+    <details class="sub"><summary>Details</summary><div class="more">
+      <b>Why</b><p>${esc(p.why)}</p>
+      <b>Hook</b><p>${esc(p.hook)}</p>
+      <b>Files and visual direction</b><p>${(p.media || []).length ? esc((p.media || []).map((m) => m.name || m.id).join(', ')) + '. ' : ''}${esc(p.visual)}</p>
+      <b>${esc(pl.name)}</b><p>${esc(pl.job)}</p>
+      <b>Borrowed from</b><p>${esc(p.borrow)}</p>
+      <b>Avoiding</b><p>${esc(p.avoid)}</p>
+      <b>Audience</b><p>${esc(p.audience)}</p>
+    </div></details>
+  </div>`;
 }
 function items(list, key) {
   return list.map((i) => `<div class="item"><b>${esc(i.from)}</b>: ${esc(i.idea)}<small>${esc(key === 'use' ? 'For Merlin\'s: ' + i.use : 'Why not: ' + i.why)}</small></div>`).join('');
@@ -95,7 +134,7 @@ function draw() {
   const ps = PLAN.proposals;
   const by = (s) => ps.filter((p) => p.status === s);
   const n = { review: by('proposed').length, ok: by('approved').length, no: by('dismissed').length, pub: by('published').length };
-  $('top').innerHTML = `<div class="top">${n.review} to review, ${n.ok} approved to shoot, ${n.pub} published, ${n.no} dismissed. Plan prepared ${esc(PLAN.prepared)}.</div>`;
+  $('top').innerHTML = `<div class="top">${n.review} to review, ${n.ok} approved, ${n.pub} published, ${n.no} dismissed. Plan prepared ${esc(PLAN.prepared)}.</div>`;
   if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('.briefbox')) $('brief').innerHTML = briefHtml();
   $('story').innerHTML = storyHtml();
   $('pillars').innerHTML = pillarsHtml();
@@ -104,8 +143,9 @@ function draw() {
   $('shoot').innerHTML = by('approved').map(card).join('') || '<p class="empty">Nothing approved yet.</p>';
   $('review').innerHTML = by('proposed').map(card).join('') || '<p class="empty">Everything has been decided.</p>';
   const pub = by('published');
-  $('gone').innerHTML = `<div class="stack">${by('dismissed').map(card).join('') + pub.map((p) => `<div class="card"><div class="when">Published, ${esc(p.date)}</div><div class="name">${esc(p.title)}</div></div>`).join('')}</div>` || '<p class="empty">None.</p>';
-  document.querySelectorAll('details.post[open] textarea.capin').forEach(grow);
+  $('pubd').innerHTML = pub.length ? `<div class="stack">${pub.map(card).join('')}</div>` : '<p class="empty">Nothing published yet.</p>';
+  $('gone').innerHTML = by('dismissed').length ? `<div class="stack">${by('dismissed').map(card).join('')}</div>` : '<p class="empty">None.</p>';
+  document.querySelectorAll('.card.post textarea.capin').forEach(grow);
   const s = PLAN.style || {};
   $('why').innerHTML = `
     <details class="box"><summary>What to borrow from competitors and inspo</summary>${items(PLAN.analysis.borrow, 'use')}</details>
@@ -125,7 +165,7 @@ const grow = (t) => { t.style.height = 'auto'; t.style.height = `${t.scrollHeigh
 const postOf = (id) => PLAN.proposals.find((x) => x.id === id);
 function openFromHash() {
   const el = location.hash.length > 1 ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
-  if (el && el.tagName === 'DETAILS') { el.open = true; el.scrollIntoView({ block: 'start' }); }
+  if (el) { if (el.tagName === 'DETAILS') el.open = true; el.scrollIntoView({ block: 'start' }); }
 }
 window.addEventListener('hashchange', openFromHash);
 document.addEventListener('toggle', (e) => {
@@ -226,5 +266,19 @@ document.addEventListener('click', async (e) => {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     await load();
   } catch (err) { el.disabled = false; const st = $('status'); st.className = 'status err'; st.textContent = `Not saved: ${err.message}`; }
+});
+document.addEventListener('change', async (e) => {
+  const sel = e.target.closest('select[data-sched]');
+  if (!sel) return;
+  const id = sel.dataset.pid;
+  const date = document.querySelector(`select[data-sched="date"][data-pid="${id}"]`).value;
+  const time = document.querySelector(`select[data-sched="time"][data-pid="${id}"]`).value;
+  document.querySelectorAll(`select[data-pid="${id}"]`).forEach((x) => { x.disabled = true; });
+  try {
+    const res = await fetch('/api/content-plan/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, date, time }) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || 'Not saved');
+    await load();
+  } catch (err) { document.querySelectorAll(`select[data-pid="${id}"]`).forEach((x) => { x.disabled = false; }); const st = $('status'); st.className = 'status err'; st.textContent = `Not saved: ${err.message}`; }
 });
 load();
