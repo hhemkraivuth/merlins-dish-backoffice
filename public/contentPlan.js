@@ -52,7 +52,7 @@ function card(p) {
   const line = p.status === 'approved' ? `<div class="when">Posts ${esc(dayLabel(p.date))} at ${esc(h12(p.time))}, Instagram then Facebook</div>`
     : p.status === 'published' ? `<div class="when">Posted ${esc(dayLabel(p.date))} at ${esc(h12(p.time))}${p.igUrl ? ` · <a href="${esc(p.igUrl)}" target="_blank" rel="noopener">Instagram</a>` : ''}${p.fbUrl ? ` · <a href="${esc(p.fbUrl)}" target="_blank" rel="noopener">Facebook</a>` : ''}</div>` : '';
   const warn = p.queueStatus === 'failed' ? `<div class="warn">Did not post: ${esc(p.queueNote || 'see the Content Queue tab')}. Undo approval and approve again to retry.</div>`
-    : (p.status === 'approved' && !(p.media || []).length) ? '<div class="warn">No file attached yet, so this cannot post. Tell Claude which Drive file to use.</div>' : '';
+    : (p.status === 'approved' && !(p.media || []).length) ? '<div class="warn">No file linked yet. Claude links it from your Raw shoots folder before it posts.</div>' : '';
   const capBlock = p.status === 'published' ? `<div class="cap"><div class="foot" style="margin:0;color:inherit">${esc(p.caption)}</div></div>` : `<div class="cap"><div class="caph"><b>Caption${p.edited ? ' (edited)' : ''}</b><button type="button" class="mini" data-copy="${id}">Copy all</button></div>
         <textarea class="capin" data-cap="${id}" rows="4" aria-label="Caption, editable">${esc(p.caption)}</textarea>
         <div class="capact" hidden><button type="button" class="mini main" data-save="${id}">Save edit</button><button type="button" class="mini" data-undo="${id}">Cancel</button></div>
@@ -130,11 +130,19 @@ function briefHtml() {
   const waiting = (PLAN.briefs || []).filter((b) => !b.done).length;
   return `<details class="briefbox" id="briefDetails" ${BRIEF_OPEN ? 'open' : ''}><summary><b>Brief for Claude</b>${waiting ? ` <span class="tag">${waiting} waiting</span>` : ''}</summary><p class="hint">A few words is enough: what is happening, which dish or drink, when it goes live. Claude writes the captions and shot designs. Posts go to Instagram and Facebook, and LINE broadcasts for big news.</p><textarea id="briefText" placeholder="e.g. New dessert goes live Thu, IG and Facebook">${esc(DRAFT.text)}</textarea><div class="row"><input type="text" id="briefDate" inputmode="numeric" placeholder="Go live date DD/MM/YYYY (optional)" value="${esc(DRAFT.date)}" /></div><div class="row">${CHANNELS.map((c) => `<label class="chip"><input type="checkbox" data-bch="${esc(c)}" ${DRAFT.channels.includes(c) ? 'checked' : ''} />${esc(c)}</label>`).join('')}</div><button type="button" class="send" data-brief-send>Send brief</button>${items}</details>`;
 }
+const dmyNum = (d) => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(d || '')); return m ? Date.UTC(+m[3], +m[2] - 1, +m[1]) : null; };
+// Approved and published always show. A post still waiting for review shows only while its day has not passed. Dismissed ones are hidden.
+function visible(p) {
+  if (p.status === 'approved' || p.status === 'published') return true;
+  if (p.status !== 'proposed') return false;
+  const t = dmyNum(PLAN.today); const d = dmyNum(p.date);
+  return t === null || d === null || d >= t;
+}
 function draw() {
-  const ps = PLAN.proposals;
+  const ps = PLAN.proposals.filter(visible);
   const by = (s) => ps.filter((p) => p.status === s);
-  const n = { review: by('proposed').length, ok: by('approved').length, no: by('dismissed').length, pub: by('published').length };
-  $('top').innerHTML = `<div class="top">${n.review} to review, ${n.ok} approved, ${n.pub} published, ${n.no} dismissed. Plan prepared ${esc(PLAN.prepared)}.</div>`;
+  const n = { review: by('proposed').length, ok: by('approved').length, pub: by('published').length };
+  $('top').innerHTML = `<div class="top">${n.ok} approved, ${n.pub} published, ${n.review} to review. Plan prepared ${esc(PLAN.prepared)}.</div>`;
   if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('.briefbox')) $('brief').innerHTML = briefHtml();
   $('story').innerHTML = storyHtml();
   $('pillars').innerHTML = pillarsHtml();
@@ -144,7 +152,6 @@ function draw() {
   $('review').innerHTML = by('proposed').map(card).join('') || '<p class="empty">Everything has been decided.</p>';
   const pub = by('published');
   $('pubd').innerHTML = pub.length ? `<div class="stack">${pub.map(card).join('')}</div>` : '<p class="empty">Nothing published yet.</p>';
-  $('gone').innerHTML = by('dismissed').length ? `<div class="stack">${by('dismissed').map(card).join('')}</div>` : '<p class="empty">None.</p>';
   document.querySelectorAll('.card.post textarea.capin').forEach(grow);
   const s = PLAN.style || {};
   $('why').innerHTML = `
