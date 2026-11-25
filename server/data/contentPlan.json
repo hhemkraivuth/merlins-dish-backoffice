@@ -88,14 +88,14 @@
    "date": "17/11/2026",
    "pillar": "Name the dish",
    "format": "Reel, 8s",
-   "title": "Lamb shank with orzo (live)",
-   "hook": "Soft orzo. Slow braised lamb. One very good gravy.",
-   "visual": "Reel of the plated lamb shank on soft orzo, cover text \"BRAISED LAMB SHANK\", one spoon lift. Posted 17/11 after the launch photo on 15/11. Crop 4:5 for the grid cover.",
-   "caption": "Soft orzo. Slow braised lamb. One very good gravy. 🥄 Fair warning: you will want a spoon for that gravy, and possibly a second shank. It braises for hours until it slides off the bone. Dig in.",
+   "title": "Lamb shank with risoni (live)",
+   "hook": "Soft risoni. Slow braised lamb. One very good gravy.",
+   "visual": "Reel of the plated lamb shank on soft risoni, cover text \"BRAISED LAMB SHANK\", one spoon lift. Posted 17/11 after the launch photo on 15/11. Crop 4:5 for the grid cover.",
+   "caption": "Soft risoni. Slow braised lamb. One very good gravy. 🥄 Fair warning: you will want a spoon for that gravy, and possibly a second shank. It braises for hours until it slides off the bone. Dig in.",
    "why": "Live on Instagram. The launch photo went up on 15/11 and this reel on 17/11, so the lamb shank launched with two posts.",
    "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components",
    "avoid": "No price in the caption",
-   "audience": "Expat 40 / Thai 60"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-23",
@@ -109,7 +109,7 @@
    "why": "Shows the drinks range so people add one to every order. Keeps the post about the whole range and leaves alcohol out of the caption and the picture, because Thai law restricts advertising it.",
    "borrow": "@bshnuez dish name plus components caption",
    "avoid": "No wine or alcohol names, bottles or labels, no price in the caption",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-12",
@@ -123,7 +123,7 @@
    "why": "A cosy, appetite first post for the cooler weather. It posts on Monday 23/11, three days before the US holiday on Thursday 26/11, so anyone gathering that day can still order in time. A nod to what customers need, never a Merlin's occasion.",
    "borrow": "@bshnuez dish name plus components caption",
    "avoid": "No hard sell, no price in the caption",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-20",
@@ -137,7 +137,7 @@
    "why": "People order food they cannot see, so showing the bag and the bowl answers \"what will I get\" before a first order. The sticker on every package builds familiarity. The look comes from your @rhoifood reference.",
    "borrow": "@rhoifood bowl above the bag, one sticker as the brand mark",
    "avoid": "No platform logos on the bag in the shot, no comparisons",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-14",
@@ -151,7 +151,7 @@
    "why": "Moved from 07/12 to the week before the 06/12 to 11/12 closure, so a technique post also tells people to order and stock up. Shows technique, which supports the price, and it works for any dish.",
    "borrow": "@ratto.bangkok technique authority",
    "avoid": "Share the idea, not the full recipe",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-16",
@@ -179,7 +179,7 @@
    "why": "Moved from 14/12 to 07/12, 11 days after the first arrival post. Shoot it before you leave. It goes out while the shop is closed, so the call is to schedule an order.",
    "borrow": "@rhoifood opened container flat lay",
    "avoid": "Do not show anything that is not in a real order",
-   "audience": "Expat 40 / Thai 60"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-19",
@@ -193,7 +193,7 @@
    "why": "A payoff post that goes out while the shop is closed (06/12 to 11/12), so the call is to schedule an order for 14/12. Noir Ragu is a top 3 seller. Shoot it before you leave.",
    "borrow": "Your own best reel formula",
    "avoid": "Do not reuse an earlier shot",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-11",
@@ -207,7 +207,7 @@
    "why": "Hour by hour post on the day the shop reopens (Mon 14/12), and it opens the Christmas ordering run. It comes from your sofritto series.",
    "borrow": "Your own best reel formula",
    "avoid": "No cuts faster than every 3 seconds",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-18",
@@ -221,7 +221,7 @@
    "why": "Christmas is the real European moment for Merlin's. Moved from 12/12 to 16/12 so it starts the order push ahead of the 26/12 closure.",
    "borrow": "@notorious_foodie festive series",
    "avoid": "Do not promise a delivery date the order page cannot take. Scheduled orders deliver once the shop reopens",
-   "audience": "Expat 40 / Thai 60"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-24",
@@ -230,12 +230,12 @@
    "format": "Static post, 4:5",
    "title": "Lamb shank for the Christmas table",
    "hook": "The centrepiece, sorted.",
-   "visual": "Slow Braised Lamb Shank on soft orzo with a sprig of rosemary and a candle, shot at 45 degrees on a dark table, one side lamp. Cover text \"Closing 26/12\". Crop 4:5.",
-   "caption": "The Christmas table centrepiece, sorted. Slow Braised Lamb Shank on soft orzo, with a gravy made for spooning. We close Sat 26/12 and are back Mon 04/01, so order and stock up now, or schedule your order for when we reopen.",
+   "visual": "Slow Braised Lamb Shank on soft risoni with a sprig of rosemary and a candle, shot at 45 degrees on a dark table, one side lamp. Cover text \"Closing 26/12\". Crop 4:5.",
+   "caption": "The Christmas table centrepiece, sorted. Slow Braised Lamb Shank on soft risoni, with a gravy made for spooning. We close Sat 26/12 and are back Mon 04/01, so order and stock up now, or schedule your order for when we reopen.",
    "why": "Order push in the week before the 26/12 closure. Names one hero dish and tells people to order and stock up.",
    "borrow": "@jose.kallioinen title card, @bshnuez dish name plus components",
    "avoid": "No price, no stock scarcity lines, no delivery date before 04/01",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-25",
@@ -249,7 +249,7 @@
    "why": "Second order push in the closure week. A last order day is a true deadline, so it gives people a reason to decide now.",
    "borrow": "Your own best reel formula",
    "avoid": "No cuts faster than every 3 seconds, no delivery date before 04/01",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-17",
@@ -263,7 +263,7 @@
    "why": "Moved from 05/12 to 28/12. It goes out while the shop is closed, gives people something to do, and the votes tell you what to cook first. Keep it to one a month.",
    "borrow": "@hangrybeefnoodle game post, once a month",
    "avoid": "No more than one game post a month",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   },
   {
    "id": "cp-26",
@@ -277,7 +277,7 @@
    "why": "A thank you and a reminder while the shop is closed (26/12 to 03/01). New Year is a Thai and European occasion.",
    "borrow": "@bshnuez one cosy mood line",
    "avoid": "No price, no promotion language",
-   "audience": "Thai 60 / Expat 40"
+   "audience": "Expat 60 / Thai 40"
   }
  ],
  "story": {
@@ -289,7 +289,7 @@
    },
    {
     "title": "Who it is for",
-    "body": "Thai 60 / Expat 40. Occasions follow the Thai and European calendars."
+    "body": "Expat 60 / Thai 40. Occasions follow the Thai and European calendars."
    },
    {
     "title": "Check before shooting",

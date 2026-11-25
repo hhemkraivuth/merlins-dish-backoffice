@@ -80,7 +80,7 @@ function buildReceiptLog({ expenseRows, overheadRows, month, today }) {
 }
 
 const RECEIPT_CSV_HEADERS = ['Date', 'Type', 'Item', 'How many (purchase unit)', 'Price paid', 'Cost per g / ml / piece', 'Shopped at', 'Category', 'Remarks'];
-// The brand typed in brackets is kept in the remarks, so the list and the Edit form show it as "Orzo (San Remo)".
+// The brand typed in brackets is kept in the remarks, so the list and the Edit form show it as "Risoni (San Remo)".
 function withBrand(name, remarks) { const m = String(remarks).match(/Brand:\s*([^;]+)/i); return m && m[1].trim() ? `${name} (${m[1].trim()})` : name; }
 
 const receiptCsvRows = (log) => log.rows.map((r) => [r.date, r.type, r.item, r.qty, r.price, r.perUnit === null ? '' : r.perUnit, r.shop, r.category, r.remarks]);

@@ -72,13 +72,13 @@ function card(p) {
     ${btns ? `<div class="btns">${btns}</div>` : ''}
     ${p.status === 'approved' ? `<button type="button" class="mini link" data-id="${id}" data-s="published">Mark published by hand</button>` : ''}
     <details class="sub"><summary>Details</summary><div class="more">
-      <b>Why</b><p>${esc(p.why)}</p>
-      <b>Hook</b><p>${esc(p.hook)}</p>
-      <b>Files and visual direction</b><p>${(p.media || []).length ? esc((p.media || []).map((m) => m.name || m.id).join(', ')) + '. ' : ''}${esc(p.visual)}</p>
-      <b>${esc(pl.name)}</b><p>${esc(pl.job)}</p>
-      <b>Borrowed from</b><p>${esc(p.borrow)}</p>
-      <b>Avoiding</b><p>${esc(p.avoid)}</p>
-      <b>Audience</b><p>${esc(p.audience)}</p>
+      <p><b>Why:</b> ${esc(p.why)}</p>
+      <p><b>Hook:</b> ${esc(p.hook)}</p>
+      <p><b>Files and visual direction:</b> ${(p.media || []).length ? esc((p.media || []).map((m) => m.name || m.id).join(', ')) + '. ' : ''}${esc(p.visual)}</p>
+      <p><b>${esc(pl.name)}:</b> ${esc(pl.job)}</p>
+      <p><b>Borrowed from:</b> ${esc(p.borrow)}</p>
+      <p><b>Avoiding:</b> ${esc(p.avoid)}</p>
+      <p><b>Audience:</b> ${esc(p.audience)}</p>
     </div></details>
   </div>`;
 }
