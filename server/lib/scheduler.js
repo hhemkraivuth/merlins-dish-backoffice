@@ -56,6 +56,23 @@ function startDriveImportTimer(run, { every, log = console } = {}) {
 }
 
 
+// Cloud Inbox timer. On unless CLOUD_INBOX_AUTO=off. Looks for new rows every CLOUD_INBOX_EVERY_MIN minutes (default 3,
+// never less than 1). Empty checks are silent.
+function startCloudInboxTimer(run, { every, log = console } = {}) {
+  if (String(process.env.CLOUD_INBOX_AUTO || '').toLowerCase() === 'off') return null;
+  const mins = Math.max(1, Number(process.env.CLOUD_INBOX_EVERY_MIN) || 3);
+  let busy = false;
+  const tick = async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const out = await run();
+      if (out && out.ran) log.log(`Cloud inbox: ${out.ran} row(s) handled`);
+    } catch (err) { log.error('Cloud inbox failed:', err.message); } finally { busy = false; }
+  };
+  return setInterval(tick, every || mins * 60000);
+}
+
 // Weekly Drive export timer. Off unless WEEKLY_EXPORT_AUTO=on. WEEKLY_EXPORT_TIME is Bangkok time, HH:MM (default 20:00).
 // Runs once every Sunday and saves the week that just finished (Sunday to Saturday). Catches up if the app was down or
 // restarting then: it exports for the most recent Sunday that has passed its time and was not saved yet.
@@ -219,4 +236,4 @@ function startAuditTimer(run, send, { now = () => Date.now(), every = 60000, log
   return setInterval(tick, every);
 }
 
-module.exports = { startAuditTimer, startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer };
+module.exports = { startCloudInboxTimer, startAuditTimer, startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer };
