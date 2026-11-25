@@ -14,7 +14,7 @@ const logsRoute = require('./routes/logs');
 const shoppingRoute = require('./routes/shopping');
 const analysisRoute = require('./routes/analysis');
 const marketingReportsRoute = require('./routes/marketingReports');
-const { startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer, startAuditTimer } = require('./lib/scheduler');
+const { startTodoReminderTimer, startIndexExpiryTimer, startHuddleTimer, startCloudInboxTimer, startDriveImportTimer, startWeeklyExportTimer, startStockSnapshotTimer, startMonthlyOverheadsTimer, startAuditTimer } = require('./lib/scheduler');
 const monthlyRoute = require('./routes/monthlyOverheads');
 const appState = require('./lib/appState');
 
@@ -268,6 +268,9 @@ app.listen(PORT, () => {
   console.log(`Merlin's Dish back-office app running on port ${PORT}`);
   startHuddleTimer(ledgerRoute.sendHuddle, { store: { get: appState.getState, set: appState.setState } });
   startDriveImportTimer(ledgerRoute.sendDriveImport);
+  const cloudInbox = require('./lib/cloudInbox');
+  cloudInbox.setup().catch((err) => console.error('cloud inbox tab', err.message));
+  startCloudInboxTimer(() => cloudInbox.run());
   startWeeklyExportTimer(logsRoute.sendWeeklyExport, { store: { get: appState.getState, set: appState.setState } });
   startMonthlyOverheadsTimer(monthlyRoute.runMonthly);
   startTodoReminderTimer(briefingRoute.sendReminder, { store: { get: appState.getState, set: appState.setState } });
