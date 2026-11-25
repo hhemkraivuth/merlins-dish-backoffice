@@ -48,3 +48,34 @@ test('unknown words and totals that do not add up are refused, nothing guessed',
   const two = plan({ ...order, moneyIn: 100 }, 'tubet + radiatori', ledger);
   assert.match(two.error, /add up to/);
 });
+
+const grab = (desc, price, day) => ({ type: 'Order', channel: 'Grab', desc, moneyIn: price, qty: 1, date: new Date(`2026-11-${day}T00:00:00Z`) });
+const history = [grab('Polished Pork Bolognese', 270, 10), grab('Dark Beer Stew', 295, 12), grab('Dark Beer Stew', 300, 5), grab('Bacon Steak Tavern-Style', 190, 11), grab('Pecorino & Broccoli Cream Soup', 220, 9)];
+
+test('a group order with many dishes is read in one go, each price copied from its last Grab sale', () => {
+  const o = { ...order, moneyIn: 975 };
+  const p = plan(o, 'bolognese + linguine, dbs + bacon steak, bs', history);
+  assert.ifError(p.error);
+  assert.deepStrictEqual(p.items.map((i) => [i.desc, i.price]), [['Polished Pork Bolognese', 270], ['Linguine (Bolognese bundle)', 0], ['Dark Beer Stew', 295], ['Bacon Steak Tavern-Style', 190], ['Pecorino & Broccoli Cream Soup', 220]]);
+});
+
+test('new lines and a typed price work, and a typed price beats the history', () => {
+  const o = { ...order, moneyIn: 530 };
+  const p = plan(o, 'dbs 310\nbs', history);
+  assert.ifError(p.error);
+  assert.deepStrictEqual(p.items.map((i) => i.price), [310, 220]);
+});
+
+test('two dishes with no sales history ask for prices, one unpriced dish takes the remainder', () => {
+  const none = plan(order, 'dbs + bs', []);
+  assert.match(none.error, /Type the price after the dish/);
+  const rest = plan({ ...order, moneyIn: 515 }, 'dbs + bs', [grab('Dark Beer Stew', 295, 12)]);
+  assert.ifError(rest.error);
+  assert.deepStrictEqual(rest.items.map((i) => i.price), [295, 220]);
+});
+
+test('copied prices that do not add up say so and point to the override', () => {
+  const p = plan({ ...order, moneyIn: 700 }, 'dbs + bs + bolognese', history);
+  assert.match(p.error, /add up to/);
+  assert.match(p.error, /Type the price after a dish/);
+});
