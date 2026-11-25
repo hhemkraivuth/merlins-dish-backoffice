@@ -449,6 +449,7 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
         it.purchaseUnit = `${ew.count}pcs`;
         it.costPerUnit = Number((it.price / ew.count).toFixed(5));
         it.assumed = `counted as ${ew.count} pieces (the ${ew.text} is the size of one), because the recipe counts it in pieces`;
+        it.plainReading = false;   // this one is a judgement about the recipe, so it stays a thing to check
       }
     }
     // A kilo guess ("0.90g" read as 900g) that lands far from the last price is probably a dropped zero (90g). Use the closer reading and say so.
@@ -525,6 +526,7 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
     }
     if (it.brand) remarks.push(`Brand: ${it.brand}`);
     if (it.assumed) remarks.push(it.assumed);
+    if (it.assumed && it.rawLine) remarks.push(`Typed: "${it.rawLine}"`);
     if (stockAdd.has(idx)) remarks.push(`Stock +${stockAdd.get(idx).qty} ${stockAdd.get(idx).itemName}`);
     return [formatDMY(date), m.name || it.typedName, it.price, it.purchaseUnit, it.costPerUnit, it.shop || '', remarks.join('; ')];
   });
@@ -596,8 +598,11 @@ async function processIngredientReceipt(text, messageDate, deps, receiptId = new
   if (packLines.length) replies.push(`Unopened packs:\n${packLines.map((l) => `• ${l}`).join('\n')}`);
   const spelled = items.filter((it) => it.spelled);
   if (spelled.length) replies.push(`I corrected the spelling:\n${spelled.map((it) => `• ${it.spelled}`).join('\n')}\nIf one is wrong, tell me and I will fix the row.`);
-  const assumed = items.filter((it) => it.assumed);
-  if (assumed.length) replies.push(`I made a guess on the weights, please check:\n${assumed.map((it) => `• ${it.typedName}: ${it.assumed}. Now ${baht(it.costPerUnit)} per ${(parsePurchaseUnit(it.purchaseUnit) || {}).unit || 'unit'}.`).join('\n')}\nIf that is wrong, send the line again with the weight in plain grams, for example 90g.`);
+  const per = (it) => `• ${it.typedName}: ${it.assumed}. Now ${baht(it.costPerUnit)} per ${(parsePurchaseUnit(it.purchaseUnit) || {}).unit || 'unit'}.`;
+  const assumed = items.filter((it) => it.assumed && !it.plainReading);
+  const readings = items.filter((it) => it.assumed && it.plainReading);
+  if (readings.length) replies.push(`How I read these lines:\n${readings.map(per).join('\n')}`);
+  if (assumed.length) replies.push(`I made a guess on the weights, please check:\n${assumed.map(per).join('\n')}\nIf that is wrong, send the line again with the weight in plain grams, for example 90g.`);
   if (flags.length) replies.push(`Check:\n${flags.map((f) => `• ${f}`).join('\n')}`);
   if (problems.length) replies.push(`Couldn't use these lines:\n${problems.slice(0, 6).map((p) => `• ${p}`).join('\n')}`);
   return replies;

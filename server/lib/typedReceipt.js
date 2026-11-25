@@ -232,6 +232,9 @@ function parseTypedReceipt(text, today) {
       unit,
       purchaseUnit: `${qtyText}${unit}`,
       assumed,
+      // Plain arithmetic on what she typed ("75 each x 4", "500g x 2") is a reading, not a guess.
+      plainReading: Boolean(assumed) && Boolean(eachWeight || it.each),
+      rawLine: String(line || '').trim(),
       brand,
       kiloGuess: Boolean(assumed) && !eachWeight && !it.each,
       eachWeight,
