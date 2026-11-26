@@ -63,3 +63,9 @@ test('captionCheck returns grammar and voice together, and voiceOnly skips gramm
 test('dish names with wine or beer, and eating at home, are not flagged', () => {
   assert.deepStrictEqual(voice.rulesHit('Red Wine Beef Stew and Dark Beer Stew, delivered. Eat at home tonight.'), []);
 });
+
+test('dashes joining clauses in the voice notes and rewrite are turned into commas', () => {
+  const r = voice.parseReply(JSON.stringify({ onVoice: false, notes: ['Flat \u2014 no hook'], rewrite: 'Slow cooked - hungry yet?' }));
+  assert.deepStrictEqual(r.notes, ['Flat, no hook']);
+  assert.strictEqual(r.rewrite, 'Slow cooked, hungry yet?');
+});

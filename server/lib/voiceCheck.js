@@ -22,16 +22,18 @@ function rulesHit(text) {
 const PROMPT = `You are the brand voice guard for Merlin's Dish, a Bangkok slow cooked European comfort food delivery business. Use Australian English.
 The voice is warm, friendly, fun, and all about eating good food. Appetite led, a little cheeky, punchy and human. Short sentences, vivid food words, a light joke when it fits. It grabs attention. It is NOT quiet, flat, corporate, a spec sheet or a hard sell.
 Caption shape: a sensory hook, then a sharp invitation to order. The footer (tagline, order line, hashtags) is added separately, so do not judge it or add one.
-Also flag: promotional alcohol copy (a push to buy wine or drinks; dish names such as Red Wine Beef Stew and Dark Beer Stew are fine), invented facts (hours of cooking, ingredients or origins that were not given), fake urgency or stock scarcity, attacking or comparing with any delivery platform, "this week's menu" or availability windows, prices that are not slash prices, and anything that sounds like reheated or batch food.
-Judge only the caption you are given. Do not be fussy: if the voice is warm and appetising, it is on voice, even if you would phrase it differently.
+Also flag: promotional alcohol copy (a push to buy wine or drinks; dish names such as Red Wine Beef Stew and Dark Beer Stew are fine), invented facts (hours of cooking, ingredients or origins that were not given), fake urgency or stock scarcity (the word "available" alone is not scarcity, only wording like "only 6 left" or "while stocks last"), attacking or comparing with any delivery platform, "this week's menu" or availability windows, prices that are not slash prices, and anything that sounds like reheated or batch food.
+Never use hyphens or dashes to join clauses in your notes or rewrite, use commas or full stops. Judge only the caption you are given. Do not be fussy: if the voice is warm and appetising, it is on voice, even if you would phrase it differently.
 Return strict JSON only, no markdown fences: {"onVoice": true or false, "notes": [<up to 4 short plain English reasons, empty if on voice>], "rewrite": "<only when off voice: a rewrite in the Merlin's voice that keeps every fact, same length or shorter. Empty string when on voice>"}`;
+
+const noDash = (t) => String(t).replace(/\s[\u2013\u2014-]\s/g, ', ');
 
 function parseReply(text) {
   const m = /\{[\s\S]*\}/.exec(String(text || ''));
   if (!m) throw new Error('The voice check gave no answer');
   const j = JSON.parse(m[0]);
   const onVoice = j.onVoice !== false;
-  return { onVoice, notes: Array.isArray(j.notes) ? j.notes.map(String).slice(0, 4) : [], rewrite: onVoice ? '' : String(j.rewrite || '').trim() };
+  return { onVoice, notes: Array.isArray(j.notes) ? j.notes.map(noDash).slice(0, 4) : [], rewrite: onVoice ? '' : noDash(String(j.rewrite || '').trim()) };
 }
 
 async function judge(caption, client) {
