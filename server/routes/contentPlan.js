@@ -1,7 +1,8 @@
 const lib = require('../lib/contentPlan');
 const fail = (res, err) => { console.error(err); res.status((err && err.status) || 500).json({ error: String((err && err.message) || err) }); };
 module.exports = {
-  get: async (req, res) => { try { res.json(await lib.load()); } catch (e) { fail(res, e); } },
+  get: async (req, res) => { try { const d = await lib.load(); try { d.sync = await require('../lib/contentSync').state(); } catch (e) { d.sync = null; } res.json(d); } catch (e) { fail(res, e); } },
+  sync: async (req, res) => { try { res.json(await require('../lib/contentSync').request()); } catch (e) { fail(res, e); } },
   status: async (req, res) => { try { res.json(await lib.setStatus(req.body || {})); } catch (e) { fail(res, e); } },
   schedule: async (req, res) => { try { res.json(await lib.setSchedule(req.body || {})); } catch (e) { fail(res, e); } },
   media: async (req, res) => {

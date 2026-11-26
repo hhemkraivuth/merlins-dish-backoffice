@@ -5,12 +5,13 @@
 // Row: ID | Created | Kind | Payload | Status | Result | Updated
 //   Kind: content-week (body of POST /api/content-plan/week), brief-update (body of /api/content-plan/brief/update),
 //         marketing-note (kind, title, note, status), marketing-report (slug, title, markdown),
-//         recipe-sync (title, updated, text: one recipe from the Recipe doc, see recipeSync.js)
+//         recipe-sync (title, updated, text: one recipe from the Recipe doc, see recipeSync.js),
+//         content-sync-ack (the hourly task has started the review asked for by Sync now, see contentSync.js)
 //   Payload: JSON text. Status: new, then done or error. The task leaves Status "new"; BOH writes the rest.
 
 const TAB = 'Cloud Inbox';
 const HEADERS = ['ID', 'Created', 'Kind', 'Payload', 'Status', 'Result', 'Updated'];
-const KINDS = ['content-week', 'brief-update', 'marketing-note', 'marketing-report', 'recipe-sync'];
+const KINDS = ['content-week', 'brief-update', 'marketing-note', 'marketing-report', 'recipe-sync', 'content-sync-ack'];
 const MAX_PER_RUN = 10;
 
 const trim = (s, n = 400) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -25,6 +26,7 @@ function handlersFor() {
     'marketing-note': async (p) => { await svc.addMarketingNote(p); return { ok: true }; },
     'marketing-report': (p) => reports.saveReport(p),
     'recipe-sync': (p) => require('./recipeSync').sync(p),
+    'content-sync-ack': (p) => require('./contentSync').ack(p),
   };
 }
 

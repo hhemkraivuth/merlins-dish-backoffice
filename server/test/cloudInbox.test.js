@@ -53,6 +53,6 @@ test('a missing tab is created and nothing runs', async () => {
 test('the real handlers cover every kind', () => {
   const { KINDS } = require('../lib/cloudInbox');
   const h = require('../lib/cloudInbox');
-  assert.deepStrictEqual(KINDS, ['content-week', 'brief-update', 'marketing-note', 'marketing-report', 'recipe-sync']);
+  assert.deepStrictEqual(KINDS, ['content-week', 'brief-update', 'marketing-note', 'marketing-report', 'recipe-sync', 'content-sync-ack']);
   assert.ok(h.run);
 });
