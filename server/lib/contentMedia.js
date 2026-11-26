@@ -13,14 +13,32 @@ function authClient() {
   return new google.auth.GoogleAuth({ credentials: { client_email: email, private_key: privateKey }, scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
 }
 
-// Returns { type, body } where body is a Buffer, or null when there is nothing to show.
+const isHeic = (meta) => /^image\/(heic|heif)/i.test(meta.mimeType || '') || /\.(heic|heif)$/i.test(meta.name || '');
+
+// iPhone photos arrive as HEIC. Browsers and Instagram cannot read them, so BOH turns them into JPEG on the way out.
+async function toJpeg(buffer, quality = 0.9) {
+  const convert = require('heic-convert');
+  return Buffer.from(await convert({ buffer, format: 'JPEG', quality }));
+}
+
+async function fileOf(drive, fileId) {
+  const meta = (await drive.files.get({ fileId, fields: 'id,name,mimeType,size,thumbnailLink', supportsAllDrives: true })).data;
+  return meta;
+}
+async function bytesOf(drive, fileId) {
+  const res = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' });
+  return Buffer.from(res.data);
+}
+
+// The picture the page shows. Returns { type, body } where body is a Buffer, or null when there is nothing to show.
 async function preview(fileId) {
   const auth = authClient();
   const drive = google.drive({ version: 'v3', auth });
-  const meta = (await drive.files.get({ fileId, fields: 'id,name,mimeType,size,thumbnailLink', supportsAllDrives: true })).data;
+  const meta = await fileOf(drive, fileId);
   if (/^image\//.test(meta.mimeType || '') && Number(meta.size || 0) <= MAX_IMAGE) {
-    const res = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' });
-    return { type: meta.mimeType, body: Buffer.from(res.data) };
+    const body = await bytesOf(drive, fileId);
+    if (isHeic(meta)) return { type: 'image/jpeg', body: await toJpeg(body, 0.7) };
+    return { type: meta.mimeType, body };
   }
   if (meta.thumbnailLink) {
     const client = await auth.getClient();
@@ -32,4 +50,15 @@ async function preview(fileId) {
   return null;
 }
 
-module.exports = { preview };
+// The picture that goes to Instagram and Facebook: JPEG or PNG at full size. A HEIC original becomes a JPEG.
+async function postImage(fileId) {
+  const auth = authClient();
+  const drive = google.drive({ version: 'v3', auth });
+  const meta = await fileOf(drive, fileId);
+  if (!/^image\//.test(meta.mimeType || '') || Number(meta.size || 0) > MAX_IMAGE) return null;
+  const body = await bytesOf(drive, fileId);
+  if (isHeic(meta)) return { type: 'image/jpeg', body: await toJpeg(body, 0.92) };
+  return { type: meta.mimeType, body };
+}
+
+module.exports = { preview, postImage, toJpeg, isHeic };

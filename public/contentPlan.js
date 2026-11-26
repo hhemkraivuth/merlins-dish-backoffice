@@ -221,6 +221,27 @@ document.addEventListener('click', async (e) => {
   catch (err) { const x = document.createElement('textarea'); x.value = text; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (z) { /* nothing more to try */ } x.remove(); }
   const old = c.textContent; c.textContent = 'Copied'; setTimeout(() => { c.textContent = old; }, 1500);
 });
+// After she saves an edit, a grammar check suggests fixes. Nothing changes until she taps Use suggestion.
+const SUG = {};
+async function checkGrammar(id, text) {
+  const box = (cls, html) => { const cap = document.querySelector(`#post-${id} .cap`); if (!cap) return; const old = cap.querySelector('.sugg'); if (old) old.remove(); const d = document.createElement('div'); d.className = `sugg ${cls}`; d.dataset.sugFor = id; d.innerHTML = html; cap.appendChild(d); };
+  box('', '<b>Checking grammar…</b>');
+  try {
+    const res = await fetch('/api/content-plan/caption-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, caption: text }) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || 'Check failed');
+    if (!d.changed) return box('ok', '<b>Grammar check</b>No changes needed. Your edit is saved.');
+    SUG[id] = d.suggestion;
+    box('', `<b>Suggested wording (your edit is saved)</b><div class="st">${esc(d.suggestion)}</div>${(d.notes || []).length ? `<ul>${d.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}<div class="acts"><button type="button" class="mini main" data-usesug="${id}">Use suggestion</button><button type="button" class="mini" data-keepsug="${id}">Keep mine</button></div>`);
+  } catch (err) { box('err', `<b>Grammar check</b>Not available right now (${esc(err.message)}). Your edit is saved as you wrote it.`); }
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-usesug],button[data-keepsug]');
+  if (!b) return;
+  const id = b.dataset.usesug || b.dataset.keepsug;
+  if (b.dataset.keepsug) { const box = b.closest('.sugg'); if (box) box.remove(); return; }
+  try { b.disabled = true; await saveCaption(id, SUG[id] || ''); } catch (err) { b.disabled = false; const st = $('status'); st.className = 'status err'; st.textContent = `Not saved: ${err.message}`; }
+});
 async function saveCaption(id, caption) {
   const res = await fetch('/api/content-plan/caption', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, caption }) });
   const d = await res.json().catch(() => ({}));
@@ -234,7 +255,9 @@ document.addEventListener('click', async (e) => {
   try {
     if (b.dataset.undo) { const t = document.querySelector(`textarea[data-cap="${id}"]`); t.value = postOf(id).caption; grow(t); t.closest('.cap').querySelector('.capact').hidden = true; return; }
     b.disabled = true;
-    await saveCaption(id, b.dataset.reset ? '' : document.querySelector(`textarea[data-cap="${id}"]`).value);
+    const mine = b.dataset.reset ? '' : document.querySelector(`textarea[data-cap="${id}"]`).value;
+    await saveCaption(id, mine);
+    if (b.dataset.save) checkGrammar(id, mine.trim());
   } catch (err) { b.disabled = false; const st = $('status'); st.className = 'status err'; st.textContent = `Not saved: ${err.message}`; }
 });
 document.addEventListener('click', (e) => {
