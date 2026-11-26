@@ -153,7 +153,6 @@ app.post('/api/content-plan/footer', contentPlanRoute.footer);
 app.post('/api/content-plan/brief', contentPlanRoute.brief);
 app.post('/api/content-plan/brief/update', contentPlanRoute.briefUpdate);
 app.post('/api/content-plan/week', contentPlanRoute.week);
-app.post('/api/content-plan/sync', contentPlanRoute.sync);
 app.post('/api/content-plan', contentPlanRoute.save);
 app.post('/api/handoffs', ledgerRoute.addHandoff);
 app.get('/api/summary/spend', ledgerRoute.spendSummary);

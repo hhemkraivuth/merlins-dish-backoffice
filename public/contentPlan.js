@@ -138,19 +138,11 @@ function visible(p) {
   const t = dmyNum(PLAN.today); const d = dmyNum(p.date);
   return t === null || d === null || d >= t;
 }
-// Bangkok clock time of an ISO stamp, "26/11 15:50".
-const stampTh = (iso) => { const d = new Date(iso); if (Number.isNaN(d.getTime())) return ''; const b = new Date(d.getTime() + 7 * 3600e3); const p = (x) => String(x).padStart(2, '0'); return `${p(b.getUTCDate())}/${p(b.getUTCMonth() + 1)} ${p(b.getUTCHours())}:${p(b.getUTCMinutes())}`; };
-function syncHtml() {
-  const s = PLAN.sync || {};
-  const note = s.pending ? `Sync asked ${stampTh(s.pending)}. Claude starts within the hour, then new posts appear here.`
-    : (s.last && s.last.startedAt ? `Last sync started ${stampTh(s.last.startedAt)}.` : '');
-  return `<div class="syncrow"><button type="button" class="syncbtn" data-sync ${s.pending ? 'disabled' : ''}>${s.pending ? 'Sync asked' : 'Sync now'}</button><span class="syncnote" id="syncNote">${esc(note || 'Reads your Raw shoots folder and writes posts from anything new. Also runs by itself every Sunday night.')}</span></div>`;
-}
 function draw() {
   const ps = PLAN.proposals.filter(visible);
   const by = (s) => ps.filter((p) => p.status === s);
   const n = { review: by('proposed').length, ok: by('approved').length, pub: by('published').length };
-  $('top').innerHTML = `<div class="top">${n.ok} approved, ${n.pub} published, ${n.review} to review. Plan prepared ${esc(PLAN.prepared)}.${syncHtml()}</div>`;
+  $('top').innerHTML = `<div class="top">${n.ok} approved, ${n.pub} published, ${n.review} to review. Plan prepared ${esc(PLAN.prepared)}.</div>`;
   if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('.briefbox')) $('brief').innerHTML = briefHtml();
   $('story').innerHTML = storyHtml();
   $('pillars').innerHTML = pillarsHtml();
@@ -189,16 +181,6 @@ document.addEventListener('toggle', (e) => {
   const pid = d.id.replace(/^post-/, '');
   if (d.open) { COLLAPSED.delete(pid); d.querySelectorAll('textarea.capin').forEach(grow); } else COLLAPSED.add(pid);
 }, true);
-document.addEventListener('click', async (e) => {
-  const sb = e.target.closest('button[data-sync]'); if (!sb) return;
-  sb.disabled = true; sb.textContent = 'Asking…';
-  try {
-    const res = await fetch('/api/content-plan/sync', { method: 'POST' });
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error || `Request failed (${res.status})`);
-    await load();
-  } catch (err) { sb.disabled = false; sb.textContent = 'Sync now'; const n = $('syncNote'); if (n) n.textContent = `Could not ask: ${err.message}`; }
-});
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-footedit],button[data-footsave],button[data-footcancel],button[data-footreset]');
   if (!b) return;
