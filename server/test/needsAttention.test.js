@@ -40,3 +40,13 @@ test('items sold with no cost on record are listed, from Grab and LINE orders', 
   assert.deepStrictEqual(out.map((o) => o.name).sort(), ['Lemon Soda', 'Tubetti (pasta)']);
   assert.strictEqual(soldWithoutCost({ ledger, today, ignored: ['sold:lemonsoda'] }).length, 1);
 });
+
+test('an old "not matched" note is dropped once the name matches the ingredient list, and stays when it still does not', () => {
+  const r = [
+    ['22/11/2026', 'risoni', 300, '2000g', 0.15, 'Foodland', '"risoni" not matched to a known ingredient; 75 each x 4 = 300'],
+    ['22/11/2026', 'mystery', 10, '1pcs', 10, 'Foodland', '"mystery" not matched to a known ingredient'],
+  ];
+  const st = [{ itemName: 'risoni' }, { itemName: 'mystery' }];
+  const out = attentionItems({ expenseRows: r, stock: st, known: (n) => n === 'risoni', today });
+  assert.deepStrictEqual(out.map((o) => o.name), ['mystery']);
+});

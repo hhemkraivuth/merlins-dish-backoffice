@@ -34,7 +34,9 @@ const looseKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9฀-๿]+
 
 // expenseRows: Date | Ingredient | Price | Unit | Cost/unit | Shop | Remarks (header first or not). stock: Stock page items.
 // ignored: array of looseKeys. untracked: condiment names counted as packs elsewhere.
-function attentionItems({ expenseRows = [], stock = [], ignored = [], untracked = [], today = bangkokToday(), days = 30 } = {}) {
+// known: optional (name) => boolean. A receipt line saved with a "not matched" note is only listed while its name still does not match,
+// so fixing the matching later clears old notes without anyone editing the sheet.
+function attentionItems({ expenseRows = [], stock = [], ignored = [], untracked = [], known = null, today = bangkokToday(), days = 30 } = {}) {
   const skip = new Set([...ignored, ...untracked.map(looseKey)]);
   const seen = new Map();
   expenseRows.forEach((r, i) => {
@@ -43,7 +45,7 @@ function attentionItems({ expenseRows = [], stock = [], ignored = [], untracked 
     if (!date || !name || (i === 0 && /^date$/i.test(String(r[0] || '').trim()))) return;
     if (daysBetween(today, date) > days) return;
     const k = looseKey(name); if (!k || skip.has(k)) return;
-    const unmatched = /not matched to a known ingredient/i.test(String(r[6] || ''));
+    const unmatched = /not matched to a known ingredient/i.test(String(r[6] || '')) && !(known && known(name));
     const prev = seen.get(k);
     if (!prev || date > prev.date) seen.set(k, { name, date, shop: String(r[5] || '').trim(), unmatched: unmatched || (prev && prev.unmatched) });
     else if (unmatched) prev.unmatched = true;
@@ -71,7 +73,13 @@ async function loadAttention() {
   const [expenseRows, stock, ignored, untracked] = await Promise.all([
     readTab('Expense Log'), getAllStock(), st.getState(IGNORE_KEY).then(parseList).catch(() => []), loadUntracked().catch(() => []),
   ]);
-  const items = attentionItems({ expenseRows, stock, ignored, untracked });
+  let known = null;
+  try {
+    const { matchIngredient } = require('./typedReceipt');
+    const catalogue = await require('./liveData').loadCatalogue();
+    known = (n) => Boolean(matchIngredient(n, catalogue).name);
+  } catch (err) { /* without the list the old notes are trusted */ }
+  const items = attentionItems({ expenseRows, stock, ignored, untracked, known });
   try {
     const svc = require('./ledgerService'); const { LEDGER_TAB, ledgerObjects } = require('./ledger');
     items.unshift(...soldWithoutCost({ ledger: await svc.withPastaCosts(ledgerObjects(await svc.readOrEmpty(LEDGER_TAB))), ignored }));
