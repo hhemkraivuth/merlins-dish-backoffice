@@ -138,11 +138,17 @@ function visible(p) {
   const t = dmyNum(PLAN.today); const d = dmyNum(p.date);
   return t === null || d === null || d >= t;
 }
+// The review runs on the hour from 10:00 to 23:00 Bangkok (UTC+7). Shows the next of those hours.
+function nextSync() {
+  const h = new Date(Date.now() + 7 * 3600e3).getUTCHours();
+  const next = h < 10 ? 10 : (h >= 23 ? 10 : h + 1);
+  return `${String(next).padStart(2, '0')}:00${h >= 23 ? ' tomorrow' : ''}`;
+}
 function draw() {
   const ps = PLAN.proposals.filter(visible);
   const by = (s) => ps.filter((p) => p.status === s);
   const n = { review: by('proposed').length, ok: by('approved').length, pub: by('published').length };
-  $('top').innerHTML = `<div class="top">${n.ok} approved, ${n.pub} published, ${n.review} to review. Plan prepared ${esc(PLAN.prepared)}.</div>`;
+  $('top').innerHTML = `<div class="top">${n.ok} approved, ${n.pub} published, ${n.review} to review. Last new posts added ${esc(PLAN.prepared)}. Next sync about ${nextSync()}.</div>`;
   if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('.briefbox')) $('brief').innerHTML = briefHtml();
   $('story').innerHTML = storyHtml();
   $('pillars').innerHTML = pillarsHtml();
