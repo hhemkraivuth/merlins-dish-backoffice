@@ -36,7 +36,7 @@ function thumb(p, big) {
   if (!m) return `<div class="${cls} none"><span>No file yet</span></div>`;
   return `<div class="${cls}"><img src="/api/content-plan/media/${esc(m.id)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('none');this.replaceWith(document.createTextNode('${m.kind === 'video' ? 'Video' : 'Photo'}: ' + this.parentNode.dataset.name))" />${m.kind === 'video' ? '<em>Video</em>' : ''}${(p.media || []).length > 1 ? `<em class="n">+${p.media.length - 1}</em>` : ''}</div>`.replace('<div class="' + cls + '">', `<div class="${cls}" data-name="${esc(m.name)}">`);
 }
-const STATUS_CHIP = { proposed: ['To review', 'warn'], approved: ['Approved', 'dark'], published: ['Published', 'ok'], dismissed: ['Dismissed', 'grey'] };
+const STATUS_CHIP = { proposed: ['To review', 'warn'], approved: ['Approved and scheduled to publish', 'dark'], published: ['Published', 'ok'], dismissed: ['Dismissed', 'grey'] };
 function card(p) {
   const pl = pillarOf(p.pillar);
   const id = esc(p.id);
