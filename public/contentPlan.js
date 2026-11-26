@@ -48,7 +48,7 @@ function card(p) {
     ? `<button class="no" data-id="${id}" data-s="proposed">Undo approval</button>`
     : p.status === 'dismissed'
       ? `<button class="no" data-id="${id}" data-s="proposed">Bring back</button>`
-      : p.status === 'published' ? '' : `<button class="yes" data-id="${id}" data-s="approved">Approve</button><button class="no" data-id="${id}" data-s="dismissed">Dismiss</button>`;
+      : p.status === 'published' ? '' : `<button class="yes" data-id="${id}" data-s="approved">Approve and publish</button><button class="no" data-id="${id}" data-s="dismissed">Dismiss</button>`;
   const line = p.status === 'approved' ? `<div class="when">Posts ${esc(dayLabel(p.date))} at ${esc(h12(p.time))}, Instagram then Facebook</div>`
     : p.status === 'published' ? `<div class="when">Posted ${esc(dayLabel(p.date))} at ${esc(h12(p.time))}${p.igUrl ? ` · <a href="${esc(p.igUrl)}" target="_blank" rel="noopener">Instagram</a>` : ''}${p.fbUrl ? ` · <a href="${esc(p.fbUrl)}" target="_blank" rel="noopener">Facebook</a>` : ''}</div>` : '';
   const warn = p.queueStatus === 'failed' ? `<div class="warn">Did not post: ${esc(p.queueNote || 'see the Content Queue tab')}. Undo approval and approve again to retry.</div>`
