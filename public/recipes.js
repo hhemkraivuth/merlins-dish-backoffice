@@ -168,6 +168,22 @@ function openEditor(d, isNew) {
     });
     const all = document.createElement('button'); all.className = 'linkbtn'; all.textContent = 'Download all recipes'; all.style.margin = '6px 0';
     $('status').after(all);
+    const sync = document.createElement('button'); sync.className = 'linkbtn'; sync.textContent = 'Sync from the recipe doc'; sync.style.margin = '6px 0 6px 14px';
+    const syncMsg = document.createElement('div'); syncMsg.className = 'status'; syncMsg.style.whiteSpace = 'pre-line';
+    all.after(sync); sync.after(syncMsg);
+    sync.addEventListener('click', async () => {
+      sync.disabled = true; syncMsg.className = 'status'; syncMsg.textContent = 'Reading the doc…';
+      try {
+        const res = await fetch('/api/recipes/sync-doc', { method: 'POST' });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(out.error || 'Sync failed');
+        const lines = out.results.filter((r) => !/^unchanged/.test(r.result)).map((r) => `${r.dish || r.title}: ${r.result}${r.why ? '. ' + r.why : ''}`);
+        syncMsg.textContent = `Synced ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })}. ${out.updated} updated, ${out.added} new, ${out.unchanged} already the same${out.kept ? `, ${out.kept} kept as you edited it` : ''}${out.errors ? `, ${out.errors} could not be read` : ''}.${lines.length ? '\n' + lines.join('\n') : ''}`;
+        if (out.errors || out.kept) syncMsg.className = 'status err';
+        const rr = await fetch('/api/recipes'); if (rr.ok) { DOC = await rr.json(); show(Math.min(CUR, DOC.dishes.length - 1)); }
+      } catch (err) { syncMsg.className = 'status err'; syncMsg.textContent = `Not synced: ${err.message}`; }
+      sync.disabled = false;
+    });
     all.addEventListener('click', () => download('merlins-dish-recipes.txt', (DOC.categories || []).flatMap((c) => DOC.dishes.filter((x) => x.category === c)).map(plain).join('\n----------------------------------------\n\n')));
     $('status').textContent = `${DOC.edition}. ${DOC.note}${DOC.warning ? ' ' + DOC.warning : ''}`;
     const want = key(decodeURIComponent((location.hash || '').slice(1)));

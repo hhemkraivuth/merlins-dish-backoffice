@@ -203,6 +203,7 @@ app.post('/api/menu-bible/save', async (req, res) => { try { res.json(await menu
 app.post('/api/menu-bible/delete', async (req, res) => { try { res.json(await menuBible.remove(bibleSeed(), req.body || {})); } catch (err) { res.status(/Say which/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); } });
 app.get('/api/recipes', async (req, res) => { try { res.json(await recipeStore.load(require('./data/recipes.json'))); } catch (err) { res.json({ ...recipeStore.merge(require('./data/recipes.json'), []), warning: `Edits could not be loaded (${err.message}). Showing the starting recipes.` }); } });
 app.post('/api/recipes/save', async (req, res) => { try { res.json(await recipeStore.save(require('./data/recipes.json'), req.body || {})); } catch (err) { res.status(/empty|needs a name/.test(String(err.message)) ? 400 : 500).json({ error: err.message }); } });
+app.post('/api/recipes/sync-doc', async (req, res) => { try { res.json(await require('./lib/recipeDoc').syncFromDoc()); } catch (err) { console.error('Recipe sync failed:', err.message); res.status(err.status || 500).json({ error: err.message }); } });
 // Pasta cost cards: cost per cooked to order pasta portion, priced live from the price book.
 const pastaCosts = require('./lib/pastaCosts');
 async function pastaView() {
