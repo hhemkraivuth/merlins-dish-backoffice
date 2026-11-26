@@ -144,7 +144,7 @@ function syncHtml() {
   const s = PLAN.sync || {};
   const note = s.pending ? `Sync asked ${stampTh(s.pending)}. Claude starts within the hour, then new posts appear here.`
     : (s.last && s.last.startedAt ? `Last sync started ${stampTh(s.last.startedAt)}.` : '');
-  return `<div class="syncrow"><button type="button" class="mini main" data-sync ${s.pending ? 'disabled' : ''}>${s.pending ? 'Sync asked' : 'Sync now'}</button> <span class="when" id="syncNote">${esc(note || 'Reads your Raw shoots folder and writes posts from anything new. Also runs by itself every Sunday night.')}</span></div>`;
+  return `<div class="syncrow"><button type="button" class="syncbtn" data-sync ${s.pending ? 'disabled' : ''}>${s.pending ? 'Sync asked' : 'Sync now'}</button><span class="syncnote" id="syncNote">${esc(note || 'Reads your Raw shoots folder and writes posts from anything new. Also runs by itself every Sunday night.')}</span></div>`;
 }
 function draw() {
   const ps = PLAN.proposals.filter(visible);
