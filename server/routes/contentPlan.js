@@ -22,7 +22,7 @@ module.exports = {
       res.set('Content-Type', out.type).set('Cache-Control', 'public, max-age=3600').send(out.body);
     } catch (e) { fail(res, e); }
   },
-  captionCheck: async (req, res) => { try { res.json(await require('../lib/captionCheck').run((req.body || {}).caption)); } catch (e) { fail(res, e); } },
+  captionCheck: async (req, res) => { try { res.json(await require('../lib/captionCheck').run((req.body || {}).caption, undefined, { voiceOnly: !!(req.body || {}).voiceOnly })); } catch (e) { fail(res, e); } },
   caption: async (req, res) => { try { res.json(await lib.setCaption(req.body || {})); } catch (e) { fail(res, e); } },
   footer: async (req, res) => { try { res.json(await lib.setFooter(req.body || {})); } catch (e) { fail(res, e); } },
   brief: async (req, res) => { try { res.json(await lib.addBrief(req.body || {})); } catch (e) { fail(res, e); } },

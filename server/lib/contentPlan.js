@@ -248,4 +248,4 @@ async function savePlan(body) {
   return { ok: true, proposals: plan.proposals.length };
 }
 
-module.exports = { load, setStatus, setSchedule, mediaAllowed, fullCaptionOf, cleanMedia, setCaption, setFooter, addBrief, updateBrief, CHANNELS, savePlan, addWeek, check, merge, STATUSES };
+module.exports = { BANNED, load, setStatus, setSchedule, mediaAllowed, fullCaptionOf, cleanMedia, setCaption, setFooter, addBrief, updateBrief, CHANNELS, savePlan, addWeek, check, merge, STATUSES };
