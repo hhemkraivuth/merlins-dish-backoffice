@@ -159,3 +159,28 @@ test('a receipt line at 0 baht is flagged, each one can be ignored on its own', 
   assert.strictEqual(f.length, 1);
   assert.match(f[0].id, /^rcpt-zero:2026-11-10\|knorrcubepork$/);
 });
+
+test('a Grab file in Imported with no Ledger rows is flagged, one that reached the books is not', () => {
+  const { strandedFiles } = require('../lib/driveImport');
+  const files = [{ name: 'merlins_dish_claude_log_25_11_2026.csv' }, { name: 'grab_totals_25_11_2026.csv' }, { name: 'merlins_dish_claude_log_19_11_2026.csv' }, { name: 'notes.txt' }];
+  const ledger = [row({ channel: 'Grab', date: d('2026-11-19'), key: 'g19' })];
+  const have = { ordersIso: new Set(['2026-11-19']), totalsIso: new Set(['2026-11-19']) };
+  const stranded = strandedFiles(files, have);
+  assert.deepStrictEqual(stranded.map((x) => `${x.kind}:${x.day}`), ['orders:25/11/2026', 'totals:25/11/2026']);
+  const f = runChecks({ today, ledger, strandedFiles: stranded }).filter((x) => x.check === 'Grab files');
+  assert.strictEqual(f.length, 2);
+  assert.match(f[0].line, /order file for 25\/11 is in the Imported folder/);
+  assert.match(f[0].how, /Ready for BOH/);
+});
+
+test('a stranded file on a day marked closed or no orders is not flagged', () => {
+  const stranded = [{ name: 'merlins_dish_claude_log_25_11_2026.csv', day: '25/11/2026', iso: '2026-11-25', kind: 'orders' }];
+  assert.strictEqual(runChecks({ today, strandedFiles: stranded, closed: new Map([['2026-11-25', 'rain']]) }).filter((x) => x.check === 'Grab files').length, 0);
+  assert.strictEqual(runChecks({ today, strandedFiles: stranded, noOrders: ['Grab|2026-11-25'] }).filter((x) => x.check === 'Grab files').length, 0);
+});
+
+test('stranded files list once per day and kind even when Drive holds duplicates', () => {
+  const { strandedFiles } = require('../lib/driveImport');
+  const files = [{ name: 'grab_totals_25_11_2026.csv' }, { name: 'grab_totals_25_11_2026.csv' }];
+  assert.strictEqual(strandedFiles(files, { ordersIso: new Set(), totalsIso: new Set() }).length, 1);
+});

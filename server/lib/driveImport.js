@@ -101,6 +101,44 @@ function summaryText(run) {
   return `Grab handover\n${lines.join('\n')}`;
 }
 
+// Files named like merlins_dish_claude_log_25_11_2026.csv or grab_totals_25_11_2026.csv. The date in the name is the trading day.
+// Pure: files is [{ name }], returns [{ name, day: 'DD/MM/YYYY', iso, kind: 'orders' | 'totals' }] for the ones that carry a day.
+function strandedCandidates(files) {
+  const out = [];
+  for (const f of files || []) {
+    const m = String((f && f.name) || '').match(/(\d{2})_(\d{2})_(\d{4})/);
+    if (!m || !/\.csv$/i.test(f.name)) continue;
+    const isoDay = `${m[3]}-${m[2]}-${m[1]}`;
+    out.push({ name: f.name, day: `${m[1]}/${m[2]}/${m[3]}`, iso: isoDay, kind: /^grab_totals_/i.test(f.name) ? 'totals' : 'orders' });
+  }
+  return out;
+}
+
+// Files sitting in "Imported" whose day never reached the books. A file lands there only after BOH imports it, so one that is
+// there with no matching Ledger rows (orders) or no Grab Day Totals row (totals) was put there by hand or by a slip.
+// have: { ordersIso: Set of ISO days with Grab Ledger rows, totalsIso: Set of ISO days with a Grab Day Totals row }.
+function strandedFiles(files, have) {
+  const seen = new Set();
+  return strandedCandidates(files).filter((c) => {
+    const ok = c.kind === 'totals' ? have.totalsIso.has(c.iso) : have.ordersIso.has(c.iso);
+    const key = `${c.kind}|${c.iso}`;
+    if (ok || seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+}
+
+async function listImported(drive, importedId, max = 200) {
+  const res = await drive.files.list({
+    q: `'${importedId}' in parents and trashed = false and mimeType != '${FOLDER_MIME}'`,
+    fields: 'files(id, name, mimeType)',
+    orderBy: 'createdTime desc',
+    pageSize: max,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  return (res.data.files || []).filter(isCsvLike);
+}
+
 let running = false;
 
 // The real run, with the real Drive and the real Ledger. One run at a time.
@@ -116,4 +154,4 @@ async function importFromDrive() {
   } finally { running = false; }
 }
 
-module.exports = { driveClient, FOLDER_MIME, importFromDrive, runDriveImport, summaryText, listReady, folderIds, isCsvLike };
+module.exports = { driveClient, FOLDER_MIME, importFromDrive, runDriveImport, summaryText, listReady, folderIds, isCsvLike, strandedCandidates, strandedFiles, listImported };

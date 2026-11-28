@@ -31,7 +31,7 @@ const list = (a, max = 3) => (a.length <= max ? a.join(', ') : `${a.slice(0, max
 // ledger: ledgerObjects (already pasta costed). expenseRows: Expense Log rows (header optional).
 // stock: [{ dish, remaining, oldestAgeDays }]. cookBatches: [{ date, dish, portions }]. closed: Map iso -> reason.
 // pastaCards: [{ card, cost }] where cost is pastaCosts.costCard. bank: { amount, asOf "DD/MM/YYYY" }.
-function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [], meatGaps = [], stockGaps = [], drinkUnmapped = [], drinkItems = [], noOrders = [] } = {}) {
+function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stock = [], cookBatches = [], closed = new Map(), pastaCards = [], bank = null, grabTotals = [], meatGaps = [], stockGaps = [], drinkUnmapped = [], drinkItems = [], noOrders = [], strandedFiles = [] } = {}) {
   const out = [];
   const add = (f) => out.push({ baht: 0, ...f });
   const recent = ledger.filter((r) => daysBetween(today, r.date) <= WINDOW);
@@ -118,10 +118,19 @@ function runChecks({ today = bangkokToday(), ledger = [], expenseRows = [], stoc
     }
     if (gaps.length) {
       const how = ch === 'Grab'
-        ? "Upload that day's Grab screenshots to Drive (Daily Screenshots, the month folder, a folder named like 15/11). The 16:05 run sends each finished day to BOH. If the shop was shut or there were simply no orders, say so below."
+        ? "Upload that day's Grab screenshots to Drive (Daily Screenshots, the month folder, a folder named like 15/11). The 16:05 run sends each finished day to BOH. If the file is already in the Drive Imported folder, move it back to Ready for BOH. If the shop was shut or there were simply no orders, say so below."
         : 'Press Sync LINE orders under Tools on Numbers. If the shop was open and there were simply no LINE orders, say so below.';
       add({ id: `gap:${ch}:${gaps.join(',')}`, check: 'Missing days', line: `${ch} has no orders on ${list(gaps, 4)}.`, how, action: { type: 'close', days: closable, channel: ch, others: gapDays.filter((x) => !closable.includes(x)) }, chips: gapDays.map((x) => ({ label: x.slice(0, 5), href: `reports.html?from=${encodeURIComponent(x)}&to=${encodeURIComponent(x)}` })), links: ch === 'Grab' ? [driveLink] : [], fix: ch === 'Grab' ? undefined : 'reports.html#tools', fixLabel: ch === 'Grab' ? undefined : 'Open Numbers tools' });
     }
+  }
+
+  // 4b. A Grab file that sits in the Drive "Imported" folder but never reached the books. BOH moves a file there only after
+  // importing it, so one with no Ledger rows or no totals row for its day was put there by hand or by a slip.
+  for (const f of strandedFiles) {
+    if (closed.has(f.iso) || noOrd.has(`Grab|${f.iso}`)) continue;
+    const what = f.kind === 'totals' ? "Grab's daily totals file" : "Grab's order file";
+    const missing = f.kind === 'totals' ? 'there is no Grab Day Totals row for that day' : 'the Ledger has no Grab rows for that day';
+    add({ id: `stranded:${f.kind}:${f.iso}`, check: 'Grab files', line: `${what} for ${f.day.slice(0, 5)} is in the Imported folder, but ${missing}.`, how: 'It was probably saved to Imported by mistake. Move it back into Ready for BOH in Drive and BOH picks it up within about 15 minutes.', links: [{ label: 'Open Drive', href: 'https://drive.google.com/drive/my-drive', ext: true }] });
   }
 
   // 5. Same order counted twice in the Ledger.
@@ -223,7 +232,15 @@ async function run({ store = require('./appState') } = {}) {
   let stockGaps = []; try { const sg = require('./stockGaps'); stockGaps = sg.gapsFrom(await sg.defaultDeps().readRows()); } catch (err) { /* skip */ }
   let drinkUnmapped = []; let drinkItems = []; try { const ds = require('./drinkSales'); const sc = require('./stockCounts'); const items = (await sc.getAllStock()).filter(ds.isDrinkItem); drinkItems = items.map((i) => i.itemName); drinkUnmapped = ds.matchSales({ drinks: items, ledger: d.ledger, links: await ds.loadLinks() }).unmapped; } catch (err) { /* skip */ }
   let noOrders = []; try { noOrders = JSON.parse((await store.getState(NOORD_KEY)) || '[]'); } catch (err) { noOrders = []; }
-  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals, meatGaps, stockGaps, drinkUnmapped, drinkItems, noOrders });
+  let strandedFiles = [];
+  try {
+    const di = require('./driveImport'); const { importedId } = di.folderIds();
+    const ordersIso = new Set(); for (const r of d.ledger) if (r.channel === 'Grab') ordersIso.add(iso(r.date));
+    const totalsIso = new Set(grabTotals.map((t) => iso(t.date)));
+    strandedFiles = di.strandedFiles(await di.listImported(di.driveClient(), importedId), { ordersIso, totalsIso })
+      .filter((f) => daysBetween(today, parseDate(f.day)) <= WINDOW);
+  } catch (err) { /* Drive not set up here, skip */ }
+  const all = runChecks({ today, ledger: d.ledger, expenseRows, stock, cookBatches: d.cookBatches, closed: d.closed, pastaCards, bank, grabTotals, meatGaps, stockGaps, drinkUnmapped, drinkItems, noOrders, strandedFiles });
   const result = { ranAt: new Date().toISOString(), findings: all };
   await store.setState(RESULT_KEY, JSON.stringify(result));
   return view(result, store);

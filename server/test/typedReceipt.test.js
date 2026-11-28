@@ -533,3 +533,17 @@ test('drinks, packaging and bagged dry goods not on the Stock page yet are added
   assert.deepStrictEqual(by['Eden Green Apple Sparkling'].slice(1, 4), [2, 'can', 'Drinks']);
   assert.ok(!by['Pork - minced'], 'fresh meat stays with its lots');
 });
+
+test('the word total before or after the price means the price is for the whole lot', () => {
+  const { parseTypedReceipt } = require('../lib/typedReceipt');
+  const day = new Date('2026-11-28T00:00:00Z');
+  const first = (line) => parseTypedReceipt(`27/11\nat tops\n${line}`, day).items[0];
+  for (const line of ['butter (Anchor) 454g x4 total 558thb', 'butter (Anchor) 454g x4 558thb total', 'butter (Anchor) 454g x4 558thb']) {
+    const it = first(line);
+    assert.strictEqual(Number(it.qty), 1816); assert.strictEqual(it.price, 558);
+  }
+  // ea still means per block, and a Total in a product name is left alone
+  assert.strictEqual(first('butter (Anchor) 454g x4 558thb ea').price, 2232);
+  assert.strictEqual(first('Total 0% greek yoghurt 500g 90thb').price, 90);
+  assert.strictEqual(first('milk 2l in total 99.75').price, 99.75);
+});

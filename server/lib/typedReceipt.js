@@ -56,10 +56,17 @@ function matchItem(line) {
   let t = packSize(String(line || '').trim());
   const pack = {};
   t = packaging ? t : expandMultipack(t, pack);
+  // "454g x4 total 558thb" / "454g x4 558thb total": the word total says the price is for the whole lot, which is how a bare price is read anyway.
+  // Only a price at the very end counts, so a product with Total in its name (Total 0% yoghurt) is left alone.
+  let totalWord = false;
+  const priceEnd = '฿?\\s*\\d+(?:[.,]\\d+)?\\s*(?:thb|baht|฿)?\\s*$';
+  const before = t;
+  t = t.replace(new RegExp(`[\\s,]+(?:in\\s+total|total)\\b[\\s,:=]*(?=${priceEnd})`, 'i'), ' ').replace(/[\s,]+(?:in\s+)?total\s*$/i, '').trim();
+  if (t !== before.trim()) totalWord = true;
   // "2 cans, 16thb ea" / "16 each": the price is for one, not for the lot
   let each = false;
   const ea = t.match(/^(.*?)[\s,]*(?:\/\s*)?(?:ea\.?|each)$/i);
-  if (ea && /\d/.test(ea[1].slice(-12))) { t = ea[1].trim(); each = true; }
+  if (ea && /\d/.test(ea[1].slice(-12))) { t = ea[1].trim(); each = !totalWord; }
   const m0 = matchItemPlain(t);
   // "500gx2 78 ea": the price is for each of the 2 packs, not for each of the 1000 grams.
   return m0 ? { ...m0, each, packCount: pack.count || 0 } : null;
